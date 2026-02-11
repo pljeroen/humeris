@@ -120,6 +120,10 @@ pytest tests/test_constellation.py   # 22 synthetic tests (offline)
 pytest tests/test_live_data.py       # 13 live data tests (network)
 ```
 
+## Credits
+
+Original code by [Scott Manley](https://www.youtube.com/@scottmanley). Refactored and extended by Jeroen.
+
 ## License
 
 MIT
