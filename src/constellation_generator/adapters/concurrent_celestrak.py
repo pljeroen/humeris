@@ -5,20 +5,25 @@ Uses ThreadPoolExecutor from stdlib to propagate OMM records concurrently.
 HTTP fetching remains sequential (one request per call) to respect
 CelesTrak rate limiting. Only SGP4 propagation is parallelized.
 
-External dependencies (urllib, json, sgp4, concurrent.futures) are
-confined to this adapter layer.
+External dependencies (urllib, json, concurrent.futures) are confined
+to this adapter layer. sgp4 is imported lazily via SGP4Adapter.
 """
 import json
+import logging
 import os
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any
+from urllib.parse import quote
 
 from constellation_generator.adapters.celestrak import SGP4Adapter, BASE_URL
 from constellation_generator.ports.orbital_data import OrbitalDataSource
 from constellation_generator.domain.constellation import Satellite
+
+
+_log = logging.getLogger(__name__)
 
 
 class ConcurrentCelesTrakAdapter(OrbitalDataSource):
@@ -51,7 +56,7 @@ class ConcurrentCelesTrakAdapter(OrbitalDataSource):
         return self._fetch_json(url)
 
     def fetch_by_name(self, name: str) -> list[dict[str, Any]]:
-        encoded_name = urllib.request.quote(name)
+        encoded_name = quote(name)
         url = f"{self._base_url}?NAME={encoded_name}&FORMAT=JSON"
         return self._fetch_json(url)
 
@@ -102,7 +107,9 @@ class ConcurrentCelesTrakAdapter(OrbitalDataSource):
 
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
             futures = {
-                executor.submit(self._sgp4.omm_to_satellite, record, epoch): record
+                executor.submit(
+                    self._sgp4.omm_to_satellite, record, epoch_override=epoch
+                ): record
                 for record in records
             }
 
@@ -112,8 +119,8 @@ class ConcurrentCelesTrakAdapter(OrbitalDataSource):
                     sat = future.result()
                     satellites.append(sat)
                 except (RuntimeError, ValueError, KeyError) as e:
-                    print(
-                        f"Warning: skipping {record.get('OBJECT_NAME', '?')}: {e}"
+                    _log.warning(
+                        "Skipping %s: %s", record.get('OBJECT_NAME', '?'), e
                     )
                     continue
 
@@ -122,7 +129,7 @@ class ConcurrentCelesTrakAdapter(OrbitalDataSource):
     def _fetch_json(self, url: str) -> list[dict[str, Any]]:
         """Fetch JSON data from CelesTrak API (sequential)."""
         req = urllib.request.Request(
-            url, headers={"User-Agent": "ConstellationGenerator/1.1"}
+            url, headers={"User-Agent": "ConstellationGenerator/1.4"}
         )
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as response:

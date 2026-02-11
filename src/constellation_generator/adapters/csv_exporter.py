@@ -44,7 +44,7 @@ class CsvSatelliteExporter(SatelliteExporter):
                 )
                 lat_deg, lon_deg, alt_m = ecef_to_geodetic(pos_ecef)
 
-                epoch_str = sat.epoch.isoformat() if sat.epoch else ''
+                epoch_str = sat_epoch.isoformat()
 
                 writer.writerow([
                     sat.name,

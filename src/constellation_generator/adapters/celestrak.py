@@ -13,21 +13,41 @@ SGP4 propagation:
     The sgp4 library provides proper TEME state vectors at epoch.
 """
 import json
+import logging
 import math
 import urllib.request
 import urllib.error
 from datetime import datetime
 from typing import Any
-
-from sgp4.api import Satrec, WGS72
-from sgp4.api import jday
+from urllib.parse import quote
 
 from constellation_generator.ports.orbital_data import OrbitalDataSource
 from constellation_generator.domain.constellation import Satellite
 from constellation_generator.domain.omm import parse_omm_record
 
 
+_log = logging.getLogger(__name__)
+
 BASE_URL = "https://celestrak.org/NORAD/elements/gp.php"
+
+
+def _require_sgp4():
+    """Import sgp4 lazily; raise clear error if not installed."""
+    try:
+        from sgp4.api import Satrec, WGS72, jday
+    except ImportError:
+        raise ImportError(
+            "sgp4 is required for live orbital data. "
+            "Install with: pip install constellation-generator[live]"
+        ) from None
+    return Satrec, WGS72, jday
+
+
+def _normalize_epoch(epoch_str: str) -> str:
+    """Normalize ISO epoch string: replace trailing 'Z' with '+00:00'."""
+    if epoch_str.endswith("Z"):
+        return epoch_str[:-1] + "+00:00"
+    return epoch_str
 
 
 class SGP4Adapter:
@@ -48,6 +68,7 @@ class SGP4Adapter:
         Returns:
             Satellite with ECI position (m) and velocity (m/s).
         """
+        Satrec, WGS72, jday = _require_sgp4()
         elements = parse_omm_record(omm_record)
 
         sat = Satrec()
@@ -68,11 +89,13 @@ class SGP4Adapter:
         )
 
         if epoch_override:
-            jd, fr = _datetime_to_jd(epoch_override)
+            jd, fr = _datetime_to_jd(jday, epoch_override)
             propagation_epoch = epoch_override
         else:
-            jd, fr = _epoch_str_to_jd(elements.epoch)
-            propagation_epoch = datetime.fromisoformat(elements.epoch)
+            jd, fr = _epoch_str_to_jd(jday, elements.epoch)
+            propagation_epoch = datetime.fromisoformat(
+                _normalize_epoch(elements.epoch)
+            )
 
         error_code, position_km, velocity_km_s = sat.sgp4(jd, fr)
         if error_code != 0:
@@ -118,7 +141,7 @@ class CelesTrakAdapter(OrbitalDataSource):
         return self._fetch_json(url)
 
     def fetch_by_name(self, name: str) -> list[dict[str, Any]]:
-        encoded_name = urllib.request.quote(name)
+        encoded_name = quote(name)
         url = f"{self._base_url}?NAME={encoded_name}&FORMAT=JSON"
         return self._fetch_json(url)
 
@@ -160,14 +183,14 @@ class CelesTrakAdapter(OrbitalDataSource):
                 sat = self._sgp4.omm_to_satellite(record, epoch_override=epoch)
                 satellites.append(sat)
             except (RuntimeError, ValueError, KeyError) as e:
-                print(f"Warning: skipping {record.get('OBJECT_NAME', '?')}: {e}")
+                _log.warning("Skipping %s: %s", record.get('OBJECT_NAME', '?'), e)
                 continue
 
         return satellites
 
     def _fetch_json(self, url: str) -> list[dict[str, Any]]:
         """Fetch JSON data from CelesTrak API."""
-        req = urllib.request.Request(url, headers={"User-Agent": "ConstellationGenerator/1.1"})
+        req = urllib.request.Request(url, headers={"User-Agent": "ConstellationGenerator/1.4"})
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as response:
                 text = response.read().decode('utf-8')
@@ -180,19 +203,19 @@ class CelesTrakAdapter(OrbitalDataSource):
             raise ConnectionError(f"CelesTrak connection failed: {e.reason}") from e
 
 
-def _epoch_str_to_jd(epoch_str: str) -> tuple[float, float]:
-    dt = datetime.fromisoformat(epoch_str)
-    return _datetime_to_jd(dt)
+def _epoch_str_to_jd(jday_fn, epoch_str: str) -> tuple[float, float]:
+    dt = datetime.fromisoformat(_normalize_epoch(epoch_str))
+    return _datetime_to_jd(jday_fn, dt)
 
 
-def _datetime_to_jd(dt: datetime) -> tuple[float, float]:
-    return jday(dt.year, dt.month, dt.day, dt.hour, dt.minute,
-                dt.second + dt.microsecond / 1e6)
+def _datetime_to_jd(jday_fn, dt: datetime) -> tuple[float, float]:
+    return jday_fn(dt.year, dt.month, dt.day, dt.hour, dt.minute,
+                   dt.second + dt.microsecond / 1e6)
 
 
 def _epoch_to_jd_offset(epoch_str: str) -> float:
     """SGP4 epoch offset: fractional days since 1949-12-31."""
-    dt = datetime.fromisoformat(epoch_str)
+    dt = datetime.fromisoformat(_normalize_epoch(epoch_str))
     ref = datetime(1949, 12, 31, 0, 0, 0)
     delta = dt - ref
     return delta.days + delta.seconds / 86400.0 + delta.microseconds / 86400e6

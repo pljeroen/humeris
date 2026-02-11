@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class OrbitalConstants:
+class _OrbitalConstants:
     """Standard orbital constants (IAU/WGS84 values)."""
     MU_EARTH: float = 3.986004418e14   # m³/s² — gravitational parameter
     R_EARTH: float = 6_371_000          # m — mean radius
@@ -22,8 +22,7 @@ class OrbitalConstants:
     E_SQUARED: float = 0.00669437999014           # first eccentricity squared
 
 
-# Module-level singleton
-OrbitalConstants = OrbitalConstants()
+OrbitalConstants: _OrbitalConstants = _OrbitalConstants()
 
 
 def kepler_to_cartesian(
@@ -102,3 +101,65 @@ def sso_inclination_deg(altitude_km: float) -> float:
         r**3.5 / math.sqrt(c.MU_EARTH)
     )
     return math.degrees(math.acos(cos_i))
+
+
+def j2_raan_rate(n: float, a: float, e: float, i_rad: float) -> float:
+    """
+    J2 secular rate of RAAN (longitude of ascending node).
+
+    dΩ/dt = -3/2 · n · J2 · (R_E/a)² · cos(i) / (1-e²)²
+
+    Args:
+        n: Mean motion (rad/s).
+        a: Semi-major axis (m).
+        e: Eccentricity.
+        i_rad: Inclination (radians).
+
+    Returns:
+        RAAN rate in rad/s. Negative for prograde, positive for retrograde.
+    """
+    c = OrbitalConstants
+    p_ratio = (c.R_EARTH / a) ** 2
+    return -1.5 * n * c.J2_EARTH * p_ratio * math.cos(i_rad) / (1 - e**2) ** 2
+
+
+def j2_arg_perigee_rate(n: float, a: float, e: float, i_rad: float) -> float:
+    """
+    J2 secular rate of argument of perigee.
+
+    dω/dt = 3/2 · n · J2 · (R_E/a)² · (2 - 5/2·sin²i) / (1-e²)²
+
+    Zero at the critical inclination (~63.4°).
+
+    Args:
+        n: Mean motion (rad/s).
+        a: Semi-major axis (m).
+        e: Eccentricity.
+        i_rad: Inclination (radians).
+
+    Returns:
+        Argument of perigee rate in rad/s.
+    """
+    c = OrbitalConstants
+    p_ratio = (c.R_EARTH / a) ** 2
+    return 1.5 * n * c.J2_EARTH * p_ratio * (2 - 2.5 * math.sin(i_rad) ** 2) / (1 - e**2) ** 2
+
+
+def j2_mean_motion_correction(n: float, a: float, e: float, i_rad: float) -> float:
+    """
+    J2-corrected mean motion.
+
+    n_corrected = n · (1 + 3/2 · J2 · (R_E/a)² · √(1-e²) · (1 - 3/2·sin²i))
+
+    Args:
+        n: Unperturbed mean motion (rad/s).
+        a: Semi-major axis (m).
+        e: Eccentricity.
+        i_rad: Inclination (radians).
+
+    Returns:
+        Corrected mean motion in rad/s.
+    """
+    c = OrbitalConstants
+    p_ratio = (c.R_EARTH / a) ** 2
+    return n * (1 + 1.5 * c.J2_EARTH * p_ratio * math.sqrt(1 - e**2) * (1 - 1.5 * math.sin(i_rad) ** 2))

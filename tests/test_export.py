@@ -118,7 +118,7 @@ class TestCsvExporter:
             os.unlink(path)
 
     def test_epoch_column_for_synthetic(self):
-        """Synthetic satellites (epoch=None) should have empty epoch."""
+        """Synthetic satellites (epoch=None) get the fallback epoch serialized."""
         sats = _make_satellites(1)
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             path = f.name
@@ -127,7 +127,25 @@ class TestCsvExporter:
             with open(path) as f:
                 reader = csv.DictReader(f)
                 row = next(reader)
-            assert row['epoch'] == ''
+            # Fallback is J2000 epoch when no sat.epoch and no caller epoch
+            assert row['epoch'] != ''
+            assert '2000-01-01' in row['epoch']
+        finally:
+            os.unlink(path)
+
+    def test_epoch_column_with_caller_epoch(self):
+        """When caller provides epoch, that epoch is serialized for synthetic sats."""
+        from datetime import datetime, timezone
+        sats = _make_satellites(1)
+        caller_epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            path = f.name
+        try:
+            CsvSatelliteExporter().export(sats, path, epoch=caller_epoch)
+            with open(path) as f:
+                reader = csv.DictReader(f)
+                row = next(reader)
+            assert '2026-03-20' in row['epoch']
         finally:
             os.unlink(path)
 

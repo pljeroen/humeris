@@ -143,3 +143,42 @@ def ecef_to_geodetic(
     lon_deg = math.degrees(lon_rad)
 
     return lat_deg, lon_deg, alt
+
+
+def geodetic_to_ecef(
+    lat_deg: float,
+    lon_deg: float,
+    alt_m: float,
+) -> tuple[float, float, float]:
+    """
+    Convert geodetic coordinates to ECEF position (WGS84 ellipsoid).
+
+    Inverse of ecef_to_geodetic.
+
+    Args:
+        lat_deg: Geodetic latitude in degrees [-90, 90].
+        lon_deg: Geodetic longitude in degrees.
+        alt_m: Altitude above WGS84 ellipsoid in meters.
+
+    Returns:
+        (x, y, z) in meters, ECEF frame.
+    """
+    c = OrbitalConstants
+    a = c.R_EARTH_EQUATORIAL
+    e2 = c.E_SQUARED
+
+    lat_rad = math.radians(lat_deg)
+    lon_rad = math.radians(lon_deg)
+
+    sin_lat = math.sin(lat_rad)
+    cos_lat = math.cos(lat_rad)
+    sin_lon = math.sin(lon_rad)
+    cos_lon = math.cos(lon_rad)
+
+    n = a / math.sqrt(1.0 - e2 * sin_lat**2)
+
+    x = (n + alt_m) * cos_lat * cos_lon
+    y = (n + alt_m) * cos_lat * sin_lon
+    z = (n * (1.0 - e2) + alt_m) * sin_lat
+
+    return x, y, z

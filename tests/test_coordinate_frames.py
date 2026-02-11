@@ -9,6 +9,7 @@ from constellation_generator.domain.coordinate_frames import (
     gmst_rad,
     eci_to_ecef,
     ecef_to_geodetic,
+    geodetic_to_ecef,
 )
 from constellation_generator.domain.constellation import Satellite
 
@@ -171,6 +172,78 @@ class TestECEFtoGeodetic:
             y = r * math.sin(math.radians(angle_deg))
             lat, lon, alt = ecef_to_geodetic((x, y, 0.0))
             assert -180.0 < lon <= 180.0
+
+
+# ── Geodetic → ECEF ──────────────────────────────────────────────
+
+class TestGeodeticToECEF:
+
+    def test_equator_prime_meridian(self):
+        """(0°, 0°, 0m) → equatorial radius on x-axis."""
+        x, y, z = geodetic_to_ecef(0.0, 0.0, 0.0)
+        r_eq = OrbitalConstants.R_EARTH_EQUATORIAL
+        assert abs(x - r_eq) < 1.0
+        assert abs(y) < 1.0
+        assert abs(z) < 1.0
+
+    def test_north_pole(self):
+        """(90°, 0°, 0m) → polar radius on z-axis."""
+        x, y, z = geodetic_to_ecef(90.0, 0.0, 0.0)
+        r_polar = OrbitalConstants.R_EARTH_POLAR
+        assert abs(x) < 1.0
+        assert abs(y) < 1.0
+        assert abs(z - r_polar) < 1.0
+
+    def test_south_pole(self):
+        """(-90°, 0°, 0m) → negative polar radius on z-axis."""
+        x, y, z = geodetic_to_ecef(-90.0, 0.0, 0.0)
+        r_polar = OrbitalConstants.R_EARTH_POLAR
+        assert abs(x) < 1.0
+        assert abs(y) < 1.0
+        assert abs(z + r_polar) < 1.0
+
+    def test_longitude_90_east(self):
+        """(0°, 90°, 0m) → equatorial radius on y-axis."""
+        x, y, z = geodetic_to_ecef(0.0, 90.0, 0.0)
+        r_eq = OrbitalConstants.R_EARTH_EQUATORIAL
+        assert abs(x) < 1.0
+        assert abs(y - r_eq) < 1.0
+        assert abs(z) < 1.0
+
+    def test_longitude_180(self):
+        """(0°, 180°, 0m) → negative equatorial radius on x-axis."""
+        x, y, z = geodetic_to_ecef(0.0, 180.0, 0.0)
+        r_eq = OrbitalConstants.R_EARTH_EQUATORIAL
+        assert abs(x + r_eq) < 1.0
+        assert abs(y) < 1.0
+        assert abs(z) < 1.0
+
+    def test_round_trip_geodetic_ecef_geodetic(self):
+        """geodetic→ECEF→geodetic round-trip preserves coordinates."""
+        for lat, lon, alt in [(52.0, 4.4, 0.0), (-33.9, 18.4, 100.0), (0.0, -75.0, 5000.0)]:
+            ecef = geodetic_to_ecef(lat, lon, alt)
+            lat2, lon2, alt2 = ecef_to_geodetic(ecef)
+            assert abs(lat2 - lat) < 0.001, f"Lat mismatch: {lat} → {lat2}"
+            assert abs(lon2 - lon) < 0.001, f"Lon mismatch: {lon} → {lon2}"
+            assert abs(alt2 - alt) < 1.0, f"Alt mismatch: {alt} → {alt2}"
+
+    def test_round_trip_ecef_geodetic_ecef(self):
+        """ECEF→geodetic→ECEF round-trip preserves coordinates."""
+        for ecef in [(6_378_137.0, 0.0, 0.0), (0.0, 0.0, 6_356_752.3142),
+                     (4_000_000.0, 3_000_000.0, 4_500_000.0)]:
+            lat, lon, alt = ecef_to_geodetic(ecef)
+            x2, y2, z2 = geodetic_to_ecef(lat, lon, alt)
+            assert abs(x2 - ecef[0]) < 1.0, f"X mismatch: {ecef[0]} → {x2}"
+            assert abs(y2 - ecef[1]) < 1.0, f"Y mismatch: {ecef[1]} → {y2}"
+            assert abs(z2 - ecef[2]) < 1.0, f"Z mismatch: {ecef[2]} → {z2}"
+
+    def test_altitude_effect(self):
+        """Higher altitude → larger ECEF radius."""
+        x0, y0, z0 = geodetic_to_ecef(0.0, 0.0, 0.0)
+        x1, y1, z1 = geodetic_to_ecef(0.0, 0.0, 100_000.0)
+        r0 = math.sqrt(x0**2 + y0**2 + z0**2)
+        r1 = math.sqrt(x1**2 + y1**2 + z1**2)
+        assert r1 - r0 == pytest.approx(100_000.0, abs=1.0)
 
 
 # ── Satellite epoch field ─────────────────────────────────────────

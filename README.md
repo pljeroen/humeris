@@ -130,8 +130,9 @@ print(f"{sat.name}: {lat:.4f}°N, {lon:.4f}°E, {alt/1000:.1f} km")
 #### Ground track
 
 Compute the sub-satellite ground track over time using Keplerian two-body
-propagation. Appropriate for synthetic Walker shell satellites. For TLE
-data, SGP4 propagation via the adapter layer gives more accurate results.
+propagation, optionally with J2 secular perturbations. Appropriate for
+synthetic Walker shell satellites. For TLE data, SGP4 propagation via
+the adapter layer gives more accurate results.
 
 ```python
 from datetime import datetime, timedelta, timezone
@@ -147,8 +148,79 @@ sats = generate_walker_shell(shell)
 
 start = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 track = compute_ground_track(sats[0], start, timedelta(minutes=90), timedelta(minutes=1))
+track_j2 = compute_ground_track(sats[0], start, timedelta(hours=6), timedelta(minutes=1), include_j2=True)
 print(f"Ground track: {len(track)} points")
-print(f"Lat range: [{min(p.lat_deg for p in track):.1f}, {max(p.lat_deg for p in track):.1f}]")
+print(f"Ground track (J2): {len(track_j2)} points")
+```
+
+#### Topocentric observation
+
+Compute azimuth, elevation, and slant range from a ground station to a
+satellite:
+
+```python
+from constellation_generator import (
+    GroundStation, derive_orbital_state, propagate_ecef_to, compute_observation,
+    generate_walker_shell, ShellConfig,
+)
+from datetime import datetime, timezone
+
+shell = ShellConfig(altitude_km=500, inclination_deg=53, num_planes=1,
+                    sats_per_plane=1, phase_factor=0, raan_offset_deg=0, shell_name="Demo")
+sat = generate_walker_shell(shell)[0]
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+station = GroundStation(name="Delft", lat_deg=52.0, lon_deg=4.4, alt_m=0.0)
+state = derive_orbital_state(sat, epoch)
+sat_ecef = propagate_ecef_to(state, epoch)
+obs = compute_observation(station, sat_ecef)
+print(f"Az={obs.azimuth_deg:.1f}°, El={obs.elevation_deg:.1f}°, Range={obs.slant_range_m/1000:.0f} km")
+```
+
+#### Access windows
+
+Predict satellite visibility windows (rise/set times) from a ground station:
+
+```python
+from constellation_generator import (
+    GroundStation, derive_orbital_state, compute_access_windows,
+    generate_walker_shell, ShellConfig,
+)
+from datetime import datetime, timedelta, timezone
+
+shell = ShellConfig(altitude_km=420, inclination_deg=51.6, num_planes=1,
+                    sats_per_plane=1, phase_factor=0, raan_offset_deg=0, shell_name="ISS-like")
+sat = generate_walker_shell(shell)[0]
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+station = GroundStation(name="Delft", lat_deg=52.0, lon_deg=4.4)
+state = derive_orbital_state(sat, epoch)
+windows = compute_access_windows(station, state, epoch, timedelta(hours=24), timedelta(seconds=30))
+for w in windows:
+    print(f"Rise: {w.rise_time}, Set: {w.set_time}, Max el: {w.max_elevation_deg:.1f}°")
+```
+
+#### Coverage analysis
+
+Compute a grid-based coverage snapshot showing how many satellites are
+visible from each point:
+
+```python
+from constellation_generator import (
+    derive_orbital_state, compute_coverage_snapshot,
+    generate_walker_shell, ShellConfig,
+)
+from datetime import datetime, timezone
+
+shell = ShellConfig(altitude_km=500, inclination_deg=53, num_planes=6,
+                    sats_per_plane=10, phase_factor=1, raan_offset_deg=0, shell_name="Constellation")
+sats = generate_walker_shell(shell)
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+states = [derive_orbital_state(s, epoch) for s in sats]
+grid = compute_coverage_snapshot(states, epoch, lat_step_deg=10, lon_step_deg=10)
+max_vis = max(p.visible_count for p in grid)
+print(f"Grid: {len(grid)} points, max visible: {max_vis}")
 ```
 
 #### Export formats (programmatic)
@@ -193,10 +265,14 @@ entities = [
 ```
 src/constellation_generator/
 ├── domain/                    # Pure logic — only stdlib math/dataclasses/datetime
-│   ├── orbital_mechanics.py   # Kepler → Cartesian, SSO inclination, WGS84 constants
+│   ├── orbital_mechanics.py   # Kepler → Cartesian, SSO inclination, J2 perturbations
 │   ├── constellation.py       # Walker shells, SSO bands, ShellConfig, Satellite
-│   ├── coordinate_frames.py   # ECI → ECEF → Geodetic (GMST, Bowring)
-│   ├── ground_track.py        # Keplerian ground track computation
+│   ├── coordinate_frames.py   # ECI ↔ ECEF ↔ Geodetic (GMST, Bowring, WGS84)
+│   ├── propagation.py         # Shared Keplerian + J2 propagation
+│   ├── ground_track.py        # Ground track computation (delegates to propagation)
+│   ├── observation.py         # Topocentric azimuth/elevation/range
+│   ├── access_windows.py      # Satellite rise/set window detection
+│   ├── coverage.py            # Grid-based visibility coverage analysis
 │   ├── serialization.py       # Simulation format (Y/Z swap, precision)
 │   └── omm.py                 # CelesTrak OMM record → OrbitalElements
 ├── ports/                     # Abstract interfaces (ABC)
@@ -219,10 +295,15 @@ port interfaces.
 ## Tests
 
 ```bash
-pytest                                    # all 101 tests
+pytest                                    # all 171 tests
 pytest tests/test_constellation.py        # 21 synthetic tests (offline)
-pytest tests/test_coordinate_frames.py    # 21 coordinate frame tests (offline)
+pytest tests/test_coordinate_frames.py    # 29 coordinate frame tests (offline)
+pytest tests/test_j2_perturbations.py     # 11 J2 perturbation tests (offline)
+pytest tests/test_propagation.py          # 16 propagation tests (offline)
 pytest tests/test_ground_track.py         # 16 ground track tests (offline)
+pytest tests/test_observation.py          # 14 observation tests (offline)
+pytest tests/test_access_windows.py       # 11 access window tests (offline)
+pytest tests/test_coverage.py             # 10 coverage tests (offline)
 pytest tests/test_export.py               # 18 export tests (offline)
 pytest tests/test_concurrent_celestrak.py # 12 concurrent adapter tests (offline)
 pytest tests/test_live_data.py            # 13 live data tests (network)

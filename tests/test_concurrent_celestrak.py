@@ -4,6 +4,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+sgp4 = pytest.importorskip("sgp4", reason="sgp4 not installed (pip install constellation-generator[live])")
+
 from constellation_generator.domain.constellation import Satellite
 
 

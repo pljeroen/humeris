@@ -7,6 +7,9 @@ from constellation_generator.domain.omm import parse_omm_record, OrbitalElements
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
 
 
+sgp4 = pytest.importorskip("sgp4", reason="sgp4 not installed (pip install constellation-generator[live])")
+
+
 SAMPLE_OMM = {
     "OBJECT_NAME": "ISS (ZARYA)",
     "OBJECT_ID": "1998-067A",

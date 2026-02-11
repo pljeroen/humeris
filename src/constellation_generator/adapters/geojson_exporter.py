@@ -50,7 +50,7 @@ class GeoJsonSatelliteExporter(SatelliteExporter):
                 },
                 'properties': {
                     'name': sat.name,
-                    'epoch': sat.epoch.isoformat() if sat.epoch else None,
+                    'epoch': sat_epoch.isoformat(),
                     'plane_index': sat.plane_index,
                     'sat_index': sat.sat_index,
                     'raan_deg': sat.raan_deg,
