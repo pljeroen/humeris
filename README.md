@@ -223,6 +223,66 @@ max_vis = max(p.visible_count for p in grid)
 print(f"Grid: {len(grid)} points, max visible: {max_vis}")
 ```
 
+#### Revisit time analysis
+
+Compute time-domain coverage FoMs (mean/max revisit, coverage fraction,
+mean response time) over an analysis window:
+
+```python
+from constellation_generator import (
+    derive_orbital_state, compute_revisit,
+    generate_walker_shell, ShellConfig,
+)
+from datetime import datetime, timedelta, timezone
+
+shell = ShellConfig(altitude_km=550, inclination_deg=53, num_planes=6,
+                    sats_per_plane=10, phase_factor=1, raan_offset_deg=0, shell_name="Test")
+sats = generate_walker_shell(shell)
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+states = [derive_orbital_state(s, epoch) for s in sats]
+result = compute_revisit(
+    states, epoch, timedelta(hours=24), timedelta(seconds=60),
+    min_elevation_deg=10, lat_step_deg=10, lon_step_deg=10,
+)
+print(f"Mean coverage: {result.mean_coverage_fraction:.1%}")
+print(f"Max revisit: {result.max_revisit_s/60:.0f} min")
+print(f"Mean response time: {result.mean_response_time_s/60:.0f} min")
+```
+
+#### Parametric trade studies
+
+Sweep Walker constellation parameters and compare coverage metrics:
+
+```python
+from constellation_generator import (
+    generate_walker_configs, run_walker_trade_study, pareto_front_indices,
+)
+from datetime import datetime, timedelta, timezone
+
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+configs = generate_walker_configs(
+    altitude_range=(500.0, 600.0),
+    inclination_range=(53.0,),
+    planes_range=(4, 6),
+    sats_per_plane_range=(8,),
+)
+result = run_walker_trade_study(
+    configs, epoch, timedelta(hours=6), timedelta(seconds=120),
+    min_elevation_deg=10, lat_step_deg=20, lon_step_deg=20,
+)
+for pt in result.points:
+    print(f"  {pt.config.altitude_km}km, {pt.config.num_planes}P: "
+          f"max_revisit={pt.coverage.max_revisit_s/60:.0f}min, "
+          f"coverage={pt.coverage.mean_coverage_fraction:.1%}, "
+          f"sats={pt.total_satellites}")
+
+costs = [float(pt.total_satellites) for pt in result.points]
+metrics = [pt.coverage.max_revisit_s for pt in result.points]
+front = pareto_front_indices(costs, metrics)
+print(f"Pareto front: {len(front)} points")
+```
+
 #### Atmospheric drag and orbit lifetime
 
 Model atmospheric density, compute orbit lifetime under drag decay,
@@ -472,6 +532,8 @@ src/constellation_generator/
 │   ├── observation.py         # Topocentric azimuth/elevation/range
 │   ├── access_windows.py      # Satellite rise/set window detection
 │   ├── coverage.py            # Grid-based visibility coverage analysis
+│   ├── revisit.py             # Time-domain revisit analysis (ECA-optimized)
+│   ├── trade_study.py         # Parametric Walker trade studies, Pareto front
 │   ├── atmosphere.py          # Exponential density model, drag acceleration
 │   ├── lifetime.py            # Orbit lifetime, decay profile (Euler integration)
 │   ├── station_keeping.py     # Delta-V budgets, Tsiolkovsky, propellant lifetime
@@ -503,7 +565,7 @@ port interfaces.
 ## Tests
 
 ```bash
-pytest                                    # all 324 tests
+pytest                                    # all 363 tests
 pytest tests/test_constellation.py        # 21 synthetic tests (offline)
 pytest tests/test_coordinate_frames.py    # 29 coordinate frame tests (offline)
 pytest tests/test_j2_perturbations.py     # 12 J2/J3 perturbation tests (offline)
@@ -512,6 +574,8 @@ pytest tests/test_ground_track.py         # 16 ground track tests (offline)
 pytest tests/test_observation.py          # 14 observation tests (offline)
 pytest tests/test_access_windows.py       # 11 access window tests (offline)
 pytest tests/test_coverage.py             # 10 coverage tests (offline)
+pytest tests/test_revisit.py             # 20 revisit analysis tests (offline)
+pytest tests/test_trade_study.py         # 19 trade study tests (offline)
 pytest tests/test_atmosphere.py           # 22 atmospheric drag tests (offline)
 pytest tests/test_lifetime.py             # 16 orbit lifetime tests (offline)
 pytest tests/test_station_keeping.py      # 17 station-keeping tests (offline)

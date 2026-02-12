@@ -4,6 +4,7 @@ Constellation Generator
 Generate Walker constellation satellite shells and fetch live orbital data
 for orbit simulation tools. Includes J2-corrected propagation, topocentric
 observation geometry, access window prediction, coverage analysis,
+time-domain revisit analysis, parametric trade studies,
 atmospheric drag modeling, orbit lifetime prediction, station-keeping
 delta-V budgets, conjunction/collision probability assessment, solar
 ephemeris, eclipse prediction, orbit transfer maneuvers, deorbit
@@ -61,6 +62,21 @@ from constellation_generator.domain.access_windows import (
 from constellation_generator.domain.coverage import (
     CoveragePoint,
     compute_coverage_snapshot,
+)
+from constellation_generator.domain.revisit import (
+    GridPoint,
+    PointRevisitResult,
+    CoverageResult,
+    compute_revisit,
+    compute_single_coverage_fraction,
+)
+from constellation_generator.domain.trade_study import (
+    WalkerConfig,
+    TradePoint,
+    TradeStudyResult,
+    run_walker_trade_study,
+    generate_walker_configs,
+    pareto_front_indices,
 )
 from constellation_generator.domain.atmosphere import (
     AtmosphereModel,
@@ -131,7 +147,7 @@ from constellation_generator.domain.orbit_design import (
     design_repeat_ground_track,
 )
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 __all__ = [
     "OrbitalConstants",
@@ -166,6 +182,17 @@ __all__ = [
     "compute_access_windows",
     "CoveragePoint",
     "compute_coverage_snapshot",
+    "GridPoint",
+    "PointRevisitResult",
+    "CoverageResult",
+    "compute_revisit",
+    "compute_single_coverage_fraction",
+    "WalkerConfig",
+    "TradePoint",
+    "TradeStudyResult",
+    "run_walker_trade_study",
+    "generate_walker_configs",
+    "pareto_front_indices",
     "AtmosphereModel",
     "DragConfig",
     "atmospheric_density",
