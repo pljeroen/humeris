@@ -148,6 +148,16 @@ from constellation_generator.domain.orbit_design import (
     design_frozen_orbit,
     design_repeat_ground_track,
 )
+from constellation_generator.domain.sensor import (
+    SensorType,
+    SensorConfig,
+    GroundFootprint,
+    SensorAccessResult,
+    compute_swath_width,
+    compute_nadir_footprint,
+    is_in_sensor_fov,
+    compute_sensor_coverage,
+)
 from constellation_generator.domain.numerical_propagation import (
     ForceModel,
     PropagationStep,
@@ -161,7 +171,7 @@ from constellation_generator.domain.numerical_propagation import (
     propagate_numerical,
 )
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 
 __all__ = [
     "OrbitalConstants",
@@ -259,6 +269,14 @@ __all__ = [
     "design_sso_orbit",
     "design_frozen_orbit",
     "design_repeat_ground_track",
+    "SensorType",
+    "SensorConfig",
+    "GroundFootprint",
+    "SensorAccessResult",
+    "compute_swath_width",
+    "compute_nadir_footprint",
+    "is_in_sensor_fov",
+    "compute_sensor_coverage",
     "ForceModel",
     "PropagationStep",
     "NumericalPropagationResult",
