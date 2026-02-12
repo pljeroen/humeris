@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
+# Licensed under the terms in LICENSE-COMMERCIAL.md.
+# Free for personal, educational, and academic use.
+# Commercial use requires a paid license — see LICENSE-COMMERCIAL.md.
 """Inter-satellite link geometry and topology.
 
 Line-of-sight (Earth blockage) detection between satellite pairs and

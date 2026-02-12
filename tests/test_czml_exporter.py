@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
+# Licensed under the terms in LICENSE-COMMERCIAL.md.
+# Free for personal, educational, and academic use.
+# Commercial use requires a paid license — see LICENSE-COMMERCIAL.md.
 """Tests for CZML exporter adapter."""
 
 import ast
@@ -18,9 +22,11 @@ from constellation_generator import (
 )
 from constellation_generator.adapters.czml_exporter import (
     constellation_packets,
+    snapshot_packets,
     ground_track_packets,
     coverage_packets,
     write_czml,
+    _satellite_description,
 )
 
 
@@ -421,6 +427,149 @@ class TestSatelliteDescription:
         for pkt in packets[1:]:
             desc = pkt["description"]
             assert "incl" in desc.lower(), f"No inclination in description: {desc}"
+
+    def test_description_contains_period(self, packets):
+        """Description includes orbital period."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "Period" in desc, f"No period in description: {desc}"
+
+    def test_description_contains_orbital_velocity(self, packets):
+        """Description includes orbital velocity."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "km/s" in desc, f"No orbital velocity in description: {desc}"
+
+    def test_description_contains_ground_speed(self, packets):
+        """Description includes ground speed."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "km/h" in desc, f"No ground speed in description: {desc}"
+
+    def test_description_contains_beta_angle(self, packets):
+        """Description includes beta angle."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "Beta" in desc, f"No beta angle in description: {desc}"
+
+    def test_description_contains_ltan(self, packets):
+        """Description includes LTAN."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "LTAN" in desc, f"No LTAN in description: {desc}"
+
+    def test_description_contains_sso_status(self, packets):
+        """Description includes sun-synchronous status."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "Sun-sync" in desc, f"No SSO status in description: {desc}"
+
+    def test_description_contains_density(self, packets):
+        """Description includes atmospheric density."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "density" in desc.lower(), f"No density in description: {desc}"
+
+    def test_description_contains_revs_per_day(self, packets):
+        """Description includes revs/day."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "rev/day" in desc.lower(), f"No revs/day in description: {desc}"
+
+    def test_description_has_section_headers(self, packets):
+        """Description has section headers: Orbit, Velocity, Solar Geometry, Environment."""
+        for pkt in packets[1:]:
+            desc = pkt["description"]
+            assert "Orbit" in desc, f"No Orbit section header: {desc}"
+            assert "Velocity" in desc, f"No Velocity section header: {desc}"
+            assert "Solar" in desc, f"No Solar section header: {desc}"
+            assert "Environment" in desc, f"No Environment section header: {desc}"
+
+    def test_description_direct_call(self, orbital_states, epoch):
+        """Direct call to _satellite_description returns enriched HTML."""
+        desc = _satellite_description(orbital_states[0], epoch)
+        assert "<table" in desc
+        assert "Period" in desc
+        assert "km/s" in desc
+        assert "Beta" in desc
+        assert "LTAN" in desc
+
+
+class TestSnapshotPackets:
+    """Tests for snapshot_packets — static point representation."""
+
+    @pytest.fixture
+    def snap_packets(self, orbital_states, epoch):
+        return snapshot_packets(orbital_states, epoch)
+
+    def test_document_packet_first(self, snap_packets):
+        """First packet has id: 'document', version: '1.0'."""
+        doc = snap_packets[0]
+        assert doc["id"] == "document"
+        assert doc["version"] == "1.0"
+
+    def test_packet_count_matches_satellites(self, orbital_states, snap_packets):
+        """N orbital states → N+1 packets (document + N satellites)."""
+        assert len(snap_packets) == len(orbital_states) + 1
+
+    def test_point_per_satellite_with_small_pixel(self, snap_packets):
+        """Each satellite has a point with pixelSize 3 (small dots for dense constellations)."""
+        for pkt in snap_packets[1:]:
+            assert "point" in pkt
+            assert pkt["point"]["pixelSize"] == 3
+
+    def test_plane_coloring_applied(self, orbital_states, snap_packets):
+        """Satellites in different planes get different point colors."""
+        colors_by_plane: dict[int, list[int]] = {}
+        for idx, state in enumerate(orbital_states):
+            pkt = snap_packets[idx + 1]
+            color = pkt["point"]["color"]["rgba"]
+            plane = round(math.degrees(state.raan_rad))
+            colors_by_plane.setdefault(plane, color)
+        unique_colors = set(tuple(c) for c in colors_by_plane.values())
+        assert len(unique_colors) > 1, "All planes have same color"
+
+    def test_no_path_no_label_no_animation(self, snap_packets):
+        """Snapshot packets must NOT have path, label, or interpolation — static only."""
+        for pkt in snap_packets[1:]:
+            assert "path" not in pkt, "Snapshot must not have path"
+            assert "label" not in pkt, "Snapshot must not have label"
+            pos = pkt["position"]
+            assert "interpolationAlgorithm" not in pos, "Snapshot must not interpolate"
+            assert "epoch" not in pos, "Snapshot must not have epoch (no animation)"
+
+    def test_position_is_single_cartesian3(self, snap_packets):
+        """Position uses cartographicDegrees with exactly 3 values (lon, lat, alt)."""
+        for pkt in snap_packets[1:]:
+            coords = pkt["position"]["cartographicDegrees"]
+            assert len(coords) == 3, f"Expected 3 coords, got {len(coords)}"
+            lon, lat, alt = coords
+            assert -180 <= lon <= 180
+            assert -90 <= lat <= 90
+            assert alt > 0
+
+    def test_description_popup_present(self, snap_packets):
+        """Each satellite packet includes description with orbital elements."""
+        for pkt in snap_packets[1:]:
+            assert "description" in pkt
+            desc = pkt["description"]
+            assert "km" in desc.lower()
+
+    def test_empty_orbital_states(self, epoch):
+        """Empty orbital states → document packet only."""
+        result = snapshot_packets([], epoch)
+        assert len(result) == 1
+        assert result[0]["id"] == "document"
+
+    def test_custom_name(self, orbital_states, epoch):
+        """Custom name appears in document packet."""
+        pkts = snapshot_packets(orbital_states, epoch, name="My Snapshot")
+        assert pkts[0]["name"] == "My Snapshot"
+
+    def test_no_clock_in_document(self, orbital_states, epoch):
+        """Snapshot document packet has no clock (static, no animation)."""
+        pkts = snapshot_packets(orbital_states, epoch)
+        assert "clock" not in pkts[0]
 
 
 class TestCzmlExporterPurity:

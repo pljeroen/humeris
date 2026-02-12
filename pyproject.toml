@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "constellation-generator"
-version = "1.17.0"
+version = "1.19.0"
 description = "Generate Walker constellation satellite shells and fetch live orbital data for orbit simulation tools"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT AND Proprietary"}
+license = {text = "MIT (core) with proprietary extensions -- see LICENSE and LICENSE-COMMERCIAL.md"}
 authors = [
-    {name = "Jeroen"},
+    {name = "Jeroen Visser"},
 ]
 keywords = ["satellite", "constellation", "orbital-mechanics", "walker", "celestrak", "sgp4"]
 classifiers = [

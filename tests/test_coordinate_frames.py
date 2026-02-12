@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Jeroen Visser. All rights reserved.
+# Licensed under the MIT License — see LICENSE.
 """Tests for coordinate frame conversions (ECI→ECEF→Geodetic)."""
 import math
 from datetime import datetime, timezone

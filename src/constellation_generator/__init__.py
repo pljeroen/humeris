@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Jeroen Visser. All rights reserved.
+# Licensed under the MIT License — see LICENSE.
 """
 Constellation Generator
 
@@ -438,8 +440,45 @@ from constellation_generator.domain.cascade_analysis import (
     CascadeIndicator,
     compute_cascade_indicator,
 )
+from constellation_generator.domain.decay_analysis import (
+    ExponentialProcess,
+    ExponentialScaleMap,
+    compute_exponential_scale_map,
+)
+from constellation_generator.domain.temporal_correlation import (
+    SignalCoherence,
+    SpectralCrossCorrelation,
+    AvailabilitySpectralDecomposition,
+    CapacitySpectrum,
+    compute_signal_coherence,
+    compute_spectral_cross_correlation,
+    compute_availability_spectral_decomposition,
+    compute_network_capacity_spectrum,
+)
+from constellation_generator.domain.operational_prediction import (
+    EndOfLifePrediction,
+    ManeuverContactWindow,
+    ManeuverContactFeasibility,
+    compute_end_of_life_mode,
+    compute_maneuver_contact_feasibility,
+)
+from constellation_generator.domain.sp3_parser import (
+    SP3EphemerisPoint,
+    SP3Ephemeris,
+    parse_sp3,
+    filter_satellite,
+)
+from constellation_generator.domain.design_sensitivity import (
+    SpectralFragility,
+    CoverageConnectivityPoint,
+    CoverageConnectivityCrossover,
+    AltitudeSensitivity,
+    compute_spectral_fragility,
+    compute_coverage_connectivity_crossover,
+    compute_altitude_sensitivity,
+)
 
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 
 __all__ = [
     "OrbitalConstants",
@@ -791,4 +830,36 @@ __all__ = [
     # cascade_analysis
     "CascadeIndicator",
     "compute_cascade_indicator",
+    # decay_analysis
+    "ExponentialProcess",
+    "ExponentialScaleMap",
+    "compute_exponential_scale_map",
+    # temporal_correlation
+    "SignalCoherence",
+    "SpectralCrossCorrelation",
+    "AvailabilitySpectralDecomposition",
+    "CapacitySpectrum",
+    "compute_signal_coherence",
+    "compute_spectral_cross_correlation",
+    "compute_availability_spectral_decomposition",
+    "compute_network_capacity_spectrum",
+    # operational_prediction
+    "EndOfLifePrediction",
+    "ManeuverContactWindow",
+    "ManeuverContactFeasibility",
+    "compute_end_of_life_mode",
+    "compute_maneuver_contact_feasibility",
+    # design_sensitivity
+    "SpectralFragility",
+    "CoverageConnectivityPoint",
+    "CoverageConnectivityCrossover",
+    "AltitudeSensitivity",
+    "compute_spectral_fragility",
+    "compute_coverage_connectivity_crossover",
+    "compute_altitude_sensitivity",
+    # sp3_parser
+    "SP3EphemerisPoint",
+    "SP3Ephemeris",
+    "parse_sp3",
+    "filter_satellite",
 ]

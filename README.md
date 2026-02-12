@@ -1,6 +1,18 @@
 # Constellation Generator
 
+[![Version](https://img.shields.io/badge/version-1.19.0-blue.svg)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/tests-1384_passing-brightgreen.svg)](tests/)
+[![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE)
+
 Generate Walker constellation satellite shells and fetch live orbital data for orbit simulation tools.
+
+> **Disclaimer**: This library provides computational models for educational,
+> research, and engineering analysis purposes. It is **not certified** for
+> operational mission planning, safety-of-flight decisions, or regulatory
+> compliance determination. All models are simplified approximations —
+> results must be independently validated before use in any operational context.
+> See the warranty disclaimer in [LICENSE](LICENSE) and
+> [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md).
 
 ## Install
 
@@ -132,7 +144,7 @@ print(f"{sat.name}: {lat:.4f}°N, {lon:.4f}°E, {alt/1000:.1f} km")
 Compute the sub-satellite ground track over time using Keplerian two-body
 propagation, optionally with J2 secular perturbations. Appropriate for
 synthetic Walker shell satellites. For TLE data, SGP4 propagation via
-the adapter layer gives more accurate results.
+the adapter layer provides SGP4-based propagation.
 
 ```python
 from datetime import datetime, timedelta, timezone
@@ -335,7 +347,11 @@ print(f"Operational lifetime: {budget.operational_lifetime_years:.1f} yr")
 #### Conjunction screening and collision probability
 
 Screen a constellation for close approaches, refine TCA, compute
-B-plane geometry and collision probability:
+B-plane geometry and collision probability.
+
+> **Note**: Collision probability estimates use simplified covariance models.
+> Operational conjunction assessment requires authoritative ephemeris data
+> (e.g., from 18th Space Defense Squadron) and validated covariance realism.
 
 ```python
 from constellation_generator import (
@@ -428,9 +444,13 @@ dv_plane = plane_change_dv(7500, math.radians(28.5))
 print(f"28.5° plane change: {dv_plane:.0f} m/s")
 ```
 
-#### Deorbit compliance
+#### Deorbit lifetime estimation
 
-Assess FCC 5-year / ESA 25-year deorbit regulations:
+Estimate orbit decay timelines against FCC 5-year / ESA 25-year guidelines:
+
+> **Note**: These are engineering estimates based on simplified atmospheric
+> models, not regulatory compliance determinations. Actual compliance
+> assessment requires mission-specific analysis with validated tools.
 
 ```python
 from constellation_generator import (
@@ -472,7 +492,7 @@ print(f"Repeat GT 1d/15rev: alt={rgt.altitude_km:.1f} km")
 
 #### Numerical propagation (RK4 + pluggable force models)
 
-High-fidelity orbit propagation with composable perturbation forces:
+Numerical orbit propagation (RK4) with composable perturbation forces:
 
 ```python
 from datetime import datetime, timedelta, timezone
@@ -556,6 +576,74 @@ cov_packets = coverage_packets(grid, lat_step_deg=5, lon_step_deg=5)
 write_czml(cov_packets, "coverage.czml")
 ```
 
+#### Interactive Cesium viewer
+
+Launch an interactive 3D viewer with on-demand analysis layers:
+
+```bash
+# Interactive server mode (opens browser)
+python view_constellation.py --serve
+
+# Custom port
+python view_constellation.py --serve --port 9000
+
+# Static HTML mode (generates constellation_viewer.html, no server needed)
+python view_constellation.py
+
+# Static + auto-open in browser
+python view_constellation.py --open
+```
+
+**Server mode** pre-loads three Walker shells (500/450/400 km, 1584 sats each)
+and live ISS data from CelesTrak. The browser UI supports adding/removing
+constellations, ground stations, and 13 analysis layer types via the API.
+
+**Static mode** generates a self-contained HTML file (~10 MB) with baked-in
+CZML data. No server required — just open the file in a browser.
+
+##### Analysis layer types
+
+The viewer dispatches 13 analysis types, each with sensible defaults:
+
+| Type | Visualization | Default parameters |
+|------|---------------|--------------------|
+| `eclipse` | Satellite color: sunlit (green) / penumbra (orange) / umbra (red) | 2h duration, 60s step |
+| `coverage` | Ground heatmap colored by visible satellite count | 10° grid, 10° min elevation |
+| `ground_track` | Sub-satellite polyline trace | First satellite, 2h duration |
+| `sensor` | Ground-level FOV ellipses tracking sub-satellite point | 30° circular half-angle |
+| `isl` | Satellite points + ISL polylines colored by SNR | Ka-band (26 GHz), 5000 km range, 100-sat cap |
+| `fragility` | Satellites colored by spectral fragility index | Ka-band, control horizon = 1 orbital period, 100-sat cap |
+| `hazard` | Satellites fade green→red over projected lifetime | Cd=2.2, A=0.01 m², m=4 kg; duration = ½ lifetime capped 1 yr, daily steps |
+| `network_eclipse` | ISL links colored by endpoint eclipse state | Ka-band, 5000 km range, 100-sat cap |
+| `coverage_connectivity` | Ground rectangles colored by coverage × Fiedler value | Ka-band, 10° grid, 100-sat cap |
+| `precession` | J2 RAAN drift over extended timeline | 7-day duration, 15-min step, 24-sat cap |
+| `conjunction` | Two-satellite close approach replay with proximity line | states[0] vs states[n/2], ±30 min window, 10s step |
+| `ground_station` | Station marker + visibility circle + access tracks | 10° min elevation |
+| `ground_track` | Sub-satellite ground trace polyline | First satellite, 2h |
+
+##### Default RF link configuration (Ka-band)
+
+Used by ISL, fragility, network eclipse, and coverage-connectivity layers:
+
+| Parameter | Value |
+|-----------|-------|
+| Frequency | 26 GHz |
+| Transmit power | 10 W |
+| Tx/Rx antenna gain | 35 dBi |
+| System noise temp | 500 K |
+| Bandwidth | 100 MHz |
+| Additional losses | 2 dB |
+| Required SNR | 10 dB |
+
+##### Performance caps
+
+O(n²) analyses cap satellite count to prevent browser lockup:
+
+| Cap | Value | Applies to |
+|-----|-------|------------|
+| `_MAX_TOPOLOGY_SATS` | 100 | ISL, fragility, network eclipse, coverage-connectivity |
+| `_MAX_PRECESSION_SATS` | 24 | Precession (7-day propagation) |
+
 #### Export formats (programmatic)
 
 ```python
@@ -597,41 +685,79 @@ entities = [
 
 ```
 src/constellation_generator/
-├── domain/                    # Pure logic — only stdlib math/dataclasses/datetime
-│   ├── orbital_mechanics.py   # Kepler → Cartesian, SSO inclination, J2 perturbations
-│   ├── constellation.py       # Walker shells, SSO bands, ShellConfig, Satellite
-│   ├── coordinate_frames.py   # ECI ↔ ECEF ↔ Geodetic (GMST, Bowring, WGS84)
-│   ├── propagation.py         # Shared Keplerian + J2 propagation
-│   ├── ground_track.py        # Ground track computation (delegates to propagation)
-│   ├── observation.py         # Topocentric azimuth/elevation/range
-│   ├── access_windows.py      # Satellite rise/set window detection
-│   ├── coverage.py            # Grid-based visibility coverage analysis
-│   ├── revisit.py             # Time-domain revisit analysis (ECA-optimized)
-│   ├── trade_study.py         # Parametric Walker trade studies, Pareto front
-│   ├── atmosphere.py          # Exponential density model, drag acceleration
-│   ├── lifetime.py            # Orbit lifetime, decay profile (Euler integration)
-│   ├── station_keeping.py     # Delta-V budgets, Tsiolkovsky, propellant lifetime
-│   ├── conjunction.py         # Screening, TCA, B-plane, collision probability
-│   ├── solar.py               # Analytical solar ephemeris (Meeus/Vallado)
-│   ├── eclipse.py             # Shadow geometry, beta angle, eclipse windows
-│   ├── maneuvers.py           # Hohmann, bi-elliptic, plane change, phasing
-│   ├── deorbit.py             # FCC/ESA deorbit compliance assessment
-│   ├── orbit_design.py        # SSO/LTAN, frozen orbit, repeat ground track
-│   ├── numerical_propagation.py # RK4 integrator + pluggable force models
-│   ├── serialization.py       # Simulation format (Y/Z swap, precision)
-│   └── omm.py                 # CelesTrak OMM record → OrbitalElements
-├── ports/                     # Abstract interfaces (ABC)
-│   ├── __init__.py            # SimulationReader, SimulationWriter
-│   ├── orbital_data.py        # OrbitalDataSource
-│   └── export.py              # SatelliteExporter
-├── adapters/                  # Infrastructure (JSON I/O, HTTP, SGP4, export)
-│   ├── __init__.py            # JsonSimulationReader/Writer, exporters
-│   ├── celestrak.py           # CelesTrakAdapter, SGP4Adapter
-│   ├── concurrent_celestrak.py # ConcurrentCelesTrakAdapter (ThreadPoolExecutor)
-│   ├── csv_exporter.py        # CsvSatelliteExporter
-│   ├── geojson_exporter.py    # GeoJsonSatelliteExporter
-│   └── czml_exporter.py       # CZML packets for CesiumJS visualization
-└── cli.py                     # CLI entry point (--concurrent, --export-csv, --export-geojson)
+├── domain/                        # Pure logic — only stdlib (60 modules)
+│   ├── orbital_mechanics.py       # Kepler → Cartesian, SSO inclination, J2/J3
+│   ├── constellation.py           # Walker shells, SSO bands, ShellConfig, Satellite
+│   ├── coordinate_frames.py       # ECI ↔ ECEF ↔ Geodetic (GMST, Bowring, WGS84)
+│   ├── propagation.py             # Shared Keplerian + J2 propagation
+│   ├── coverage.py                # Grid-based visibility coverage analysis
+│   ├── access_windows.py          # Satellite rise/set window detection
+│   ├── ground_track.py            # Ground track computation
+│   ├── observation.py             # Topocentric azimuth/elevation/range
+│   ├── serialization.py           # Simulation format (Y/Z swap, precision)
+│   ├── omm.py                     # CelesTrak OMM record → OrbitalElements
+│   ├── numerical_propagation.py   # ◆ RK4 integrator + pluggable force models
+│   ├── revisit.py                 # ◆ Time-domain revisit analysis (ECA-optimized)
+│   ├── trade_study.py             # ◆ Parametric Walker trade studies, Pareto front
+│   ├── atmosphere.py              # ◆ Exponential density model, drag acceleration
+│   ├── lifetime.py                # ◆ Orbit lifetime, decay profile
+│   ├── station_keeping.py         # ◆ Delta-V budgets, Tsiolkovsky
+│   ├── conjunction.py             # ◆ Screening, TCA, B-plane, collision probability
+│   ├── solar.py                   # ◆ Analytical solar ephemeris (Meeus/Vallado)
+│   ├── eclipse.py                 # ◆ Shadow geometry, beta angle, eclipse windows
+│   ├── maneuvers.py               # ◆ Hohmann, bi-elliptic, plane change, phasing
+│   ├── deorbit.py                 # ◆ Deorbit lifetime estimation
+│   ├── orbit_design.py            # ◆ SSO/LTAN, frozen orbit, repeat ground track
+│   ├── orbit_properties.py        # ◆ Derived properties (velocity, energy, RSW)
+│   ├── sensor.py                  # ◆ Sensor/payload FOV modeling
+│   ├── pass_analysis.py           # ◆ Doppler, visual magnitude, contact statistics
+│   ├── inter_satellite_links.py   # ◆ ISL topology, link geometry
+│   ├── link_budget.py             # ◆ RF link budget, SNR, data rate
+│   ├── relative_motion.py         # ◆ CW/Hill relative motion equations
+│   ├── torques.py                 # ◆ Gravity gradient + aerodynamic torques
+│   ├── radiation.py               # ◆ Radiation environment (L-shell, SAA)
+│   ├── third_body.py              # ◆ Solar/lunar third-body perturbations
+│   ├── constellation_metrics.py   # ◆ Coverage/revisit/eclipse statistics, scoring
+│   ├── constellation_operability.py # ◆ Operability index
+│   ├── linalg.py                  # ◆ Linear algebra (Jacobi eigensolver, DFT)
+│   ├── graph_analysis.py          # ◆ Graph-theoretic ISL (Fiedler, fragmentation)
+│   ├── information_theory.py      # ◆ BEC channel, coverage spectrum, marginal value
+│   ├── control_analysis.py        # ◆ CW controllability Gramian
+│   ├── dilution_of_precision.py   # ◆ Fisher information DOP
+│   ├── statistical_analysis.py    # ◆ Survival curves, availability, correlations
+│   ├── design_optimization.py     # ◆ Coverage drift, mass efficiency frontier
+│   ├── spectral_topology.py       # ◆ Spectral topology analysis
+│   ├── cascade_analysis.py        # ◆ Cascade/fragmentation indicators
+│   ├── mission_analysis.py        # ◆ Cross-domain mission composition
+│   ├── conjunction_management.py  # ◆ Conjunction management workflows
+│   ├── communication_analysis.py  # ◆ Network capacity analysis
+│   ├── coverage_optimization.py   # ◆ Coverage optimization
+│   ├── environment_analysis.py    # ◆ Combined environment assessment
+│   ├── maintenance_planning.py    # ◆ Maintenance and scheduling
+│   ├── mission_economics.py       # ◆ Mission economics modeling
+│   ├── multi_objective_design.py  # ◆ Multi-objective Pareto design
+│   ├── decay_analysis.py          # ◆ Exponential scale map
+│   ├── temporal_correlation.py    # ◆ Cross-spectral coherence
+│   ├── operational_prediction.py  # ◆ EOL prediction, maneuver feasibility
+│   ├── design_sensitivity.py      # ◆ Spectral fragility, altitude sensitivity
+│   └── sp3_parser.py              # ◆ IGS SP3 precise ephemeris parser
+├── ports/                         # Protocol interfaces (structural typing)
+│   ├── __init__.py                # SimulationReader, SimulationWriter
+│   ├── orbital_data.py            # OrbitalDataSource
+│   └── export.py                  # SatelliteExporter
+├── adapters/                      # Infrastructure (JSON I/O, HTTP, SGP4, export)
+│   ├── __init__.py                # JsonSimulationReader/Writer, exporters
+│   ├── celestrak.py               # CelesTrakAdapter, SGP4Adapter
+│   ├── concurrent_celestrak.py    # ConcurrentCelesTrakAdapter (ThreadPoolExecutor)
+│   ├── csv_exporter.py            # CsvSatelliteExporter
+│   ├── geojson_exporter.py        # GeoJsonSatelliteExporter
+│   ├── czml_exporter.py           # ◆ CZML packets for CesiumJS visualization
+│   ├── czml_visualization.py      # ◆ Advanced CZML (ISL, fragility, hazard)
+│   ├── cesium_viewer.py           # ◆ Self-contained HTML viewer
+│   └── viewer_server.py           # ◆ Interactive viewer server (13 analysis types)
+└── cli.py                         # CLI entry point
+
+# ◆ = commercial license (free for personal/educational/academic use)
 ```
 
 The domain layer has zero external dependencies. All I/O (file access,
@@ -641,46 +767,49 @@ port interfaces.
 ## Tests
 
 ```bash
-pytest                                    # all 403 tests
-pytest tests/test_constellation.py        # 21 synthetic tests (offline)
-pytest tests/test_coordinate_frames.py    # 29 coordinate frame tests (offline)
-pytest tests/test_j2_perturbations.py     # 12 J2/J3 perturbation tests (offline)
-pytest tests/test_propagation.py          # 18 propagation tests (offline)
-pytest tests/test_ground_track.py         # 16 ground track tests (offline)
-pytest tests/test_observation.py          # 14 observation tests (offline)
-pytest tests/test_access_windows.py       # 11 access window tests (offline)
-pytest tests/test_coverage.py             # 10 coverage tests (offline)
-pytest tests/test_revisit.py             # 20 revisit analysis tests (offline)
-pytest tests/test_trade_study.py         # 19 trade study tests (offline)
-pytest tests/test_atmosphere.py           # 22 atmospheric drag tests (offline)
-pytest tests/test_lifetime.py             # 16 orbit lifetime tests (offline)
-pytest tests/test_station_keeping.py      # 17 station-keeping tests (offline)
-pytest tests/test_conjunction.py          # 18 conjunction tests (offline)
-pytest tests/test_solar.py               # 14 solar ephemeris tests (offline)
-pytest tests/test_eclipse.py             # 13 eclipse prediction tests (offline)
-pytest tests/test_maneuvers.py           # 21 orbit transfer tests (offline)
-pytest tests/test_deorbit.py             # 13 deorbit compliance tests (offline)
-pytest tests/test_orbit_design.py        # 17 orbit design tests (offline)
-pytest tests/test_export.py               # 18 export tests (offline)
-pytest tests/test_czml_exporter.py       # 18 CZML exporter tests (offline)
-pytest tests/test_numerical_propagation.py # 22 numerical propagation tests (offline)
-pytest tests/test_concurrent_celestrak.py # 12 concurrent adapter tests (offline)
-pytest tests/test_live_data.py            # 13 live data tests (network)
+pytest                           # all 1384 tests (offline, no network required)
+pytest tests/test_live_data.py   # live CelesTrak tests (requires network)
 ```
+
+The test suite covers all 60 domain modules, 6 invariant test suites, adapter
+tests, and domain purity tests (verifying zero external dependencies).
+All tests except `test_live_data.py` run offline.
+
+### Validated against
+
+The library includes 81 validation tests that cross-check results against
+independent references:
+
+- **Vallado** — Circular orbit velocities, orbital periods, Hohmann transfer
+  delta-V, J2 RAAN drift rates, SSO inclinations, and atmospheric density
+  values from *Fundamentals of Astrodynamics and Applications* (4th ed.)
+- **SGP4** — Position, velocity, and orbital properties compared against the
+  industry-standard SGP4 propagator using hardcoded ISS, GPS, and GEO OMM
+  records
+- **SP3 precise ephemeris** — Parser for IGS Standard Product #3 format
+  (centimeter-accurate post-processed GNSS orbits), with physical consistency
+  checks against known GPS constellation geometry
+- **Internal cross-checks** — Energy conservation, angular momentum
+  invariance, vis-viva identity, coordinate frame round-trips, eclipse
+  fraction vs eclipse windows agreement, J2 drift vs SSO condition
+  consistency, and propagation element recovery
 
 ## Credits
 
-Original code by [Scott Manley](https://www.youtube.com/@scottmanley). Refactored and extended by Jeroen.
+Inspired by [Scott Manley](https://www.youtube.com/@scottmanley)'s orbital mechanics
+visualizations. Written by Jeroen Visser.
 
 ## License
 
 This project uses a dual-license model:
 
-**MIT** — the core library (constellation generation, propagation, coordinate
-frames, ground track, observation, access windows, coverage, export).
-See `LICENSE`.
+**MIT** — the core foundation (constellation generation, Keplerian+J2
+propagation, coordinate frames, coverage analysis, observation geometry,
+ground track, access windows, export adapters). See [`LICENSE`](LICENSE).
 
-**Commercial** — the pro modules (atmospheric drag, orbit lifetime,
-station-keeping, conjunction assessment). Free for personal, educational,
-and academic use. Commercial use requires a one-time EUR 10,000 license.
-See `LICENSE-COMMERCIAL.md` or email planet dot jeroen at gmail dot com.
+**Commercial** — extended modules (49 domain modules, 4 adapters, 57 test
+files) covering numerical propagation, atmospheric drag, eclipse, maneuvers,
+ISL topology, link budgets, conjunction, radiation, statistical analysis,
+design optimization, interactive viewer, and more. Free for personal,
+educational, and academic use. Commercial use requires a paid license
+starting at EUR 2,000. See [`LICENSE-COMMERCIAL.md`](LICENSE-COMMERCIAL.md).

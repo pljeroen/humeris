@@ -2,6 +2,10 @@
 .env
 CLAUDE.md
 .tddv6/
+CONTRACT_*.md
+PRE_RELEASE_CHECKLIST.md
+archive/
+constellation_viewer.html
 
 # Python
 venv/
@@ -11,3 +15,5 @@ __pycache__/
 dist/
 build/
 .pytest_cache/
+.coverage
+htmlcov/

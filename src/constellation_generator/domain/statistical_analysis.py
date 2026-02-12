@@ -1,4 +1,7 @@
-# Copyright (c) 2026 Jeroen. All rights reserved.
+# Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
+# Licensed under the terms in LICENSE-COMMERCIAL.md.
+# Free for personal, educational, and academic use.
+# Commercial use requires a paid license — see LICENSE-COMMERCIAL.md.
 """Statistical analysis of constellation performance.
 
 Analytical collision probability (Marcum Q approximation), lifetime survival

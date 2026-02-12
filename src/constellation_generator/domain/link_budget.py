@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
+# Licensed under the terms in LICENSE-COMMERCIAL.md.
+# Free for personal, educational, and academic use.
+# Commercial use requires a paid license — see LICENSE-COMMERCIAL.md.
 """Link budget computation for inter-satellite and ground links.
 
 Free-space path loss, received power, noise floor, SNR, link margin,

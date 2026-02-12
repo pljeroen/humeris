@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
+# Licensed under the terms in LICENSE-COMMERCIAL.md.
+# Free for personal, educational, and academic use.
+# Commercial use requires a paid license — see LICENSE-COMMERCIAL.md.
 """Advanced CZML visualization packets for CesiumJS.
 
 Eclipse-aware coloring, sensor footprints, ground station access,
@@ -22,10 +26,14 @@ from constellation_generator.domain.coordinate_frames import (
 from constellation_generator.domain.solar import sun_position_eci
 from constellation_generator.domain.eclipse import is_eclipsed, EclipseType
 from constellation_generator.domain.sensor import SensorConfig, compute_swath_width
-from constellation_generator.domain.observation import GroundStation
+from constellation_generator.domain.observation import GroundStation, compute_observation
 from constellation_generator.domain.access_windows import compute_access_windows
 from constellation_generator.domain.coverage import compute_coverage_snapshot
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from constellation_generator.domain.link_budget import LinkConfig, compute_link_budget
+from constellation_generator.domain.inter_satellite_links import compute_isl_topology
+from constellation_generator.domain.graph_analysis import compute_topology_resilience
+from constellation_generator.domain.revisit import compute_single_coverage_fraction
 from constellation_generator.adapters.czml_exporter import (
     _PLANE_COLORS,
     _assign_plane_indices,
@@ -39,6 +47,72 @@ from constellation_generator.adapters.czml_exporter import (
 
 
 _ECLIPSE_COLOR = (80, 80, 80, 255)
+
+# Eclipse snapshot colors
+_SUNLIT_COLOR = [102, 187, 106, 255]    # Green
+_PENUMBRA_COLOR = [255, 167, 38, 255]   # Orange
+_UMBRA_COLOR = [255, 82, 82, 255]       # Red
+
+
+def eclipse_snapshot_packets(
+    states: list[OrbitalState],
+    epoch: datetime,
+    name: str = "Eclipse State",
+) -> list[dict]:
+    """Static snapshot colored by eclipse state at epoch.
+
+    Green = sunlit, orange = penumbra, red = umbra.
+    No animation, no path, no label — just colored points.
+
+    Args:
+        states: List of orbital states.
+        epoch: Evaluation time.
+        name: Document name.
+
+    Returns:
+        List of CZML packets (document + N point packets).
+    """
+    packets: list[dict] = [_document_packet(name)]
+
+    if not states:
+        return packets
+
+    sun = sun_position_eci(epoch)
+
+    for idx, state in enumerate(states):
+        pos_eci, vel_eci = propagate_to(state, epoch)
+        gmst = gmst_rad(epoch)
+        pos_ecef, _ = eci_to_ecef(
+            (pos_eci[0], pos_eci[1], pos_eci[2]),
+            (vel_eci[0], vel_eci[1], vel_eci[2]),
+            gmst,
+        )
+        lat_deg, lon_deg, alt_m = ecef_to_geodetic(pos_ecef)
+
+        sat_pos = (pos_eci[0], pos_eci[1], pos_eci[2])
+        eclipse_type = is_eclipsed(sat_pos, sun.position_eci_m)
+
+        if eclipse_type == EclipseType.UMBRA:
+            color = _UMBRA_COLOR
+        elif eclipse_type == EclipseType.PENUMBRA:
+            color = _PENUMBRA_COLOR
+        else:
+            color = _SUNLIT_COLOR
+
+        pkt: dict = {
+            "id": f"eclipse-snap-{idx}",
+            "name": f"Sat-{idx}",
+            "position": {
+                "cartographicDegrees": [lon_deg, lat_deg, alt_m],
+            },
+            "point": {
+                "pixelSize": 3,
+                "color": {"rgba": list(color)},
+            },
+        }
+        packets.append(pkt)
+
+    return packets
 
 
 def _propagate_geodetic(
@@ -159,7 +233,7 @@ def eclipse_constellation_packets(
         pkt: dict = {
             "id": f"satellite-{idx}",
             "name": f"Sat-{idx}",
-            "description": _satellite_description(state),
+            "description": _satellite_description(state, epoch),
             "position": {
                 "epoch": _iso(epoch),
                 "cartographicDegrees": coords,
@@ -645,3 +719,487 @@ def precession_constellation_packets(
     """
     states = [derive_orbital_state(s, epoch, include_j2=True) for s in satellites]
     return constellation_packets(states, epoch, duration, step, name=name)
+
+
+def _snr_color(snr_db: float, min_snr: float = 0.0, max_snr: float = 30.0) -> list[int]:
+    """Map SNR to green->yellow->red color gradient."""
+    t = max(0.0, min(1.0, (snr_db - min_snr) / (max_snr - min_snr)))
+    if t > 0.5:
+        # Green to yellow
+        f = (t - 0.5) * 2.0
+        return [int(255 * (1 - f)), 255, 0, 200]
+    else:
+        # Yellow to red
+        f = t * 2.0
+        return [255, int(255 * f), 0, 200]
+
+
+def _health_color(value: float) -> list[int]:
+    """Map 0..1 health value to green->yellow->red."""
+    t = max(0.0, min(1.0, value))
+    if t > 0.5:
+        f = (t - 0.5) * 2.0
+        return [int(255 * (1 - f)), 255, 0, 200]
+    else:
+        f = t * 2.0
+        return [255, int(255 * f), 0, 200]
+
+
+def isl_topology_packets(
+    states: list[OrbitalState],
+    time: datetime,
+    link_config: LinkConfig,
+    epoch: datetime,
+    duration_s: float,
+    step_s: float,
+    max_range_km: float = 5000.0,
+    name: str = "ISL Topology",
+) -> list[dict]:
+    """ISL topology visualization with SNR-colored polylines.
+
+    Satellite points (plane-colored) + polylines between ISL-linked pairs.
+    Polyline color: green (high SNR) -> yellow -> red (low margin).
+
+    Args:
+        states: Satellite orbital states.
+        time: Evaluation time for initial topology.
+        link_config: RF link configuration.
+        epoch: Animation start time.
+        duration_s: Animation duration (seconds).
+        step_s: Time step (seconds).
+        max_range_km: Maximum ISL range (km).
+        name: Document name.
+
+    Returns:
+        List of CZML packets.
+    """
+    duration = timedelta(seconds=duration_s)
+    step = timedelta(seconds=step_s)
+    step_seconds = _validate_step(step)
+    packets: list[dict] = [_document_packet(name, epoch, duration)]
+
+    if not states:
+        return packets
+
+    num_steps = int(duration_s / step_seconds) + 1
+    interp_degree = _interpolation_degree(num_steps)
+    plane_indices = _assign_plane_indices(states)
+
+    # Satellite point packets
+    for idx, state in enumerate(states):
+        coords: list[float] = []
+        for s in range(num_steps):
+            t_offset = s * step_seconds
+            target_time = epoch + timedelta(seconds=t_offset)
+            _, _, lat_deg, lon_deg, alt_m = _propagate_geodetic(state, target_time)
+            coords.extend([t_offset, lon_deg, lat_deg, alt_m])
+
+        plane_color = _PLANE_COLORS[plane_indices[idx] % len(_PLANE_COLORS)]
+        packets.append({
+            "id": f"isl-sat-{idx}",
+            "name": f"Sat-{idx}",
+            "position": {
+                "epoch": _iso(epoch),
+                "cartographicDegrees": coords,
+                "interpolationAlgorithm": "LAGRANGE",
+                "interpolationDegree": interp_degree,
+            },
+            "point": {
+                "pixelSize": 5,
+                "color": {"rgba": list(plane_color)},
+            },
+        })
+
+    # ISL link polylines using position references
+    topology = compute_isl_topology(states, time, max_range_km=max_range_km)
+    for link_idx, link in enumerate(topology.links):
+        if link.is_blocked:
+            continue
+        budget = compute_link_budget(link_config, link.distance_m)
+        color = _snr_color(budget.snr_db)
+        packets.append({
+            "id": f"isl-link-{link_idx}",
+            "name": f"ISL {link.sat_idx_a}-{link.sat_idx_b}",
+            "polyline": {
+                "positions": {
+                    "references": [
+                        f"isl-sat-{link.sat_idx_a}#position",
+                        f"isl-sat-{link.sat_idx_b}#position",
+                    ],
+                },
+                "material": {
+                    "solidColor": {"color": {"rgba": color}},
+                },
+                "width": 2,
+                "arcType": "NONE",
+            },
+        })
+
+    return packets
+
+
+def fragility_constellation_packets(
+    states: list[OrbitalState],
+    epoch: datetime,
+    link_config: LinkConfig,
+    n_rad_s: float,
+    control_duration_s: float,
+    duration_s: float,
+    step_s: float,
+    lat_deg: float = 0.0,
+    lon_deg: float = 0.0,
+    name: str = "Spectral Fragility",
+) -> list[dict]:
+    """Constellation colored by spectral fragility.
+
+    Green (high fragility/healthy) -> yellow -> red (fragile).
+    Coarse time step for performance.
+
+    Args:
+        states: Satellite orbital states.
+        epoch: Start time.
+        link_config: RF link configuration.
+        n_rad_s: Mean motion (rad/s).
+        control_duration_s: Control horizon (s).
+        duration_s: Total duration (s).
+        step_s: Time step for position (s).
+        lat_deg: Reference latitude for DOP.
+        lon_deg: Reference longitude for DOP.
+        name: Document name.
+
+    Returns:
+        List of CZML packets.
+    """
+    from constellation_generator.domain.design_sensitivity import compute_spectral_fragility
+
+    duration = timedelta(seconds=duration_s)
+    step = timedelta(seconds=step_s)
+    step_seconds = _validate_step(step)
+    packets: list[dict] = [_document_packet(name, epoch, duration)]
+
+    if not states:
+        return packets
+
+    num_steps = int(duration_s / step_seconds) + 1
+    interp_degree = _interpolation_degree(num_steps)
+
+    # Compute fragility at epoch for coloring
+    fragility = compute_spectral_fragility(
+        states, epoch, link_config, n_rad_s, control_duration_s, lat_deg, lon_deg,
+    )
+    # Map composite to color (higher = healthier = greener)
+    frag_val = min(1.0, fragility.composite_fragility * 1000.0)
+    frag_color = _health_color(frag_val)
+
+    for idx, state in enumerate(states):
+        coords: list[float] = []
+        for s in range(num_steps):
+            t_offset = s * step_seconds
+            target_time = epoch + timedelta(seconds=t_offset)
+            _, _, lat_d, lon_d, alt_m = _propagate_geodetic(state, target_time)
+            coords.extend([t_offset, lon_d, lat_d, alt_m])
+
+        packets.append({
+            "id": f"frag-sat-{idx}",
+            "name": f"Sat-{idx} (fragility)",
+            "position": {
+                "epoch": _iso(epoch),
+                "cartographicDegrees": coords,
+                "interpolationAlgorithm": "LAGRANGE",
+                "interpolationDegree": interp_degree,
+            },
+            "point": {
+                "pixelSize": 6,
+                "color": {"rgba": frag_color},
+            },
+        })
+
+    return packets
+
+
+def hazard_evolution_packets(
+    states: list[OrbitalState],
+    survival_curve,
+    epoch: datetime,
+    duration_s: float,
+    step_s: float,
+    name: str = "Hazard Evolution",
+) -> list[dict]:
+    """Satellites colored by hazard rate / survival fraction.
+
+    Green (healthy) -> yellow -> red (near EOL).
+    Long-duration timeline (days/months).
+
+    Args:
+        states: Satellite orbital states.
+        survival_curve: LifetimeSurvivalCurve from statistical_analysis.
+        epoch: Start time.
+        duration_s: Total duration (s).
+        step_s: Time step (s).
+        name: Document name.
+
+    Returns:
+        List of CZML packets.
+    """
+    duration = timedelta(seconds=duration_s)
+    step = timedelta(seconds=step_s)
+    step_seconds = _validate_step(step)
+    packets: list[dict] = [_document_packet(name, epoch, duration)]
+
+    if not states:
+        return packets
+
+    num_steps = int(duration_s / step_seconds) + 1
+    interp_degree = _interpolation_degree(num_steps)
+
+    # Build interval colors from survival curve
+    surv_fracs = list(survival_curve.survival_fraction) if survival_curve.survival_fraction else [1.0]
+    surv_times = list(survival_curve.times) if survival_curve.times else [epoch]
+
+    for idx, state in enumerate(states):
+        coords: list[float] = []
+        step_times: list[datetime] = []
+        health_vals: list[float] = []
+
+        for s in range(num_steps):
+            t_offset = s * step_seconds
+            target_time = epoch + timedelta(seconds=t_offset)
+            _, _, lat_deg, lon_deg, alt_m = _propagate_geodetic(state, target_time)
+            coords.extend([t_offset, lon_deg, lat_deg, alt_m])
+            step_times.append(target_time)
+
+            # Find survival fraction at this time
+            fraction = 1.0
+            if surv_times and surv_fracs:
+                elapsed_days = t_offset / 86400.0
+                total_days = survival_curve.mean_remaining_life_days
+                if total_days > 0:
+                    fraction = max(0.0, 1.0 - elapsed_days / total_days)
+            health_vals.append(fraction)
+
+        # Build interval-based color
+        end_time = epoch + duration
+        color_intervals: list[dict] = []
+        for i in range(len(step_times)):
+            t_start = step_times[i]
+            t_end = step_times[i + 1] if i + 1 < len(step_times) else end_time
+            color = _health_color(health_vals[i])
+            color_intervals.append({
+                "interval": f"{_iso(t_start)}/{_iso(t_end)}",
+                "rgba": color,
+            })
+
+        packets.append({
+            "id": f"hazard-sat-{idx}",
+            "name": f"Sat-{idx} (hazard)",
+            "position": {
+                "epoch": _iso(epoch),
+                "cartographicDegrees": coords,
+                "interpolationAlgorithm": "LAGRANGE",
+                "interpolationDegree": interp_degree,
+            },
+            "point": {
+                "pixelSize": 6,
+                "color": color_intervals,
+            },
+        })
+
+    return packets
+
+
+def coverage_connectivity_packets(
+    states: list[OrbitalState],
+    link_config: LinkConfig,
+    epoch: datetime,
+    duration_s: float,
+    step_s: float,
+    lat_step_deg: float = 10.0,
+    lon_step_deg: float = 10.0,
+    name: str = "Coverage-Connectivity",
+) -> list[dict]:
+    """Ground rectangles colored by coverage_count * fiedler_value.
+
+    Shows where coverage is backed by network connectivity.
+
+    Args:
+        states: Satellite orbital states.
+        link_config: RF link configuration.
+        epoch: Start time.
+        duration_s: Total duration (s).
+        step_s: Coverage snapshot interval (s).
+        lat_step_deg: Latitude grid spacing.
+        lon_step_deg: Longitude grid spacing.
+        name: Document name.
+
+    Returns:
+        List of CZML packets.
+    """
+    duration = timedelta(seconds=duration_s)
+    coverage_step = timedelta(seconds=step_s)
+    step_seconds = _validate_step(coverage_step)
+    packets: list[dict] = [_document_packet(name, epoch, duration)]
+
+    if not states:
+        return packets
+
+    num_steps = int(duration_s / step_seconds) + 1
+    times = [epoch + timedelta(seconds=i * step_seconds) for i in range(num_steps)]
+
+    # At each time, compute coverage and fiedler
+    snapshots: list[dict] = []
+    for t in times:
+        snap = compute_coverage_snapshot(
+            states, t, lat_step_deg, lon_step_deg, 10.0,
+        )
+        resilience = compute_topology_resilience(states, t, link_config)
+        fiedler = resilience.fiedler_value
+        cell_values = {}
+        for p in snap:
+            cell_values[(p.lat_deg, p.lon_deg)] = p.visible_count * fiedler
+        snapshots.append(cell_values)
+
+    # Find global max
+    all_vals = [v for s in snapshots for v in s.values()]
+    max_val = max(all_vals) if all_vals else 1.0
+    if max_val == 0:
+        max_val = 1.0
+
+    if not snapshots:
+        return packets
+
+    grid_cells = list(snapshots[0].keys())
+
+    for cell_idx, (lat, lon) in enumerate(grid_cells):
+        any_nonzero = any(s.get((lat, lon), 0) > 0 for s in snapshots)
+        if not any_nonzero:
+            continue
+
+        color_intervals: list[dict] = []
+        for step_idx in range(len(times)):
+            t_start = times[step_idx]
+            t_end = times[step_idx + 1] if step_idx + 1 < len(times) else epoch + duration
+            val = snapshots[step_idx].get((lat, lon), 0)
+            intensity = int(255 * val / max_val)
+            color_intervals.append({
+                "interval": f"{_iso(t_start)}/{_iso(t_end)}",
+                "rgba": [0, intensity, intensity // 2, 128],
+            })
+
+        packets.append({
+            "id": f"cov-conn-{cell_idx}",
+            "name": f"CovConn ({lat}, {lon})",
+            "rectangle": {
+                "coordinates": {
+                    "wsenDegrees": [lon, lat, lon + lon_step_deg, lat + lat_step_deg],
+                },
+                "fill": True,
+                "material": {
+                    "solidColor": {"color": color_intervals},
+                },
+            },
+        })
+
+    return packets
+
+
+def network_eclipse_packets(
+    states: list[OrbitalState],
+    link_config: LinkConfig,
+    epoch: datetime,
+    duration_s: float,
+    step_s: float,
+    max_range_km: float = 5000.0,
+    name: str = "Network Eclipse",
+) -> list[dict]:
+    """ISL polylines with eclipse-dependent color.
+
+    Green (both sunlit) -> orange (one eclipsed) -> hidden (both eclipsed).
+
+    Args:
+        states: Satellite orbital states.
+        link_config: RF link configuration.
+        epoch: Start time.
+        duration_s: Total duration (s).
+        step_s: Time step (s).
+        max_range_km: Maximum ISL range (km).
+        name: Document name.
+
+    Returns:
+        List of CZML packets.
+    """
+    duration = timedelta(seconds=duration_s)
+    step = timedelta(seconds=step_s)
+    step_seconds = _validate_step(step)
+    packets: list[dict] = [_document_packet(name, epoch, duration)]
+
+    if not states:
+        return packets
+
+    num_steps = int(duration_s / step_seconds) + 1
+    interp_degree = _interpolation_degree(num_steps)
+
+    # Satellite positions
+    for idx, state in enumerate(states):
+        coords: list[float] = []
+        for s in range(num_steps):
+            t_offset = s * step_seconds
+            target_time = epoch + timedelta(seconds=t_offset)
+            _, _, lat_deg, lon_deg, alt_m = _propagate_geodetic(state, target_time)
+            coords.extend([t_offset, lon_deg, lat_deg, alt_m])
+
+        packets.append({
+            "id": f"netecl-sat-{idx}",
+            "name": f"Sat-{idx}",
+            "position": {
+                "epoch": _iso(epoch),
+                "cartographicDegrees": coords,
+                "interpolationAlgorithm": "LAGRANGE",
+                "interpolationDegree": interp_degree,
+            },
+            "point": {"pixelSize": 4, "color": {"rgba": [200, 200, 200, 200]}},
+        })
+
+    # ISL links with eclipse-aware color at epoch
+    topology = compute_isl_topology(states, epoch, max_range_km=max_range_km)
+    sun = sun_position_eci(epoch)
+
+    eclipsed = []
+    for state in states:
+        pos_eci, _ = propagate_to(state, epoch)
+        pos_tuple = (pos_eci[0], pos_eci[1], pos_eci[2])
+        sun_tuple = (sun.position_eci_m[0], sun.position_eci_m[1], sun.position_eci_m[2])
+        ecl_type = is_eclipsed(pos_tuple, sun_tuple)
+        eclipsed.append(ecl_type != EclipseType.NONE)
+
+    for link_idx, link in enumerate(topology.links):
+        if link.is_blocked:
+            continue
+        a_ecl = eclipsed[link.sat_idx_a] if link.sat_idx_a < len(eclipsed) else False
+        b_ecl = eclipsed[link.sat_idx_b] if link.sat_idx_b < len(eclipsed) else False
+
+        if a_ecl and b_ecl:
+            color = [100, 100, 100, 80]
+        elif a_ecl or b_ecl:
+            color = [255, 165, 0, 200]
+        else:
+            color = [0, 255, 0, 200]
+
+        packets.append({
+            "id": f"netecl-link-{link_idx}",
+            "name": f"ISL {link.sat_idx_a}-{link.sat_idx_b}",
+            "polyline": {
+                "positions": {
+                    "references": [
+                        f"netecl-sat-{link.sat_idx_a}#position",
+                        f"netecl-sat-{link.sat_idx_b}#position",
+                    ],
+                },
+                "material": {
+                    "solidColor": {"color": {"rgba": color}},
+                },
+                "width": 2,
+                "arcType": "NONE",
+            },
+        })
+
+    return packets

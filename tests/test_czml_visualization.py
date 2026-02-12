@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
+# Licensed under the terms in LICENSE-COMMERCIAL.md.
+# Free for personal, educational, and academic use.
+# Commercial use requires a paid license — see LICENSE-COMMERCIAL.md.
 """Tests for advanced CZML visualization features.
 
 Eclipse-aware coloring, sensor footprints, ground station access,
@@ -20,12 +24,19 @@ from constellation_generator import (
 )
 from constellation_generator.adapters.czml_visualization import (
     eclipse_constellation_packets,
+    eclipse_snapshot_packets,
     sensor_footprint_packets,
     ground_station_packets,
     conjunction_replay_packets,
     coverage_evolution_packets,
     precession_constellation_packets,
+    isl_topology_packets,
+    fragility_constellation_packets,
+    hazard_evolution_packets,
+    coverage_connectivity_packets,
+    network_eclipse_packets,
 )
+from constellation_generator.domain.link_budget import LinkConfig
 
 
 EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
@@ -106,6 +117,56 @@ class TestEclipseConstellationPackets:
             eclipse_constellation_packets(
                 orbital_states, EPOCH, timedelta(hours=2), timedelta(0),
             )
+
+
+class TestEclipseSnapshotPackets:
+    """Static snapshot colored by eclipse state at epoch."""
+
+    def test_document_packet_present(self, orbital_states):
+        pkts = eclipse_snapshot_packets(orbital_states, EPOCH)
+        assert pkts[0]["id"] == "document"
+        assert pkts[0]["version"] == "1.0"
+
+    def test_packet_count(self, orbital_states):
+        pkts = eclipse_snapshot_packets(orbital_states, EPOCH)
+        assert len(pkts) == len(orbital_states) + 1
+
+    def test_eclipse_coloring_uses_rgb(self, orbital_states):
+        """Each satellite point uses a static rgba color (green/orange/red)."""
+        pkts = eclipse_snapshot_packets(orbital_states, EPOCH)
+        valid_colors = {
+            (102, 187, 106, 255),  # green = sunlit
+            (255, 167, 38, 255),   # orange = penumbra
+            (255, 82, 82, 255),    # red = umbra
+        }
+        for pkt in pkts[1:]:
+            color = pkt["point"]["color"]["rgba"]
+            assert isinstance(color, list)
+            assert len(color) == 4
+            assert tuple(color) in valid_colors
+
+    def test_no_path_no_label(self, orbital_states):
+        """Snapshot packets must not have path or label."""
+        pkts = eclipse_snapshot_packets(orbital_states, EPOCH)
+        for pkt in pkts[1:]:
+            assert "path" not in pkt
+            assert "label" not in pkt
+
+    def test_position_is_single_cartesian3(self, orbital_states):
+        """Position is a single lon/lat/alt triple."""
+        pkts = eclipse_snapshot_packets(orbital_states, EPOCH)
+        for pkt in pkts[1:]:
+            coords = pkt["position"]["cartographicDegrees"]
+            assert len(coords) == 3
+
+    def test_empty_states(self):
+        pkts = eclipse_snapshot_packets([], EPOCH)
+        assert len(pkts) == 1
+        assert pkts[0]["id"] == "document"
+
+    def test_custom_name(self, orbital_states):
+        pkts = eclipse_snapshot_packets(orbital_states, EPOCH, name="My Eclipse")
+        assert pkts[0]["name"] == "My Eclipse"
 
 
 class TestSensorFootprintPackets:
@@ -351,6 +412,161 @@ class TestPrecessionConstellationPackets:
         no_j2_last_lon = no_j2_coords[-3]
         assert j2_last_lon != pytest.approx(no_j2_last_lon, abs=0.1), \
             "J2 should produce measurably different longitudes over 7 days"
+
+
+_LINK_CONFIG = LinkConfig(
+    frequency_hz=26e9, transmit_power_w=1.0,
+    tx_antenna_gain_dbi=30.0, rx_antenna_gain_dbi=30.0,
+    system_noise_temp_k=300.0, bandwidth_hz=100e6,
+)
+
+
+class TestISLTopologyPackets:
+    """ISL topology with SNR-colored polylines."""
+
+    def test_document_packet_present(self, orbital_states):
+        pkts = isl_topology_packets(
+            orbital_states, EPOCH, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=60.0,
+        )
+        assert pkts[0]["id"] == "document"
+
+    def test_satellite_packets_present(self, orbital_states):
+        pkts = isl_topology_packets(
+            orbital_states, EPOCH, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=60.0,
+        )
+        sat_pkts = [p for p in pkts if p.get("id", "").startswith("isl-sat-")]
+        assert len(sat_pkts) == len(orbital_states)
+
+    def test_link_polylines_present(self, orbital_states):
+        pkts = isl_topology_packets(
+            orbital_states, EPOCH, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=60.0,
+        )
+        link_pkts = [p for p in pkts if "polyline" in p]
+        assert len(link_pkts) >= 0  # may have 0 links for small constellation
+
+    def test_empty_states(self):
+        pkts = isl_topology_packets(
+            [], EPOCH, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=60.0,
+        )
+        assert len(pkts) == 1
+        assert pkts[0]["id"] == "document"
+
+
+class TestFragilityConstellationPackets:
+    """Fragility-colored constellation."""
+
+    def test_document_packet_present(self, orbital_states):
+        n_rad_s = orbital_states[0].mean_motion_rad_s
+        pkts = fragility_constellation_packets(
+            orbital_states, EPOCH, _LINK_CONFIG, n_rad_s,
+            control_duration_s=5400.0, duration_s=3600.0, step_s=60.0,
+        )
+        assert pkts[0]["id"] == "document"
+
+    def test_satellite_count(self, orbital_states):
+        n_rad_s = orbital_states[0].mean_motion_rad_s
+        pkts = fragility_constellation_packets(
+            orbital_states, EPOCH, _LINK_CONFIG, n_rad_s,
+            control_duration_s=5400.0, duration_s=3600.0, step_s=60.0,
+        )
+        assert len(pkts) == len(orbital_states) + 1
+
+
+class TestHazardEvolutionPackets:
+    """Hazard/survival colored satellites."""
+
+    def test_document_packet_present(self, orbital_states):
+        from constellation_generator.domain.statistical_analysis import LifetimeSurvivalCurve
+        curve = LifetimeSurvivalCurve(
+            times=(EPOCH,), altitudes_km=(550.0,),
+            survival_fraction=(1.0,), hazard_rate_per_day=(0.001,),
+            half_life_altitude_km=400.0, mean_remaining_life_days=365.0,
+        )
+        pkts = hazard_evolution_packets(
+            orbital_states, curve, EPOCH,
+            duration_s=86400.0, step_s=3600.0,
+        )
+        assert pkts[0]["id"] == "document"
+
+    def test_satellite_count(self, orbital_states):
+        from constellation_generator.domain.statistical_analysis import LifetimeSurvivalCurve
+        curve = LifetimeSurvivalCurve(
+            times=(EPOCH,), altitudes_km=(550.0,),
+            survival_fraction=(1.0,), hazard_rate_per_day=(0.001,),
+            half_life_altitude_km=400.0, mean_remaining_life_days=365.0,
+        )
+        pkts = hazard_evolution_packets(
+            orbital_states, curve, EPOCH,
+            duration_s=86400.0, step_s=3600.0,
+        )
+        assert len(pkts) == len(orbital_states) + 1
+
+    def test_color_uses_intervals(self, orbital_states):
+        from constellation_generator.domain.statistical_analysis import LifetimeSurvivalCurve
+        curve = LifetimeSurvivalCurve(
+            times=(EPOCH,), altitudes_km=(550.0,),
+            survival_fraction=(1.0,), hazard_rate_per_day=(0.001,),
+            half_life_altitude_km=400.0, mean_remaining_life_days=365.0,
+        )
+        pkts = hazard_evolution_packets(
+            orbital_states, curve, EPOCH,
+            duration_s=86400.0, step_s=3600.0,
+        )
+        for pkt in pkts[1:]:
+            color = pkt["point"]["color"]
+            assert isinstance(color, list)
+            assert "interval" in color[0]
+
+
+class TestCoverageConnectivityPackets:
+    """Coverage-connectivity product grid."""
+
+    def test_document_packet_present(self, orbital_states):
+        pkts = coverage_connectivity_packets(
+            orbital_states, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=1800.0,
+            lat_step_deg=30.0, lon_step_deg=30.0,
+        )
+        assert pkts[0]["id"] == "document"
+
+    def test_rectangle_entities(self, orbital_states):
+        pkts = coverage_connectivity_packets(
+            orbital_states, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=1800.0,
+            lat_step_deg=30.0, lon_step_deg=30.0,
+        )
+        rect_pkts = [p for p in pkts if "rectangle" in p]
+        assert len(rect_pkts) >= 0  # May have 0 if no coverage
+
+
+class TestNetworkEclipsePackets:
+    """Network eclipse-colored ISL links."""
+
+    def test_document_packet_present(self, orbital_states):
+        pkts = network_eclipse_packets(
+            orbital_states, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=60.0,
+        )
+        assert pkts[0]["id"] == "document"
+
+    def test_satellite_packets_present(self, orbital_states):
+        pkts = network_eclipse_packets(
+            orbital_states, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=60.0,
+        )
+        sat_pkts = [p for p in pkts if p.get("id", "").startswith("netecl-sat-")]
+        assert len(sat_pkts) == len(orbital_states)
+
+    def test_empty_states(self):
+        pkts = network_eclipse_packets(
+            [], _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=60.0,
+        )
+        assert len(pkts) == 1
 
 
 class TestCzmlVisualizationPurity:

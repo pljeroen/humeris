@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
+# Licensed under the terms in LICENSE-COMMERCIAL.md.
+# Free for personal, educational, and academic use.
+# Commercial use requires a paid license — see LICENSE-COMMERCIAL.md.
 """CZML exporter adapter for CesiumJS visualization.
 
 Generates CZML JSON packets for animated satellite orbits, ground tracks,
@@ -20,6 +24,14 @@ from constellation_generator.domain.coordinate_frames import (
 from constellation_generator.domain.ground_track import GroundTrackPoint
 from constellation_generator.domain.coverage import CoveragePoint
 from constellation_generator.domain.numerical_propagation import NumericalPropagationResult
+from constellation_generator.domain.orbit_properties import (
+    compute_orbital_velocity,
+    check_sun_synchronous,
+    compute_ltan,
+    compute_ground_track_repeat,
+)
+from constellation_generator.domain.eclipse import compute_beta_angle
+from constellation_generator.domain.atmosphere import atmospheric_density
 
 
 _PLANE_COLORS = [
@@ -50,17 +62,57 @@ def _assign_plane_indices(states: list[OrbitalState]) -> list[int]:
     return result
 
 
-def _satellite_description(state: OrbitalState) -> str:
-    """HTML description for Cesium info box."""
+def _satellite_description(state: OrbitalState, epoch: datetime) -> str:
+    """HTML description for Cesium info box with enriched orbital data."""
     alt_km = (state.semi_major_axis_m - OrbitalConstants.R_EARTH) / 1000.0
     incl_deg = math.degrees(state.inclination_rad)
     raan_deg = math.degrees(state.raan_rad)
+    argp_deg = math.degrees(state.arg_perigee_rad)
+
+    vel = compute_orbital_velocity(state)
+    period_min = vel.orbital_period_s / 60.0
+    vel_kms = vel.circular_velocity_ms / 1000.0
+
+    beta_deg = compute_beta_angle(state.raan_rad, state.inclination_rad, epoch)
+
+    ltan_hours = compute_ltan(state.raan_rad, epoch)
+    ltan_h = int(ltan_hours)
+    ltan_m = int((ltan_hours - ltan_h) * 60)
+
+    sso = check_sun_synchronous(state)
+    if sso.is_sun_synchronous:
+        sso_text = "Yes"
+    else:
+        sso_text = f"No (error: {sso.error_deg_day:.2f}&deg;/day)"
+
+    density = atmospheric_density(alt_km)
+
+    gt = compute_ground_track_repeat(state)
+
+    hdr = 'style="padding-top:6px;font-size:14px;color:#4fc3f7"'
+    cell = 'style="padding:1px 8px 1px 0"'
+
     return (
-        f"<table>"
-        f"<tr><td><b>Altitude</b></td><td>{alt_km:.1f} km</td></tr>"
-        f"<tr><td><b>Inclination</b></td><td>{incl_deg:.1f}&deg;</td></tr>"
-        f"<tr><td><b>RAAN</b></td><td>{raan_deg:.1f}&deg;</td></tr>"
-        f"<tr><td><b>Eccentricity</b></td><td>{state.eccentricity:.4f}</td></tr>"
+        f'<table style="font-size:13px;border-collapse:collapse">'
+        f'<tr><td colspan="2" {hdr}><b>Orbit</b></td></tr>'
+        f"<tr><td {cell}>Altitude</td><td>{alt_km:.1f} km</td></tr>"
+        f"<tr><td {cell}>Inclination</td><td>{incl_deg:.1f}&deg;</td></tr>"
+        f"<tr><td {cell}>RAAN</td><td>{raan_deg:.1f}&deg;</td></tr>"
+        f"<tr><td {cell}>Arg. perigee</td><td>{argp_deg:.1f}&deg;</td></tr>"
+        f"<tr><td {cell}>Eccentricity</td><td>{state.eccentricity:.4f}</td></tr>"
+        f"<tr><td {cell}>Period</td><td>{period_min:.1f} min</td></tr>"
+        f'<tr><td colspan="2" {hdr}><b>Velocity</b></td></tr>'
+        f"<tr><td {cell}>Orbital</td><td>{vel_kms:.2f} km/s</td></tr>"
+        f"<tr><td {cell}>Ground speed</td><td>{vel.ground_speed_kmh:.0f} km/h</td></tr>"
+        f'<tr><td colspan="2" {hdr}><b>Solar Geometry</b></td></tr>'
+        f"<tr><td {cell}>Beta angle</td><td>{beta_deg:.1f}&deg;</td></tr>"
+        f"<tr><td {cell}>LTAN</td><td>{ltan_h:02d}:{ltan_m:02d}</td></tr>"
+        f"<tr><td {cell}>Sun-sync</td><td>{sso_text}</td></tr>"
+        f'<tr><td colspan="2" {hdr}><b>Environment</b></td></tr>'
+        f"<tr><td {cell}>Atm. density</td><td>{density:.2e} kg/m&sup3;</td></tr>"
+        f'<tr><td colspan="2" {hdr}><b>Ground Track</b></td></tr>'
+        f"<tr><td {cell}>Rev/day</td><td>{gt.revs_per_day:.2f}</td></tr>"
+        f"<tr><td {cell}>Near repeat</td><td>{gt.near_repeat_revs} rev / {gt.near_repeat_days} day</td></tr>"
         f"</table>"
     )
 
@@ -104,6 +156,60 @@ def _document_packet(
             "step": "SYSTEM_CLOCK_MULTIPLIER",
         }
     return pkt
+
+
+def snapshot_packets(
+    states: list[OrbitalState],
+    epoch: datetime,
+    name: str = "Constellation",
+) -> list[dict]:
+    """Static point representation: one position per satellite at epoch.
+
+    No animation, no path, no label. ~200 bytes/sat instead of ~10KB.
+    Suitable for dense constellations (thousands of satellites).
+
+    Args:
+        states: List of orbital states.
+        epoch: Evaluation time for positions.
+        name: Document name.
+
+    Returns:
+        List of CZML packets (document + N point packets).
+    """
+    packets: list[dict] = [_document_packet(name)]
+
+    if not states:
+        return packets
+
+    plane_indices = _assign_plane_indices(states)
+
+    for idx, state in enumerate(states):
+        pos_eci, vel_eci = propagate_to(state, epoch)
+        gmst = gmst_rad(epoch)
+        pos_ecef, _ = eci_to_ecef(
+            (pos_eci[0], pos_eci[1], pos_eci[2]),
+            (vel_eci[0], vel_eci[1], vel_eci[2]),
+            gmst,
+        )
+        lat_deg, lon_deg, alt_m = ecef_to_geodetic(pos_ecef)
+
+        plane_color = _PLANE_COLORS[plane_indices[idx] % len(_PLANE_COLORS)]
+
+        pkt: dict = {
+            "id": f"snapshot-{idx}",
+            "name": f"Sat-{idx}",
+            "description": _satellite_description(state, epoch),
+            "position": {
+                "cartographicDegrees": [lon_deg, lat_deg, alt_m],
+            },
+            "point": {
+                "pixelSize": 3,
+                "color": {"rgba": list(plane_color)},
+            },
+        }
+        packets.append(pkt)
+
+    return packets
 
 
 def constellation_packets(
@@ -152,7 +258,7 @@ def constellation_packets(
         pkt: dict = {
             "id": sat_id,
             "name": f"Sat-{idx}",
-            "description": _satellite_description(state),
+            "description": _satellite_description(state, epoch),
             "position": {
                 "epoch": _iso(epoch),
                 "cartographicDegrees": coords,

@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
+# Licensed under the terms in LICENSE-COMMERCIAL.md.
+# Free for personal, educational, and academic use.
+# Commercial use requires a paid license — see LICENSE-COMMERCIAL.md.
 """Pass analysis: Doppler shift, pass quality, contact statistics, data downlink, visual magnitude.
 
 Derives pass-level and link-level metrics from existing access windows,

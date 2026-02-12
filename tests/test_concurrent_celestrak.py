@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Jeroen Visser. All rights reserved.
+# Licensed under the MIT License — see LICENSE.
 """Tests for concurrent CelesTrak adapter."""
 import math
 from unittest.mock import patch, MagicMock

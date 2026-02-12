@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Jeroen Visser. All rights reserved.
+# Licensed under the MIT License — see LICENSE.
 """Ground track computation for circular orbits.
 
 Propagates a satellite's position over time using Keplerian two-body
