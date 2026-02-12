@@ -23,7 +23,7 @@ All notable changes to this project are documented here.
 
 **Tests**: 1384 passing
 
-## [1.18.0] - 2026-02-11
+## [1.18.0] - 2026-02-12
 
 - 27 new domain modules: ISL topology, DOP, pass analysis, constellation
   metrics, relative motion, link budget, third-body perturbations, torques,
@@ -37,44 +37,44 @@ All notable changes to this project are documented here.
 
 **Tests**: 1146 passing
 
-## [1.12.0] - 2026-02-10
+## [1.12.0] - 2026-02-12
 
 - Self-contained Cesium HTML viewer with plane coloring
 - CZML visualization: eclipse, sensor footprint, ground station, conjunction
   replay, ISL topology, coverage evolution, precession, fragility, hazard,
   network eclipse, coverage connectivity
 
-## [1.11.0] - 2026-02-09
+## [1.11.0] - 2026-02-12
 
 - Sensor/payload FOV modeling (circular, rectangular, custom polygon)
 - 163 formal invariant tests (energy, momentum, vis-viva, frame round-trips)
 
 **Tests**: 467 passing (630 including invariants)
 
-## [1.10.0] - 2026-02-08
+## [1.10.0] - 2026-02-12
 
 - Numerical propagation bridges (analytical-to-numerical state handoff)
 - Shadow-aware solar radiation pressure force model
 
 **Tests**: 436 passing
 
-## [1.9.0] - 2026-02-07
+## [1.9.0] - 2026-02-12
 
 - RK4 numerical propagator with pluggable force models
 - Force models: two-body, J2, J3, atmospheric drag, SRP
 
-## [1.8.0] - 2026-02-06
+## [1.8.0] - 2026-02-12
 
 - CZML exporter for CesiumJS 3D visualization
 - Animated constellation, snapshot, ground track, coverage CZML packets
 
-## [1.7.0] - 2026-02-05
+## [1.7.0] - 2026-02-12
 
 - Time-domain revisit analysis (mean/max revisit, coverage fraction,
   mean response time)
 - Parametric Walker trade studies with Pareto front extraction
 
-## [1.6.0] - 2026-02-04
+## [1.6.0] - 2026-02-12
 
 - Solar ephemeris (analytical Sun position, declination)
 - Eclipse prediction (shadow geometry, beta angle, eclipse windows)
@@ -82,7 +82,7 @@ All notable changes to this project are documented here.
 - Deorbit compliance estimation (FCC 5-year / ESA 25-year)
 - Orbit design (SSO/LTAN, frozen orbit, repeat ground track)
 
-## [1.5.0] - 2026-02-03
+## [1.5.0] - 2026-02-12
 
 - Atmospheric drag model (exponential density, configurable solar activity)
 - Orbit lifetime prediction with decay profile
@@ -90,7 +90,7 @@ All notable changes to this project are documented here.
 - Conjunction screening, TCA refinement, B-plane geometry, collision
   probability
 
-## [1.4.0] - 2026-02-02
+## [1.4.0] - 2026-02-12
 
 - J2/J3 secular perturbations (RAAN drift, argument of perigee drift)
 - Analytical propagation (Keplerian + J2)
@@ -98,14 +98,14 @@ All notable changes to this project are documented here.
 - Access window detection (satellite rise/set from ground station)
 - Grid-based coverage analysis
 
-## [1.3.0] - 2026-02-01
+## [1.3.0] - 2026-02-12
 
 - Ground track computation (sub-satellite trace with optional J2)
 - CSV and GeoJSON satellite position export
 - Coordinate frame conversions (ECI, ECEF, Geodetic via Bowring/WGS84)
 - Concurrent CelesTrak adapter (threaded SGP4 propagation)
 
-## [1.0.0] - 2026-01-30
+## [1.0.0] - 2026-02-11
 
 - Initial release
 - Walker constellation shell generation
