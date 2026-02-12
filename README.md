@@ -482,6 +482,40 @@ rho_vallado = atmospheric_density(500, AtmosphereModel.VALLADO_4TH)
 print(f"500km density: high={rho_high:.3e}, vallado={rho_vallado:.3e}")
 ```
 
+#### CZML export (CesiumJS visualization)
+
+Generate CZML for animated 3D visualization in CesiumJS:
+
+```python
+from datetime import datetime, timedelta, timezone
+from constellation_generator import ShellConfig, generate_walker_shell, derive_orbital_state
+from constellation_generator.adapters.czml_exporter import (
+    constellation_packets, ground_track_packets, coverage_packets, write_czml,
+)
+
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+shell = ShellConfig(altitude_km=550, inclination_deg=53, num_planes=6,
+                    sats_per_plane=10, phase_factor=1, raan_offset_deg=0, shell_name="Test")
+sats = generate_walker_shell(shell)
+states = [derive_orbital_state(s, epoch) for s in sats]
+
+# Animated satellite orbits
+packets = constellation_packets(states, epoch, timedelta(hours=2), timedelta(seconds=60))
+write_czml(packets, "constellation.czml")
+
+# Ground track polyline
+from constellation_generator import compute_ground_track
+track = compute_ground_track(sats[0], epoch, timedelta(minutes=90), timedelta(minutes=1))
+gt_packets = ground_track_packets(track)
+write_czml(gt_packets, "ground_track.czml")
+
+# Coverage heatmap
+from constellation_generator import compute_coverage_snapshot
+grid = compute_coverage_snapshot(states, epoch, lat_step_deg=5, lon_step_deg=5)
+cov_packets = coverage_packets(grid, lat_step_deg=5, lon_step_deg=5)
+write_czml(cov_packets, "coverage.czml")
+```
+
 #### Export formats (programmatic)
 
 ```python
@@ -554,7 +588,8 @@ src/constellation_generator/
 │   ├── celestrak.py           # CelesTrakAdapter, SGP4Adapter
 │   ├── concurrent_celestrak.py # ConcurrentCelesTrakAdapter (ThreadPoolExecutor)
 │   ├── csv_exporter.py        # CsvSatelliteExporter
-│   └── geojson_exporter.py    # GeoJsonSatelliteExporter
+│   ├── geojson_exporter.py    # GeoJsonSatelliteExporter
+│   └── czml_exporter.py       # CZML packets for CesiumJS visualization
 └── cli.py                     # CLI entry point (--concurrent, --export-csv, --export-geojson)
 ```
 
@@ -565,7 +600,7 @@ port interfaces.
 ## Tests
 
 ```bash
-pytest                                    # all 363 tests
+pytest                                    # all 381 tests
 pytest tests/test_constellation.py        # 21 synthetic tests (offline)
 pytest tests/test_coordinate_frames.py    # 29 coordinate frame tests (offline)
 pytest tests/test_j2_perturbations.py     # 12 J2/J3 perturbation tests (offline)
@@ -586,6 +621,7 @@ pytest tests/test_maneuvers.py           # 21 orbit transfer tests (offline)
 pytest tests/test_deorbit.py             # 13 deorbit compliance tests (offline)
 pytest tests/test_orbit_design.py        # 17 orbit design tests (offline)
 pytest tests/test_export.py               # 18 export tests (offline)
+pytest tests/test_czml_exporter.py       # 18 CZML exporter tests (offline)
 pytest tests/test_concurrent_celestrak.py # 12 concurrent adapter tests (offline)
 pytest tests/test_live_data.py            # 13 live data tests (network)
 ```
