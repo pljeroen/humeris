@@ -66,7 +66,7 @@ def compute_swath_width(altitude_km: float, half_angle_deg: float) -> float:
 
     Geometry: satellite at altitude h, half-cone angle alpha.
     eta = asin((R_e + h) / R_e * sin(alpha))
-    lambda = pi - alpha - eta
+    lambda = eta - alpha
     swath = 2 * R_e * lambda
 
     Args:

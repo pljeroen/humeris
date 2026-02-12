@@ -11,6 +11,7 @@ import math
 from datetime import datetime, timedelta
 
 from constellation_generator.domain.propagation import OrbitalState, propagate_to
+from constellation_generator.domain.orbital_mechanics import OrbitalConstants
 from constellation_generator.domain.coordinate_frames import (
     gmst_rad,
     eci_to_ecef,
@@ -51,7 +52,7 @@ def _assign_plane_indices(states: list[OrbitalState]) -> list[int]:
 
 def _satellite_description(state: OrbitalState) -> str:
     """HTML description for Cesium info box."""
-    alt_km = (state.semi_major_axis_m - 6_371_000) / 1000.0
+    alt_km = (state.semi_major_axis_m - OrbitalConstants.R_EARTH) / 1000.0
     incl_deg = math.degrees(state.inclination_rad)
     raan_deg = math.degrees(state.raan_rad)
     return (
@@ -66,6 +67,21 @@ def _satellite_description(state: OrbitalState) -> str:
 
 def _iso(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _validate_step(step: timedelta) -> float:
+    """Validate step size and return total seconds. Raises ValueError if <= 0."""
+    step_seconds = step.total_seconds()
+    if step_seconds <= 0:
+        raise ValueError(f"step must be positive, got {step}")
+    return step_seconds
+
+
+def _interpolation_degree(num_points: int) -> int:
+    """LAGRANGE interpolation degree: min(5, num_points - 1), at least 1."""
+    if num_points <= 1:
+        return 1
+    return min(5, num_points - 1)
 
 
 def _document_packet(
@@ -108,8 +124,9 @@ def constellation_packets(
         return packets
 
     total_seconds = duration.total_seconds()
-    step_seconds = step.total_seconds()
+    step_seconds = _validate_step(step)
     num_steps = int(total_seconds / step_seconds) + 1
+    interp_degree = _interpolation_degree(num_steps)
 
     plane_indices = _assign_plane_indices(orbital_states)
 
@@ -140,7 +157,7 @@ def constellation_packets(
                 "epoch": _iso(epoch),
                 "cartographicDegrees": coords,
                 "interpolationAlgorithm": "LAGRANGE",
-                "interpolationDegree": 5,
+                "interpolationDegree": interp_degree,
             },
             "point": {
                 "pixelSize": 5,
@@ -275,6 +292,14 @@ def constellation_packets_numerical(
     if not results:
         return [_document_packet(name)]
 
+    if not results[0].steps:
+        raise ValueError("First result has empty steps; cannot determine epoch")
+
+    if sat_names is not None and len(sat_names) < len(results):
+        raise ValueError(
+            f"sat_names has {len(sat_names)} entries but there are {len(results)} results"
+        )
+
     epoch = results[0].steps[0].time
     end_time = results[0].steps[-1].time
     duration = end_time - epoch
@@ -282,13 +307,15 @@ def constellation_packets_numerical(
     packets: list[dict] = [_document_packet(name, epoch, duration)]
 
     for idx, result in enumerate(results):
+        num_points = len(result.steps)
+        interp_degree = _interpolation_degree(num_points)
         coords: list[float] = []
-        for step in result.steps:
-            t_offset = (step.time - epoch).total_seconds()
-            gmst = gmst_rad(step.time)
+        for step_item in result.steps:
+            t_offset = (step_item.time - epoch).total_seconds()
+            gmst = gmst_rad(step_item.time)
             pos_ecef, _ = eci_to_ecef(
-                step.position_eci,
-                step.velocity_eci,
+                step_item.position_eci,
+                step_item.velocity_eci,
                 gmst,
             )
             lat_deg, lon_deg, alt_m = ecef_to_geodetic(pos_ecef)
@@ -303,7 +330,7 @@ def constellation_packets_numerical(
                 "epoch": _iso(epoch),
                 "cartographicDegrees": coords,
                 "interpolationAlgorithm": "LAGRANGE",
-                "interpolationDegree": 5,
+                "interpolationDegree": interp_degree,
             },
             "point": {
                 "pixelSize": 5,

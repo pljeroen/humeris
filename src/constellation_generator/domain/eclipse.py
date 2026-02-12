@@ -21,6 +21,9 @@ from constellation_generator.domain.propagation import OrbitalState, propagate_t
 
 _R_EARTH = OrbitalConstants.R_EARTH
 
+# Eclipse beta-angle threshold: orbits with |beta| below this experience eclipses
+_ECLIPSE_BETA_THRESHOLD_DEG = 70.0
+
 
 class EclipseType(Enum):
     NONE = "none"
@@ -226,3 +229,104 @@ def eclipse_fraction(
             eclipsed_count += 1
 
     return eclipsed_count / num_points
+
+
+@dataclass(frozen=True)
+class BetaAngleSnapshot:
+    """Beta angle at a single point in time."""
+    time: datetime
+    beta_deg: float
+
+
+@dataclass(frozen=True)
+class BetaAngleHistory:
+    """Time series of beta angle evolution."""
+    snapshots: tuple[BetaAngleSnapshot, ...]
+    duration_s: float
+
+
+def compute_beta_angle_history(
+    raan_rad: float,
+    inclination_rad: float,
+    epoch: datetime,
+    duration_s: float,
+    step_s: float,
+    raan_drift_rad_s: float = 0.0,
+) -> BetaAngleHistory:
+    """Time series of beta angle, optionally with RAAN drift.
+
+    Args:
+        raan_rad: Initial RAAN (radians).
+        inclination_rad: Orbital inclination (radians).
+        epoch: Start epoch.
+        duration_s: Total duration (seconds).
+        step_s: Time step (seconds).
+        raan_drift_rad_s: RAAN precession rate (rad/s), e.g. from J2.
+
+    Returns:
+        BetaAngleHistory with snapshots at each time step.
+    """
+    snapshots: list[BetaAngleSnapshot] = []
+    elapsed = 0.0
+    while elapsed <= duration_s + 1e-9:
+        current_time = epoch + timedelta(seconds=elapsed)
+        current_raan = raan_rad + raan_drift_rad_s * elapsed
+        beta = compute_beta_angle(current_raan, inclination_rad, current_time)
+        snapshots.append(BetaAngleSnapshot(time=current_time, beta_deg=beta))
+        elapsed += step_s
+
+    return BetaAngleHistory(snapshots=tuple(snapshots), duration_s=duration_s)
+
+
+def predict_eclipse_seasons(
+    raan_rad: float,
+    inclination_rad: float,
+    epoch: datetime,
+    duration_days: float,
+    step_days: float = 1.0,
+    raan_drift_rad_s: float = 0.0,
+) -> list[tuple[datetime, datetime]]:
+    """Predict intervals where |beta| < threshold (eclipse occurrence).
+
+    Args:
+        raan_rad: Initial RAAN (radians).
+        inclination_rad: Orbital inclination (radians).
+        epoch: Start epoch.
+        duration_days: Analysis duration (days).
+        step_days: Time step (days).
+        raan_drift_rad_s: RAAN precession rate (rad/s).
+
+    Returns:
+        List of (start, end) datetime tuples for eclipse seasons.
+    """
+    if duration_days <= 0:
+        return []
+
+    duration_s = duration_days * 86400.0
+    step_s = step_days * 86400.0
+
+    seasons: list[tuple[datetime, datetime]] = []
+    in_season = False
+    season_start = epoch
+    elapsed = 0.0
+
+    while elapsed <= duration_s + 1e-9:
+        current_time = epoch + timedelta(seconds=elapsed)
+        current_raan = raan_rad + raan_drift_rad_s * elapsed
+        beta = compute_beta_angle(current_raan, inclination_rad, current_time)
+        is_eclipse = abs(beta) < _ECLIPSE_BETA_THRESHOLD_DEG
+
+        if is_eclipse and not in_season:
+            season_start = current_time
+            in_season = True
+        elif not is_eclipse and in_season:
+            seasons.append((season_start, current_time))
+            in_season = False
+
+        elapsed += step_s
+
+    if in_season:
+        end_time = epoch + timedelta(seconds=duration_s)
+        seasons.append((season_start, end_time))
+
+    return seasons

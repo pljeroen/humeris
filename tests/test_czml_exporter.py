@@ -310,6 +310,59 @@ class TestConstellationPacketsNumerical:
             assert pkt["name"] == f"Sat-{idx}"
 
 
+class TestInputValidation:
+    """Validation of step size, sat_names, and edge case inputs."""
+
+    def test_zero_step_raises(self, orbital_states, epoch):
+        """step=timedelta(0) must raise ValueError."""
+        with pytest.raises(ValueError, match="step"):
+            constellation_packets(orbital_states, epoch, timedelta(hours=2), timedelta(0))
+
+    def test_negative_step_raises(self, orbital_states, epoch):
+        """Negative step must raise ValueError."""
+        with pytest.raises(ValueError, match="step"):
+            constellation_packets(orbital_states, epoch, timedelta(hours=2), timedelta(seconds=-1))
+
+    def test_few_steps_adapts_interpolation(self, epoch, orbital_states):
+        """With few data points, interpolation degree must be reduced below 5."""
+        # duration=2h, step=1h → 3 data points → max degree 2
+        pkts = constellation_packets(
+            orbital_states, epoch, timedelta(hours=2), timedelta(hours=1),
+        )
+        for pkt in pkts[1:]:
+            assert pkt["position"]["interpolationDegree"] <= 2
+
+    def test_sat_names_length_mismatch_raises(self, epoch, orbital_states):
+        """sat_names shorter than results must raise ValueError."""
+        from constellation_generator.adapters.czml_exporter import constellation_packets_numerical
+        from constellation_generator.domain.numerical_propagation import (
+            TwoBodyGravity,
+            propagate_numerical,
+        )
+        results = [
+            propagate_numerical(
+                s, timedelta(hours=2), timedelta(seconds=60),
+                [TwoBodyGravity()], epoch=epoch,
+            )
+            for s in orbital_states
+        ]
+        with pytest.raises(ValueError, match="sat_names"):
+            constellation_packets_numerical(results, sat_names=["only-one"])
+
+    def test_empty_steps_raises(self, epoch):
+        """NumericalPropagationResult with empty steps must raise ValueError."""
+        from constellation_generator.adapters.czml_exporter import constellation_packets_numerical
+        from constellation_generator.domain.numerical_propagation import NumericalPropagationResult
+        result = NumericalPropagationResult(
+            steps=(),
+            epoch=epoch,
+            duration_s=0.0,
+            force_model_names=(),
+        )
+        with pytest.raises(ValueError, match="steps"):
+            constellation_packets_numerical([result])
+
+
 class TestPlaneColoring:
     """Satellites in different orbital planes get distinct colors."""
 

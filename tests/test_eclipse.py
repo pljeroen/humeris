@@ -8,12 +8,16 @@ import pytest
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
 from constellation_generator.domain.solar import AU_METERS, sun_position_eci
 from constellation_generator.domain.eclipse import (
+    BetaAngleHistory,
+    BetaAngleSnapshot,
     EclipseEvent,
     EclipseType,
     compute_beta_angle,
+    compute_beta_angle_history,
     compute_eclipse_windows,
     eclipse_fraction,
     is_eclipsed,
+    predict_eclipse_seasons,
 )
 
 
@@ -196,6 +200,117 @@ class TestEclipseFraction:
         state, epoch = self._make_leo_state()
         frac = eclipse_fraction(state, epoch)
         assert 0.0 <= frac <= 1.0
+
+
+# ── Beta angle history ────────────────────────────────────────────
+
+class TestBetaAngleHistory:
+
+    def test_beta_history_returns_type(self):
+        """Return type is BetaAngleHistory."""
+        epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        result = compute_beta_angle_history(
+            raan_rad=0.0, inclination_rad=math.radians(53.0),
+            epoch=epoch, duration_s=86400.0, step_s=3600.0,
+        )
+        assert isinstance(result, BetaAngleHistory)
+
+    def test_beta_snapshot_count(self):
+        """Number of snapshots = duration/step + 1."""
+        epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        result = compute_beta_angle_history(
+            raan_rad=0.0, inclination_rad=math.radians(53.0),
+            epoch=epoch, duration_s=86400.0, step_s=3600.0,
+        )
+        assert len(result.snapshots) == 25  # 0, 3600, ..., 86400
+
+    def test_beta_equinox_equatorial(self):
+        """β ≈ 0° at equinox for equatorial orbit."""
+        equinox = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        sun = sun_position_eci(equinox)
+        result = compute_beta_angle_history(
+            raan_rad=sun.right_ascension_rad, inclination_rad=0.0,
+            epoch=equinox, duration_s=3600.0, step_s=3600.0,
+        )
+        assert abs(result.snapshots[0].beta_deg) < 3.0
+
+    def test_beta_varies_over_year(self):
+        """Beta changes over 365 days."""
+        epoch = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        result = compute_beta_angle_history(
+            raan_rad=0.0, inclination_rad=math.radians(53.0),
+            epoch=epoch, duration_s=365.25 * 86400.0, step_s=30 * 86400.0,
+        )
+        betas = [s.beta_deg for s in result.snapshots]
+        assert max(betas) - min(betas) > 10.0
+
+    def test_beta_polar_orbit_range(self):
+        """Polar orbit → |β| reaches ~23.5°."""
+        epoch = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        result = compute_beta_angle_history(
+            raan_rad=0.0, inclination_rad=math.radians(90.0),
+            epoch=epoch, duration_s=365.25 * 86400.0, step_s=7 * 86400.0,
+        )
+        max_beta = max(abs(s.beta_deg) for s in result.snapshots)
+        assert max_beta > 20.0
+
+    def test_beta_snapshot_frozen(self):
+        """BetaAngleSnapshot is immutable."""
+        snap = BetaAngleSnapshot(
+            time=datetime(2026, 1, 1, tzinfo=timezone.utc), beta_deg=10.0,
+        )
+        with pytest.raises(AttributeError):
+            snap.beta_deg = 0.0
+
+    def test_beta_history_with_raan_drift(self):
+        """RAAN drift shifts beta curve."""
+        epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        dur = 365.25 * 86400.0
+        step = 30 * 86400.0
+        no_drift = compute_beta_angle_history(
+            raan_rad=0.0, inclination_rad=math.radians(53.0),
+            epoch=epoch, duration_s=dur, step_s=step,
+        )
+        with_drift = compute_beta_angle_history(
+            raan_rad=0.0, inclination_rad=math.radians(53.0),
+            epoch=epoch, duration_s=dur, step_s=step,
+            raan_drift_rad_s=1e-7,
+        )
+        # At least some snapshots should differ significantly
+        diffs = [abs(a.beta_deg - b.beta_deg)
+                 for a, b in zip(no_drift.snapshots, with_drift.snapshots)]
+        assert max(diffs) > 1.0
+
+
+class TestPredictEclipseSeasons:
+
+    def test_eclipse_seasons_returns_list(self):
+        """Returns list of (start, end) tuples."""
+        epoch = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        result = predict_eclipse_seasons(
+            raan_rad=0.0, inclination_rad=math.radians(53.0),
+            epoch=epoch, duration_days=365.0,
+        )
+        assert isinstance(result, list)
+
+    def test_eclipse_seasons_equatorial(self):
+        """Equatorial orbit → near-continuous eclipse (low beta)."""
+        epoch = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        result = predict_eclipse_seasons(
+            raan_rad=0.0, inclination_rad=0.0,
+            epoch=epoch, duration_days=365.0,
+        )
+        # Equatorial orbit: beta ≈ ±23.5°, nearly always below eclipse threshold
+        assert len(result) > 0
+
+    def test_zero_duration_empty(self):
+        """Zero duration → empty result."""
+        epoch = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        result = predict_eclipse_seasons(
+            raan_rad=0.0, inclination_rad=math.radians(53.0),
+            epoch=epoch, duration_days=0.0,
+        )
+        assert result == []
 
 
 # ── Domain purity ─────────────────────────────────────────────────

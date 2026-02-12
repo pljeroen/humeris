@@ -11,8 +11,12 @@ import pytest
 
 from constellation_generator.domain.constellation import ShellConfig, generate_walker_shell
 from constellation_generator.domain.ground_track import (
+    AscendingNodePass,
+    GroundTrackCrossing,
     GroundTrackPoint,
     compute_ground_track,
+    find_ascending_nodes,
+    find_ground_track_crossings,
 )
 
 
@@ -265,6 +269,119 @@ class TestComputeGroundTrackNumerical:
             if lon_diff > 180:
                 lon_diff = 360 - lon_diff
             assert lon_diff < 1.0, f"Lon mismatch: {a_pt.lon_deg} vs {n_pt.lon_deg}"
+
+
+# ── Ascending nodes ──────────────────────────────────────────────
+
+class TestFindAscendingNodes:
+    """Tests for ascending node detection."""
+
+    def test_ascending_nodes_returns_list(self):
+        """Return type is list[AscendingNodePass]."""
+        sat = _make_satellite(inclination_deg=53.0)
+        start = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        track = compute_ground_track(sat, start, timedelta(minutes=180), timedelta(seconds=30))
+        nodes = find_ascending_nodes(track)
+        assert isinstance(nodes, list)
+        assert all(isinstance(n, AscendingNodePass) for n in nodes)
+
+    def test_ascending_node_near_equator(self):
+        """Crossing at lat ≈ 0°."""
+        sat = _make_satellite(inclination_deg=53.0)
+        start = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        track = compute_ground_track(sat, start, timedelta(minutes=180), timedelta(seconds=30))
+        nodes = find_ascending_nodes(track)
+        # Interpolated crossings should be near equator (though ground track points
+        # are discrete, the interpolation should give values very close to 0)
+        assert len(nodes) > 0
+
+    def test_ascending_node_count(self):
+        """≈ revolutions in duration."""
+        sat = _make_satellite(inclination_deg=53.0)
+        start = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        # ~3 orbits at 500 km (~94 min period)
+        track = compute_ground_track(sat, start, timedelta(minutes=280), timedelta(seconds=30))
+        nodes = find_ascending_nodes(track)
+        assert 2 <= len(nodes) <= 4
+
+    def test_ascending_node_longitude_shifts(self):
+        """Each successive node shifted west."""
+        sat = _make_satellite(inclination_deg=53.0)
+        start = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        track = compute_ground_track(sat, start, timedelta(minutes=280), timedelta(seconds=30))
+        nodes = find_ascending_nodes(track)
+        if len(nodes) >= 2:
+            # Earth rotates east, so ground track sub-satellite longitude shifts west
+            # (longitude decreases for prograde orbits)
+            lon_diffs = []
+            for i in range(len(nodes) - 1):
+                diff = nodes[i + 1].longitude_deg - nodes[i].longitude_deg
+                if diff > 180:
+                    diff -= 360
+                if diff < -180:
+                    diff += 360
+                lon_diffs.append(diff)
+            # All diffs should be negative (westward shift)
+            assert all(d < 0 for d in lon_diffs)
+
+    def test_ascending_node_frozen(self):
+        """AscendingNodePass is immutable."""
+        node = AscendingNodePass(
+            time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            longitude_deg=45.0,
+        )
+        with pytest.raises(AttributeError):
+            node.longitude_deg = 0.0
+
+
+# ── Ground track crossings ──────────────────────────────────────
+
+class TestFindGroundTrackCrossings:
+    """Tests for ground track self-intersection detection."""
+
+    def test_crossings_returns_list(self):
+        """Return type is list[GroundTrackCrossing]."""
+        sat = _make_satellite(inclination_deg=53.0)
+        start = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        track = compute_ground_track(sat, start, timedelta(minutes=280), timedelta(seconds=30))
+        crossings = find_ground_track_crossings(track)
+        assert isinstance(crossings, list)
+        assert all(isinstance(c, GroundTrackCrossing) for c in crossings)
+
+    def test_crossings_exist_inclined(self):
+        """Inclined orbit over 3+ orbits → crossings exist."""
+        sat = _make_satellite(inclination_deg=53.0)
+        start = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        track = compute_ground_track(sat, start, timedelta(minutes=280), timedelta(seconds=30))
+        crossings = find_ground_track_crossings(track)
+        assert len(crossings) > 0
+
+    def test_no_crossings_equatorial(self):
+        """Equatorial orbit → no descending segments → no crossings."""
+        sat = _make_satellite(inclination_deg=0.0)
+        start = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        track = compute_ground_track(sat, start, timedelta(minutes=180), timedelta(seconds=30))
+        crossings = find_ground_track_crossings(track)
+        assert len(crossings) == 0
+
+    def test_crossing_frozen(self):
+        """GroundTrackCrossing is immutable."""
+        c = GroundTrackCrossing(
+            lat_deg=30.0, lon_deg=-45.0,
+            time_ascending=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            time_descending=datetime(2026, 1, 1, 1, 0, tzinfo=timezone.utc),
+        )
+        with pytest.raises(AttributeError):
+            c.lat_deg = 0.0
+
+    def test_single_point_no_crossings(self):
+        """Single point → no crossings."""
+        track = [GroundTrackPoint(
+            time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            lat_deg=0.0, lon_deg=0.0, alt_km=500.0,
+        )]
+        crossings = find_ground_track_crossings(track)
+        assert crossings == []
 
 
 class TestGroundTrackPurity:

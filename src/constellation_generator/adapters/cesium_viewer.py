@@ -9,6 +9,7 @@ in a single viewer.
 Uses only stdlib json + no external dependencies.
 """
 
+import html
 import json
 
 
@@ -34,11 +35,18 @@ def generate_cesium_html(
     Returns:
         Complete HTML document as a string.
     """
+    safe_title = html.escape(title)
+
     czml_json = json.dumps(czml_packets, indent=2, ensure_ascii=False)
+    # Prevent </script> in JSON from breaking the HTML script block
+    czml_json = czml_json.replace("</", "<\\/")
 
     layers_js = ""
     if additional_layers:
-        layer_jsons = [json.dumps(layer, indent=2, ensure_ascii=False) for layer in additional_layers]
+        layer_jsons = [
+            json.dumps(layer, indent=2, ensure_ascii=False).replace("</", "<\\/")
+            for layer in additional_layers
+        ]
         layers_array = ",\n            ".join(layer_jsons)
         layers_js = f"""
         var czmlLayers = [
@@ -52,14 +60,14 @@ def generate_cesium_html(
 
     token_line = ""
     if cesium_token:
-        token_line = f'Cesium.Ion.defaultAccessToken = "{cesium_token}";'
+        token_line = f'Cesium.Ion.defaultAccessToken = {json.dumps(cesium_token)};'
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title}</title>
+    <title>{safe_title}</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/{_CESIUM_VERSION}/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/{_CESIUM_VERSION}/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
@@ -87,7 +95,7 @@ def generate_cesium_html(
 </head>
 <body>
     <div id="cesiumContainer"></div>
-    <div id="infoOverlay">{title}</div>
+    <div id="infoOverlay">{safe_title}</div>
     <script>
         {token_line}
         var czmlData = {czml_json};

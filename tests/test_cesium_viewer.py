@@ -276,6 +276,49 @@ class TestWriteCesiumHtml:
                 os.unlink(p)
 
 
+class TestSecurityHardening:
+    """Security: input sanitization to prevent XSS/injection in HTML output."""
+
+    def test_title_html_escaped(self):
+        """Title containing HTML tags must be escaped in HTML contexts."""
+        from constellation_generator.adapters.cesium_viewer import generate_cesium_html
+        html = generate_cesium_html(
+            [{"id": "document", "version": "1.0"}],
+            title='<img src=x onerror=alert(1)>',
+        )
+        assert '<img src=x onerror=alert(1)>' not in html
+
+    def test_cesium_token_quotes_escaped(self):
+        """Cesium token with quotes must be escaped in JS string context."""
+        from constellation_generator.adapters.cesium_viewer import generate_cesium_html
+        html = generate_cesium_html(
+            [{"id": "document", "version": "1.0"}],
+            cesium_token='token"inject',
+        )
+        # Raw unescaped double quote in token would break JS string literal
+        assert 'token"inject' not in html
+
+    def test_czml_script_tag_escape(self):
+        """CZML data containing </script> must not break HTML structure."""
+        from constellation_generator.adapters.cesium_viewer import generate_cesium_html
+        packets = [
+            {"id": "document", "version": "1.0", "note": "</script><script>alert(1)</script>"}
+        ]
+        html = generate_cesium_html(packets)
+        # Exactly 2 closing script tags expected: CDN + inline
+        close_count = html.lower().count('</script>')
+        assert close_count == 2, f"Expected 2 </script> tags, got {close_count}"
+
+    def test_title_preserves_safe_content(self):
+        """Safe title content is preserved after escaping (regression guard)."""
+        from constellation_generator.adapters.cesium_viewer import generate_cesium_html
+        html = generate_cesium_html(
+            [{"id": "document", "version": "1.0"}],
+            title='My Safe Title',
+        )
+        assert 'My Safe Title' in html
+
+
 class TestCesiumViewerPurity:
     """Adapter purity: only stdlib + internal imports allowed."""
 
@@ -285,7 +328,7 @@ class TestCesiumViewerPurity:
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
-        allowed_stdlib = {"json", "math", "datetime", "string"}
+        allowed_stdlib = {"json", "math", "datetime", "string", "html"}
         allowed_internal = {"constellation_generator"}
 
         for node in ast.walk(tree):
