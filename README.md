@@ -832,6 +832,7 @@ results without network access.
 - [API Reference](docs/api-reference.md) — HTTP endpoints
 - [Integration Guide](docs/integration-guide.md) — CelesTrak, CesiumJS, custom sources
 - [Export Formats](docs/export-formats.md) — CSV, GeoJSON, CZML
+- [Simulator Integrations](docs/simulator-integrations.md) — Universe Sandbox, SpaceEngine
 - [Licensing](docs/licensing.md) — MIT core + commercial extensions
 - [Changelog](CHANGELOG.md) — version history
 
