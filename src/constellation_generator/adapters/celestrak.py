@@ -17,7 +17,7 @@ import logging
 import math
 import urllib.request
 import urllib.error
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote
 
@@ -48,6 +48,11 @@ def _normalize_epoch(epoch_str: str) -> str:
     if epoch_str.endswith("Z"):
         return epoch_str[:-1] + "+00:00"
     return epoch_str
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """Ensure datetime is timezone-aware (treat naive as UTC)."""
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 class SGP4Adapter:
@@ -204,7 +209,7 @@ class CelesTrakAdapter(OrbitalDataSource):
 
 
 def _epoch_str_to_jd(jday_fn, epoch_str: str) -> tuple[float, float]:
-    dt = datetime.fromisoformat(_normalize_epoch(epoch_str))
+    dt = _as_utc(datetime.fromisoformat(_normalize_epoch(epoch_str)))
     return _datetime_to_jd(jday_fn, dt)
 
 
@@ -215,7 +220,7 @@ def _datetime_to_jd(jday_fn, dt: datetime) -> tuple[float, float]:
 
 def _epoch_to_jd_offset(epoch_str: str) -> float:
     """SGP4 epoch offset: fractional days since 1949-12-31."""
-    dt = datetime.fromisoformat(_normalize_epoch(epoch_str))
-    ref = datetime(1949, 12, 31, 0, 0, 0)
+    dt = _as_utc(datetime.fromisoformat(_normalize_epoch(epoch_str)))
+    ref = datetime(1949, 12, 31, tzinfo=timezone.utc)
     delta = dt - ref
     return delta.days + delta.seconds / 86400.0 + delta.microseconds / 86400e6

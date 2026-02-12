@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timezone
 
 from constellation_generator.ports.export import SatelliteExporter
+from constellation_generator.domain.constellation import Satellite
 from constellation_generator.domain.coordinate_frames import (
     gmst_rad,
     eci_to_ecef,
@@ -24,7 +25,7 @@ class GeoJsonSatelliteExporter(SatelliteExporter):
 
     def export(
         self,
-        satellites: list,
+        satellites: list[Satellite],
         path: str,
         epoch: datetime | None = None,
     ) -> int:

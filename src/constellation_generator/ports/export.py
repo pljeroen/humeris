@@ -7,6 +7,8 @@ Adapters implement this to export satellite positions in various formats
 from abc import ABC, abstractmethod
 from datetime import datetime
 
+from constellation_generator.domain.constellation import Satellite
+
 
 class SatelliteExporter(ABC):
     """Port for exporting satellite data to file."""
@@ -14,7 +16,7 @@ class SatelliteExporter(ABC):
     @abstractmethod
     def export(
         self,
-        satellites: list,
+        satellites: list[Satellite],
         path: str,
         epoch: datetime | None = None,
     ) -> int:
