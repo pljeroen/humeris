@@ -57,6 +57,7 @@ The following files are **not** covered by the MIT License:
 - `cesium_viewer.py` — Self-contained HTML viewer with layer selector
 - `czml_exporter.py` — CZML packets for CesiumJS visualization
 - `czml_visualization.py` — Advanced CZML (ISL, fragility, hazard, coverage)
+- `viewer_server.py` — Interactive viewer server with 13 analysis types
 
 **Tests** (`tests/`):
 
@@ -84,7 +85,8 @@ The following files are **not** covered by the MIT License:
   `test_statistical_analysis.py`, `test_temporal_correlation.py`,
   `test_third_body.py`, `test_torques.py`, `test_trade_study.py`,
   `test_validation_vallado.py`, `test_validation_sgp4.py`,
-  `test_validation_crosscheck.py`, `test_validation_sp3.py`
+  `test_validation_crosscheck.py`, `test_validation_sp3.py`,
+  `test_viewer_server.py`
 
 Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
 
@@ -129,7 +131,7 @@ own commercial purposes.
 |------|-------------|---------------------|
 | **Startup** | < 50 employees | **EUR 2,000** |
 | **Enterprise** | ≥ 50 employees or > EUR 10M consolidated annual revenue | **EUR 7,500** |
-| **Defense / Government** | Government agencies, military organizations, or entities deriving > 25% of annual revenue from government defense or intelligence contracts | **EUR 15,000** |
+| **Government** | Government agencies, public-sector bodies, or entities deriving > 25% of annual revenue from government contracts | **EUR 15,000** |
 
 Employee count and revenue are measured at the purchasing legal entity and its
 affiliates, per the most recent audited financial statements or annual accounts
@@ -241,7 +243,7 @@ Email **planet.jeroen@gmail.com** with:
 
 - Your company name, registered address, and applicable tier
 - Intended use (brief description)
-- For Defense / Government tier: nature of the contracting entity
+- For Government tier: nature of the contracting entity
 
 You will receive an invoice and a signed license agreement. Payment via bank
 transfer. License is effective upon payment.

@@ -1,10 +1,13 @@
 # Constellation Generator
 
 [![Version](https://img.shields.io/badge/version-1.19.0-blue.svg)](pyproject.toml)
+[![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](pyproject.toml)
 [![Tests](https://img.shields.io/badge/tests-1384_passing-brightgreen.svg)](tests/)
 [![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE)
 
 Generate Walker constellation satellite shells and fetch live orbital data for orbit simulation tools.
+
+![Constellation Generator interactive viewer](docs/interface.png)
 
 > **Disclaimer**: This library provides computational models for educational,
 > research, and engineering analysis purposes. It is **not certified** for
@@ -26,6 +29,8 @@ pip install ".[live]"
 # Development
 pip install ".[dev]"
 ```
+
+**Python**: 3.11, 3.12, 3.13. **Platforms**: Linux, macOS, Windows (pure Python, no compiled extensions).
 
 ## Usage
 
@@ -794,10 +799,80 @@ independent references:
   fraction vs eclipse windows agreement, J2 drift vs SSO condition
   consistency, and propagation element recovery
 
+## Determinism and reproducibility
+
+Understanding what is deterministic matters for research reproducibility,
+simulation comparisons, and audits.
+
+| Mode | Deterministic? | Details |
+|------|----------------|---------|
+| Synthetic Walker shells | Yes | Same `ShellConfig` always produces identical `Satellite` objects. Pure math, no external state. |
+| Live CelesTrak (sequential) | For a given TLE set | SGP4 is deterministic. But CelesTrak updates TLEs up to every 2 hours, so re-fetching tomorrow may yield different input data. |
+| Live CelesTrak (concurrent) | Same results, **different ordering** | `--concurrent` uses `as_completed()` — satellite list order depends on thread scheduling. Values are identical. |
+| Numerical propagation (RK4) | Yes | Fixed-step RK4 with deterministic force models. Same initial state + same forces = same trajectory. |
+
+**TLE epoch in outputs**: The `Satellite` domain object stores the TLE
+epoch in its `epoch` field. However, the simulation JSON output
+(`-o output.json`) contains only `Position` and `Velocity` strings — the
+TLE epoch is **not** written to the output file. If you need epoch
+traceability, use the CSV or GeoJSON exporters (which include the `epoch`
+column) or save the raw OMM snapshot (see
+[Integration Guide](docs/integration-guide.md#reproducibility-and-determinism)).
+
+**Reproducing a live run**: Save the raw OMM JSON before propagation.
+Replay it later with `SGP4Adapter.omm_to_satellite()` for bit-identical
+results without network access.
+
+## Documentation
+
+- [Getting Started](docs/getting-started.md) — installation, quickstart, CLI
+- [Simulation JSON](docs/simulation-json.md) — input/output JSON schema
+- [Architecture](docs/architecture.md) — hexagonal design, module categories
+- [Viewer Server](docs/viewer-server.md) — interactive 3D viewer, 13 analysis types
+- [API Reference](docs/api-reference.md) — HTTP endpoints
+- [Integration Guide](docs/integration-guide.md) — CelesTrak, CesiumJS, custom sources
+- [Export Formats](docs/export-formats.md) — CSV, GeoJSON, CZML
+- [Licensing](docs/licensing.md) — MIT core + commercial extensions
+- [Changelog](CHANGELOG.md) — version history
+
 ## Credits
 
 Inspired by [Scott Manley](https://www.youtube.com/@scottmanley)'s orbital mechanics
 visualizations. Written by Jeroen Visser.
+
+## What the commercial license provides
+
+The commercial modules are not feature add-ons — they constitute a
+**validated orbital analysis engine** built on top of the MIT core.
+
+**Analytical + numerical models in the same codebase.** Keplerian and J2
+secular propagation (MIT) alongside RK4 numerical integration with
+pluggable perturbation forces (drag, SRP, third-body, J2/J3). Switch
+between fast analytical estimates and high-fidelity numerical propagation
+without changing your workflow.
+
+**81 validation tests against independent references.** Cross-checked
+against Vallado's textbook values, SGP4 industry-standard propagator,
+and IGS SP3 precise ephemerides. Six invariant test suites verify energy
+conservation, angular momentum, vis-viva identity, and coordinate frame
+round-trips.
+
+**Cross-domain composition.** The 49 commercial domain modules are
+designed to compose: conjunction management chains screening into
+collision probability into avoidance maneuver planning. Mission analysis
+combines coverage, eclipse, link budget, and lifetime into a single
+assessment. These compositions encode domain knowledge that would take
+months to build from scratch.
+
+**Pure Python, zero compiled extensions.** No C dependencies, no build
+toolchain, no platform-specific binaries. Runs anywhere Python runs.
+Every computation is inspectable — step through the RK4 integrator or
+the Jacobi eigensolver in your debugger.
+
+**What it is not.** This library is not certified for operational flight
+decisions, regulatory compliance determination, or safety-of-flight
+assessment. It provides engineering analysis tools. Operational use
+requires independent validation against authoritative sources.
 
 ## License
 
@@ -807,7 +882,7 @@ This project uses a dual-license model:
 propagation, coordinate frames, coverage analysis, observation geometry,
 ground track, access windows, export adapters). See [`LICENSE`](LICENSE).
 
-**Commercial** — extended modules (49 domain modules, 4 adapters, 57 test
+**Commercial** — extended modules (49 domain modules, 4 adapters, 58 test
 files) covering numerical propagation, atmospheric drag, eclipse, maneuvers,
 ISL topology, link budgets, conjunction, radiation, statistical analysis,
 design optimization, interactive viewer, and more. Free for personal,
