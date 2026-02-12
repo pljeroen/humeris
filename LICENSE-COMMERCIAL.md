@@ -57,8 +57,6 @@ The following files are **not** covered by the MIT License:
 - `cesium_viewer.py` — Self-contained HTML viewer with layer selector
 - `czml_exporter.py` — CZML packets for CesiumJS visualization
 - `czml_visualization.py` — Advanced CZML (ISL, fragility, hazard, coverage)
-- `spaceengine_exporter.py` — SpaceEngine .sc catalog export
-- `ubox_exporter.py` — Universe Sandbox .ubox simulation export
 - `viewer_server.py` — Interactive viewer server with 13 analysis types
 
 **Tests** (`tests/`):
@@ -88,7 +86,6 @@ The following files are **not** covered by the MIT License:
   `test_third_body.py`, `test_torques.py`, `test_trade_study.py`,
   `test_validation_vallado.py`, `test_validation_sgp4.py`,
   `test_validation_crosscheck.py`, `test_validation_sp3.py`,
-  `test_spaceengine_exporter.py`, `test_ubox_exporter.py`,
   `test_viewer_server.py`
 
 Copyright (c) 2026 Jeroen Michaël Visser. All rights reserved.
