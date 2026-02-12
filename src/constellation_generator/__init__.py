@@ -146,8 +146,20 @@ from constellation_generator.domain.orbit_design import (
     design_frozen_orbit,
     design_repeat_ground_track,
 )
+from constellation_generator.domain.numerical_propagation import (
+    ForceModel,
+    PropagationStep,
+    NumericalPropagationResult,
+    TwoBodyGravity,
+    J2Perturbation,
+    J3Perturbation,
+    AtmosphericDragForce,
+    SolarRadiationPressureForce,
+    rk4_step,
+    propagate_numerical,
+)
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 
 __all__ = [
     "OrbitalConstants",
@@ -243,4 +255,14 @@ __all__ = [
     "design_sso_orbit",
     "design_frozen_orbit",
     "design_repeat_ground_track",
+    "ForceModel",
+    "PropagationStep",
+    "NumericalPropagationResult",
+    "TwoBodyGravity",
+    "J2Perturbation",
+    "J3Perturbation",
+    "AtmosphericDragForce",
+    "SolarRadiationPressureForce",
+    "rk4_step",
+    "propagate_numerical",
 ]

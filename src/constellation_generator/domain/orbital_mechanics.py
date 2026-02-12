@@ -16,6 +16,7 @@ class _OrbitalConstants:
     J2_EARTH: float = 1.08263e-3        # J2 perturbation coefficient
     J3_EARTH: float = -2.53215e-6       # J3 zonal harmonic coefficient
     EARTH_OMEGA: float = 1.99e-7        # rad/s — rotation rate for SSO
+    EARTH_ROTATION_RATE: float = 7.2921159e-5  # rad/s — sidereal rotation rate
     # WGS84 ellipsoid
     R_EARTH_EQUATORIAL: float = 6_378_137.0       # m — semi-major axis
     R_EARTH_POLAR: float = 6_356_752.3142         # m — semi-minor axis

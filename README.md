@@ -470,6 +470,46 @@ rgt = design_repeat_ground_track(97.0, 1, 15)
 print(f"Repeat GT 1d/15rev: alt={rgt.altitude_km:.1f} km")
 ```
 
+#### Numerical propagation (RK4 + pluggable force models)
+
+High-fidelity orbit propagation with composable perturbation forces:
+
+```python
+from datetime import datetime, timedelta, timezone
+from constellation_generator import (
+    ShellConfig, generate_walker_shell, derive_orbital_state,
+    TwoBodyGravity, J2Perturbation, J3Perturbation,
+    AtmosphericDragForce, SolarRadiationPressureForce,
+    DragConfig, propagate_numerical,
+)
+
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+shell = ShellConfig(altitude_km=500, inclination_deg=53, num_planes=1,
+                    sats_per_plane=1, phase_factor=0, raan_offset_deg=0, shell_name="Test")
+sat = generate_walker_shell(shell)[0]
+state = derive_orbital_state(sat, epoch)
+
+# Two-body + J2 + J3
+result = propagate_numerical(
+    state, timedelta(hours=2), timedelta(seconds=30),
+    [TwoBodyGravity(), J2Perturbation(), J3Perturbation()],
+)
+print(f"Steps: {len(result.steps)}")
+
+# With drag
+drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=400.0)
+result_drag = propagate_numerical(
+    state, timedelta(hours=2), timedelta(seconds=30),
+    [TwoBodyGravity(), J2Perturbation(), AtmosphericDragForce(drag)],
+)
+
+# With SRP
+result_srp = propagate_numerical(
+    state, timedelta(hours=2), timedelta(seconds=30),
+    [TwoBodyGravity(), SolarRadiationPressureForce(cr=1.5, area_m2=10.0, mass_kg=400.0)],
+)
+```
+
 #### Configurable atmosphere model
 
 Select between atmosphere density tables:
@@ -577,6 +617,7 @@ src/constellation_generator/
 │   ├── maneuvers.py           # Hohmann, bi-elliptic, plane change, phasing
 │   ├── deorbit.py             # FCC/ESA deorbit compliance assessment
 │   ├── orbit_design.py        # SSO/LTAN, frozen orbit, repeat ground track
+│   ├── numerical_propagation.py # RK4 integrator + pluggable force models
 │   ├── serialization.py       # Simulation format (Y/Z swap, precision)
 │   └── omm.py                 # CelesTrak OMM record → OrbitalElements
 ├── ports/                     # Abstract interfaces (ABC)
@@ -600,7 +641,7 @@ port interfaces.
 ## Tests
 
 ```bash
-pytest                                    # all 381 tests
+pytest                                    # all 403 tests
 pytest tests/test_constellation.py        # 21 synthetic tests (offline)
 pytest tests/test_coordinate_frames.py    # 29 coordinate frame tests (offline)
 pytest tests/test_j2_perturbations.py     # 12 J2/J3 perturbation tests (offline)
@@ -622,6 +663,7 @@ pytest tests/test_deorbit.py             # 13 deorbit compliance tests (offline)
 pytest tests/test_orbit_design.py        # 17 orbit design tests (offline)
 pytest tests/test_export.py               # 18 export tests (offline)
 pytest tests/test_czml_exporter.py       # 18 CZML exporter tests (offline)
+pytest tests/test_numerical_propagation.py # 22 numerical propagation tests (offline)
 pytest tests/test_concurrent_celestrak.py # 12 concurrent adapter tests (offline)
 pytest tests/test_live_data.py            # 13 live data tests (network)
 ```
