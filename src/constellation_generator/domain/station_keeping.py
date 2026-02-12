@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
 from constellation_generator.domain.atmosphere import (
+    AtmosphereModel,
     DragConfig,
     atmospheric_density,
     semi_major_axis_decay_rate,
@@ -50,6 +51,7 @@ class StationKeepingBudget:
 def drag_compensation_dv_per_year(
     altitude_km: float,
     drag_config: DragConfig,
+    atmosphere_model: AtmosphereModel | None = None,
 ) -> float:
     """Annual delta-V for drag compensation at given altitude.
 
@@ -65,7 +67,10 @@ def drag_compensation_dv_per_year(
     """
     a = OrbitalConstants.R_EARTH + altitude_km * 1000.0
     n = math.sqrt(OrbitalConstants.MU_EARTH / a ** 3)
-    da_dt = semi_major_axis_decay_rate(a, 0.0, drag_config)
+    decay_kwargs: dict = {}
+    if atmosphere_model is not None:
+        decay_kwargs["model"] = atmosphere_model
+    da_dt = semi_major_axis_decay_rate(a, 0.0, drag_config, **decay_kwargs)
     dv_per_second = abs(da_dt) * n / 2.0
     return dv_per_second * _SECONDS_PER_YEAR
 

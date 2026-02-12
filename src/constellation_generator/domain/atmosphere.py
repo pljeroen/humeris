@@ -12,8 +12,15 @@ No external dependencies — only stdlib math/dataclasses.
 """
 import math
 from dataclasses import dataclass
+from enum import Enum
 
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+
+
+class AtmosphereModel(Enum):
+    """Exponential atmosphere density table selection."""
+    VALLADO_4TH = "vallado_4th"      # Vallado 4th ed. Table 8-4 (moderate solar activity)
+    HIGH_ACTIVITY = "high_activity"   # Higher-density table (~solar maximum)
 
 
 @dataclass(frozen=True)
@@ -34,9 +41,9 @@ class DragConfig:
         return self.cd * self.area_m2 / self.mass_kg
 
 
-# Exponential atmosphere lookup table: (base_altitude_km, base_density_kg_m3, scale_height_km)
-# Source: Vallado Table 8-4 / CIRA reference atmosphere
-_ATMOSPHERE_TABLE: tuple[tuple[float, float, float], ...] = (
+# High-activity exponential atmosphere table (original, ~solar maximum)
+# Source: CIRA reference atmosphere / higher solar activity conditions
+_ATMOSPHERE_TABLE_HIGH: tuple[tuple[float, float, float], ...] = (
     (100, 5.297e-07, 5.877),
     (150, 2.070e-09, 22.523),
     (200, 2.541e-10, 53.298),
@@ -63,8 +70,40 @@ _ATMOSPHERE_TABLE: tuple[tuple[float, float, float], ...] = (
     (2000, 4.789e-17, 247.000),
 )
 
+# Vallado 4th ed. Table 8-4 (moderate solar activity)
+# Includes entries at 110-140km to avoid interpolation gap
+_ATMOSPHERE_TABLE_VALLADO: tuple[tuple[float, float, float], ...] = (
+    (100, 5.297e-07, 5.877),
+    (110, 9.661e-08, 7.263),
+    (120, 2.438e-08, 9.473),
+    (130, 8.484e-09, 12.636),
+    (140, 3.845e-09, 16.149),
+    (150, 2.070e-09, 22.523),
+    (180, 5.464e-10, 29.740),
+    (200, 2.789e-10, 37.105),
+    (250, 7.248e-11, 45.546),
+    (300, 2.418e-11, 53.628),
+    (350, 9.518e-12, 53.298),
+    (400, 3.725e-12, 58.515),
+    (450, 1.585e-12, 60.828),
+    (500, 6.967e-13, 63.822),
+    (600, 1.454e-13, 71.835),
+    (700, 3.614e-14, 88.667),
+    (800, 1.170e-14, 124.64),
+    (900, 5.245e-15, 181.05),
+    (1000, 3.019e-15, 268.00),
+)
 
-def atmospheric_density(altitude_km: float) -> float:
+_MODEL_TABLES = {
+    AtmosphereModel.VALLADO_4TH: _ATMOSPHERE_TABLE_VALLADO,
+    AtmosphereModel.HIGH_ACTIVITY: _ATMOSPHERE_TABLE_HIGH,
+}
+
+
+def atmospheric_density(
+    altitude_km: float,
+    model: AtmosphereModel = AtmosphereModel.HIGH_ACTIVITY,
+) -> float:
     """Atmospheric density at given altitude using piecewise exponential model.
 
     Binary-searches the lookup table for the altitude bracket, then
@@ -72,29 +111,32 @@ def atmospheric_density(altitude_km: float) -> float:
 
     Args:
         altitude_km: Altitude above Earth surface in km.
+        model: Atmosphere model table to use.
 
     Returns:
         Atmospheric density in kg/m³.
 
     Raises:
-        ValueError: If altitude is outside [100, 2000] km.
+        ValueError: If altitude is outside table range.
     """
-    if altitude_km < _ATMOSPHERE_TABLE[0][0] or altitude_km > _ATMOSPHERE_TABLE[-1][0]:
+    table = _MODEL_TABLES[model]
+
+    if altitude_km < table[0][0] or altitude_km > table[-1][0]:
         raise ValueError(
             f"Altitude {altitude_km} km outside valid range "
-            f"[{_ATMOSPHERE_TABLE[0][0]}, {_ATMOSPHERE_TABLE[-1][0]}] km"
+            f"[{table[0][0]}, {table[-1][0]}] km"
         )
 
     # Binary search for bracket
-    lo, hi = 0, len(_ATMOSPHERE_TABLE) - 1
+    lo, hi = 0, len(table) - 1
     while lo < hi - 1:
         mid = (lo + hi) // 2
-        if _ATMOSPHERE_TABLE[mid][0] <= altitude_km:
+        if table[mid][0] <= altitude_km:
             lo = mid
         else:
             hi = mid
 
-    h_base, rho_base, scale_height = _ATMOSPHERE_TABLE[lo]
+    h_base, rho_base, scale_height = table[lo]
     return rho_base * math.exp(-(altitude_km - h_base) / scale_height)
 
 
@@ -118,6 +160,7 @@ def semi_major_axis_decay_rate(
     a: float,
     e: float,
     drag_config: DragConfig,
+    model: AtmosphereModel = AtmosphereModel.HIGH_ACTIVITY,
 ) -> float:
     """Rate of semi-major axis decay due to atmospheric drag.
 
@@ -129,11 +172,12 @@ def semi_major_axis_decay_rate(
         a: Semi-major axis in meters.
         e: Eccentricity (used for perigee altitude in future extensions).
         drag_config: Satellite drag configuration.
+        model: Atmosphere model table to use.
 
     Returns:
         da/dt in m/s (negative — orbit decays).
     """
     h_km = (a - OrbitalConstants.R_EARTH) / 1000.0
     v = math.sqrt(OrbitalConstants.MU_EARTH / a)
-    rho = atmospheric_density(h_km)
+    rho = atmospheric_density(h_km, model=model)
     return -rho * v * drag_config.ballistic_coefficient * a

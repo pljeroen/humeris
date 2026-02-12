@@ -300,6 +300,128 @@ if events:
     print(f"Closest: {event.miss_distance_m:.0f} m between {event.sat1_name} and {event.sat2_name}")
 ```
 
+#### Solar ephemeris
+
+Compute Sun position in ECI coordinates at any epoch:
+
+```python
+from constellation_generator import sun_position_eci, solar_declination_rad
+from datetime import datetime, timezone
+import math
+
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+sun = sun_position_eci(epoch)
+print(f"Sun RA={math.degrees(sun.right_ascension_rad):.1f}°, Dec={math.degrees(sun.declination_rad):.1f}°")
+print(f"Distance: {sun.distance_m/1.496e11:.4f} AU")
+```
+
+#### Eclipse prediction
+
+Determine shadow conditions, beta angle, and eclipse windows:
+
+```python
+from constellation_generator import (
+    eclipse_fraction, compute_beta_angle, compute_eclipse_windows,
+    derive_orbital_state, generate_walker_shell, ShellConfig,
+)
+from datetime import datetime, timedelta, timezone
+import math
+
+shell = ShellConfig(altitude_km=500, inclination_deg=53, num_planes=1,
+                    sats_per_plane=1, phase_factor=0, raan_offset_deg=0, shell_name="Test")
+sat = generate_walker_shell(shell)[0]
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+state = derive_orbital_state(sat, epoch)
+
+frac = eclipse_fraction(state, epoch)
+print(f"Eclipse fraction: {frac:.1%}")
+
+beta = compute_beta_angle(state.raan_rad, state.inclination_rad, epoch)
+print(f"Beta angle: {beta:.1f}°")
+
+windows = compute_eclipse_windows(state, epoch, timedelta(hours=3), timedelta(seconds=30))
+print(f"Eclipse events in 3h: {len(windows)}")
+```
+
+#### Orbit transfer maneuvers
+
+Plan Hohmann, bi-elliptic, plane change, and phasing maneuvers:
+
+```python
+from constellation_generator import (
+    hohmann_transfer, bielliptic_transfer, plane_change_dv,
+    add_propellant_estimate, OrbitalConstants,
+)
+import math
+
+R_E = OrbitalConstants.R_EARTH
+r_leo = R_E + 400_000
+r_geo = R_E + 35_786_000
+
+plan = hohmann_transfer(r_leo, r_geo)
+print(f"LEO→GEO: {plan.total_delta_v_ms:.0f} m/s, {plan.transfer_time_s/3600:.1f} h")
+
+plan_prop = add_propellant_estimate(plan, isp_s=300, dry_mass_kg=500)
+print(f"Propellant: {plan_prop.propellant_mass_kg:.1f} kg")
+
+dv_plane = plane_change_dv(7500, math.radians(28.5))
+print(f"28.5° plane change: {dv_plane:.0f} m/s")
+```
+
+#### Deorbit compliance
+
+Assess FCC 5-year / ESA 25-year deorbit regulations:
+
+```python
+from constellation_generator import (
+    DragConfig, assess_deorbit_compliance, DeorbitRegulation,
+)
+from datetime import datetime, timezone
+
+epoch = datetime(2026, 1, 1, tzinfo=timezone.utc)
+drag = DragConfig(cd=2.2, area_m2=4.0, mass_kg=400.0)
+
+result = assess_deorbit_compliance(800, drag, epoch, isp_s=300, dry_mass_kg=390)
+print(f"Compliant: {result.compliant}, lifetime: {result.natural_lifetime_days:.0f} d")
+if result.maneuver_required:
+    print(f"Deorbit ΔV: {result.deorbit_delta_v_ms:.1f} m/s")
+    print(f"Propellant: {result.propellant_mass_kg:.2f} kg")
+```
+
+#### Orbit design
+
+Design sun-synchronous, frozen, and repeat ground track orbits:
+
+```python
+from constellation_generator import (
+    design_sso_orbit, design_frozen_orbit, design_repeat_ground_track,
+)
+from datetime import datetime, timezone
+
+epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+sso = design_sso_orbit(500, 10.5, epoch)
+print(f"SSO 500km LTAN 10:30: inc={sso.inclination_deg:.1f}°, RAAN={sso.raan_deg:.1f}°")
+
+frozen = design_frozen_orbit(800, 98.6)
+print(f"Frozen 800km: e={frozen.eccentricity:.6f}, ω={frozen.arg_perigee_deg}°")
+
+rgt = design_repeat_ground_track(97.0, 1, 15)
+print(f"Repeat GT 1d/15rev: alt={rgt.altitude_km:.1f} km")
+```
+
+#### Configurable atmosphere model
+
+Select between atmosphere density tables:
+
+```python
+from constellation_generator import atmospheric_density, AtmosphereModel
+
+rho_high = atmospheric_density(500, AtmosphereModel.HIGH_ACTIVITY)
+rho_vallado = atmospheric_density(500, AtmosphereModel.VALLADO_4TH)
+print(f"500km density: high={rho_high:.3e}, vallado={rho_vallado:.3e}")
+```
+
 #### Export formats (programmatic)
 
 ```python
@@ -354,6 +476,11 @@ src/constellation_generator/
 │   ├── lifetime.py            # Orbit lifetime, decay profile (Euler integration)
 │   ├── station_keeping.py     # Delta-V budgets, Tsiolkovsky, propellant lifetime
 │   ├── conjunction.py         # Screening, TCA, B-plane, collision probability
+│   ├── solar.py               # Analytical solar ephemeris (Meeus/Vallado)
+│   ├── eclipse.py             # Shadow geometry, beta angle, eclipse windows
+│   ├── maneuvers.py           # Hohmann, bi-elliptic, plane change, phasing
+│   ├── deorbit.py             # FCC/ESA deorbit compliance assessment
+│   ├── orbit_design.py        # SSO/LTAN, frozen orbit, repeat ground track
 │   ├── serialization.py       # Simulation format (Y/Z swap, precision)
 │   └── omm.py                 # CelesTrak OMM record → OrbitalElements
 ├── ports/                     # Abstract interfaces (ABC)
@@ -376,19 +503,24 @@ port interfaces.
 ## Tests
 
 ```bash
-pytest                                    # all 239 tests
+pytest                                    # all 324 tests
 pytest tests/test_constellation.py        # 21 synthetic tests (offline)
 pytest tests/test_coordinate_frames.py    # 29 coordinate frame tests (offline)
-pytest tests/test_j2_perturbations.py     # 11 J2 perturbation tests (offline)
+pytest tests/test_j2_perturbations.py     # 12 J2/J3 perturbation tests (offline)
 pytest tests/test_propagation.py          # 18 propagation tests (offline)
 pytest tests/test_ground_track.py         # 16 ground track tests (offline)
 pytest tests/test_observation.py          # 14 observation tests (offline)
 pytest tests/test_access_windows.py       # 11 access window tests (offline)
 pytest tests/test_coverage.py             # 10 coverage tests (offline)
-pytest tests/test_atmosphere.py           # 16 atmospheric drag tests (offline)
+pytest tests/test_atmosphere.py           # 22 atmospheric drag tests (offline)
 pytest tests/test_lifetime.py             # 16 orbit lifetime tests (offline)
 pytest tests/test_station_keeping.py      # 17 station-keeping tests (offline)
 pytest tests/test_conjunction.py          # 18 conjunction tests (offline)
+pytest tests/test_solar.py               # 14 solar ephemeris tests (offline)
+pytest tests/test_eclipse.py             # 13 eclipse prediction tests (offline)
+pytest tests/test_maneuvers.py           # 21 orbit transfer tests (offline)
+pytest tests/test_deorbit.py             # 13 deorbit compliance tests (offline)
+pytest tests/test_orbit_design.py        # 17 orbit design tests (offline)
 pytest tests/test_export.py               # 18 export tests (offline)
 pytest tests/test_concurrent_celestrak.py # 12 concurrent adapter tests (offline)
 pytest tests/test_live_data.py            # 13 live data tests (network)

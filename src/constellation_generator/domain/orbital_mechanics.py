@@ -14,6 +14,7 @@ class _OrbitalConstants:
     MU_EARTH: float = 3.986004418e14   # m³/s² — gravitational parameter
     R_EARTH: float = 6_371_000          # m — mean radius
     J2_EARTH: float = 1.08263e-3        # J2 perturbation coefficient
+    J3_EARTH: float = -2.53215e-6       # J3 zonal harmonic coefficient
     EARTH_OMEGA: float = 1.99e-7        # rad/s — rotation rate for SSO
     # WGS84 ellipsoid
     R_EARTH_EQUATORIAL: float = 6_378_137.0       # m — semi-major axis

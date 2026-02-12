@@ -5,6 +5,7 @@ import math
 import pytest
 
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from constellation_generator.domain.atmosphere import AtmosphereModel
 
 
 # ── DragConfig ──────────────────────────────────────────────────────
@@ -94,6 +95,62 @@ class TestAtmosphericDensity:
 
         with pytest.raises(ValueError):
             atmospheric_density(2001.0)
+
+
+# ── Atmosphere model configurability ───────────────────────────────
+
+class TestAtmosphereModel:
+
+    def test_enum_values(self):
+        """AtmosphereModel has VALLADO_4TH and HIGH_ACTIVITY values."""
+        assert AtmosphereModel.VALLADO_4TH.value == "vallado_4th"
+        assert AtmosphereModel.HIGH_ACTIVITY.value == "high_activity"
+
+    def test_vallado_200km_spot_check(self):
+        """Vallado 4th ed table at 200km: rho ≈ 2.789e-10."""
+        from constellation_generator.domain.atmosphere import atmospheric_density
+
+        rho = atmospheric_density(200.0, model=AtmosphereModel.VALLADO_4TH)
+        assert abs(rho - 2.789e-10) / 2.789e-10 < 0.01
+
+    def test_vallado_500km_spot_check(self):
+        """Vallado 4th ed table at 500km: rho ≈ 6.967e-13."""
+        from constellation_generator.domain.atmosphere import atmospheric_density
+
+        rho = atmospheric_density(500.0, model=AtmosphereModel.VALLADO_4TH)
+        assert abs(rho - 6.967e-13) / 6.967e-13 < 0.01
+
+    def test_vallado_has_entries_110_to_140(self):
+        """Vallado table covers 110-140km without gap (no ValueError)."""
+        from constellation_generator.domain.atmosphere import atmospheric_density
+
+        for alt in [110, 120, 130, 140]:
+            rho = atmospheric_density(float(alt), model=AtmosphereModel.VALLADO_4TH)
+            assert rho > 0
+
+    def test_high_activity_matches_original(self):
+        """HIGH_ACTIVITY model gives same results as original default."""
+        from constellation_generator.domain.atmosphere import atmospheric_density
+
+        # These values match the original _ATMOSPHERE_TABLE
+        rho = atmospheric_density(200.0, model=AtmosphereModel.HIGH_ACTIVITY)
+        assert abs(rho - 2.541e-10) / 2.541e-10 < 0.01
+
+    def test_model_in_semi_major_axis_decay_rate(self):
+        """semi_major_axis_decay_rate accepts model parameter."""
+        from constellation_generator.domain.atmosphere import (
+            semi_major_axis_decay_rate, DragConfig,
+        )
+
+        cfg = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
+        a = OrbitalConstants.R_EARTH + 500_000
+        rate_high = semi_major_axis_decay_rate(a, 0.0, cfg, model=AtmosphereModel.HIGH_ACTIVITY)
+        rate_vallado = semi_major_axis_decay_rate(a, 0.0, cfg, model=AtmosphereModel.VALLADO_4TH)
+        # Both should be negative
+        assert rate_high < 0
+        assert rate_vallado < 0
+        # High activity should have more drag (more negative)
+        assert rate_high < rate_vallado
 
 
 # ── Drag acceleration ───────────────────────────────────────────────

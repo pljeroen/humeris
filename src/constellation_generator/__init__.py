@@ -5,7 +5,9 @@ Generate Walker constellation satellite shells and fetch live orbital data
 for orbit simulation tools. Includes J2-corrected propagation, topocentric
 observation geometry, access window prediction, coverage analysis,
 atmospheric drag modeling, orbit lifetime prediction, station-keeping
-delta-V budgets, and conjunction/collision probability assessment.
+delta-V budgets, conjunction/collision probability assessment, solar
+ephemeris, eclipse prediction, orbit transfer maneuvers, deorbit
+compliance, and orbit design utilities.
 """
 
 from constellation_generator.domain.orbital_mechanics import (
@@ -61,6 +63,7 @@ from constellation_generator.domain.coverage import (
     compute_coverage_snapshot,
 )
 from constellation_generator.domain.atmosphere import (
+    AtmosphereModel,
     DragConfig,
     atmospheric_density,
     drag_acceleration,
@@ -91,8 +94,44 @@ from constellation_generator.domain.conjunction import (
     collision_probability_2d,
     assess_conjunction,
 )
+from constellation_generator.domain.solar import (
+    SunPosition,
+    sun_position_eci,
+    solar_declination_rad,
+)
+from constellation_generator.domain.eclipse import (
+    EclipseType,
+    EclipseEvent,
+    is_eclipsed,
+    compute_beta_angle,
+    compute_eclipse_windows,
+    eclipse_fraction,
+)
+from constellation_generator.domain.maneuvers import (
+    ManeuverBurn,
+    TransferPlan,
+    hohmann_transfer,
+    bielliptic_transfer,
+    plane_change_dv,
+    combined_plane_and_altitude,
+    phasing_maneuver,
+    add_propellant_estimate,
+)
+from constellation_generator.domain.deorbit import (
+    DeorbitRegulation,
+    DeorbitAssessment,
+    assess_deorbit_compliance,
+)
+from constellation_generator.domain.orbit_design import (
+    SSODesign,
+    FrozenOrbitDesign,
+    RepeatGroundTrackDesign,
+    design_sso_orbit,
+    design_frozen_orbit,
+    design_repeat_ground_track,
+)
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 __all__ = [
     "OrbitalConstants",
@@ -127,6 +166,7 @@ __all__ = [
     "compute_access_windows",
     "CoveragePoint",
     "compute_coverage_snapshot",
+    "AtmosphereModel",
     "DragConfig",
     "atmospheric_density",
     "drag_acceleration",
@@ -150,4 +190,30 @@ __all__ = [
     "foster_max_collision_probability",
     "collision_probability_2d",
     "assess_conjunction",
+    "SunPosition",
+    "sun_position_eci",
+    "solar_declination_rad",
+    "EclipseType",
+    "EclipseEvent",
+    "is_eclipsed",
+    "compute_beta_angle",
+    "compute_eclipse_windows",
+    "eclipse_fraction",
+    "ManeuverBurn",
+    "TransferPlan",
+    "hohmann_transfer",
+    "bielliptic_transfer",
+    "plane_change_dv",
+    "combined_plane_and_altitude",
+    "phasing_maneuver",
+    "add_propellant_estimate",
+    "DeorbitRegulation",
+    "DeorbitAssessment",
+    "assess_deorbit_compliance",
+    "SSODesign",
+    "FrozenOrbitDesign",
+    "RepeatGroundTrackDesign",
+    "design_sso_orbit",
+    "design_frozen_orbit",
+    "design_repeat_ground_track",
 ]

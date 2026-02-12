@@ -129,6 +129,17 @@ class TestJ2MeanMotionCorrection:
 
 # ── Domain purity ────────────────────────────────────────────────────
 
+# ── J3 constant ─────────────────────────────────────────────────────
+
+class TestJ3Constant:
+
+    def test_j3_earth_value(self):
+        """J3_EARTH zonal harmonic coefficient has expected value."""
+        assert OrbitalConstants.J3_EARTH == pytest.approx(-2.53215e-6)
+
+
+# ── Domain purity ────────────────────────────────────────────────────
+
 class TestJ2Purity:
 
     def test_orbital_mechanics_still_pure(self):

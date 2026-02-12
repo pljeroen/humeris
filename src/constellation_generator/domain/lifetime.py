@@ -15,7 +15,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
-from constellation_generator.domain.atmosphere import DragConfig, semi_major_axis_decay_rate
+from constellation_generator.domain.atmosphere import (
+    AtmosphereModel,
+    DragConfig,
+    semi_major_axis_decay_rate,
+)
 
 
 @dataclass(frozen=True)
@@ -45,6 +49,7 @@ def compute_orbit_lifetime(
     re_entry_altitude_km: float = 100.0,
     step_days: float = 1.0,
     max_years: float = 50.0,
+    atmosphere_model: AtmosphereModel | None = None,
 ) -> OrbitLifetimeResult:
     """Compute orbit lifetime by integrating semi-major axis decay.
 
@@ -93,8 +98,12 @@ def compute_orbit_lifetime(
     converged = False
     re_entry_time = None
 
+    decay_kwargs: dict = {}
+    if atmosphere_model is not None:
+        decay_kwargs["model"] = atmosphere_model
+
     while t_elapsed < max_seconds:
-        da_dt = semi_major_axis_decay_rate(a, eccentricity, drag_config)
+        da_dt = semi_major_axis_decay_rate(a, eccentricity, drag_config, **decay_kwargs)
         a += da_dt * dt_seconds
         t_elapsed += dt_seconds
 
@@ -131,6 +140,7 @@ def compute_altitude_at_time(
     epoch: datetime,
     target_time: datetime,
     step_days: float = 1.0,
+    atmosphere_model: AtmosphereModel | None = None,
 ) -> float:
     """Compute altitude at a specific future time by integrating decay.
 
@@ -157,10 +167,14 @@ def compute_altitude_at_time(
     a = semi_major_axis_m
     t_elapsed = 0.0
 
+    alt_decay_kwargs: dict = {}
+    if atmosphere_model is not None:
+        alt_decay_kwargs["model"] = atmosphere_model
+
     while t_elapsed < target_elapsed:
         remaining = target_elapsed - t_elapsed
         step = min(dt_seconds, remaining)
-        da_dt = semi_major_axis_decay_rate(a, eccentricity, drag_config)
+        da_dt = semi_major_axis_decay_rate(a, eccentricity, drag_config, **alt_decay_kwargs)
         a += da_dt * step
         t_elapsed += step
         if step < dt_seconds:
