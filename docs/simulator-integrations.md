@@ -1,6 +1,22 @@
 # Simulator Integrations
 
-Export constellations to 3D space simulators for interactive visualization.
+Export constellations to 3D space simulators, game engines, and planetarium
+software for interactive visualization.
+
+All exporters implement the `SatelliteExporter` protocol and accept any
+`list[Satellite]` — synthetic Walker shells, live CelesTrak data, or both.
+
+| Exporter | Format | Target | Physical props |
+|----------|--------|--------|---------------|
+| `UboxExporter` | `.ubox` (ZIP/JSON) | Universe Sandbox | Mass, radius |
+| `SpaceEngineExporter` | `.sc` (text catalog) | SpaceEngine | Mass, radius |
+| `KspExporter` | `.sfs` (ConfigNode) | Kerbal Space Program | Mass |
+| `CelestiaExporter` | `.ssc` (text catalog) | Celestia | Mass, radius |
+| `KmlExporter` | `.kml` (XML) | Google Earth | — |
+| `BlenderExporter` | `.py` (Python script) | Blender | — |
+| `StellariumExporter` | `.tle` (Two-Line Elements) | Stellarium, STK, GMAT | — |
+
+---
 
 ## Universe Sandbox
 
@@ -40,8 +56,6 @@ increase the **Particle Scale** in View settings, or export with a larger
 
 ### With physical properties
 
-Provide a `DragConfig` to set satellite mass and diameter in the simulation:
-
 ```python
 from constellation_generator.domain.atmosphere import DragConfig
 
@@ -53,28 +67,7 @@ This sets:
 - **Mass**: from `mass_kg` (kg, used directly)
 - **Radius**: derived from `area_m2` assuming a circular cross-section (metres)
 
-### With live data
-
-```python
-from constellation_generator.adapters.celestrak import CelesTrakAdapter
-
-celestrak = CelesTrakAdapter()
-gps = celestrak.fetch_satellites(group="GPS-OPS")
-UboxExporter().export(gps, "gps.ubox")
-```
-
-### What the export includes
-
-| Property | Source | Notes |
-|----------|--------|-------|
-| Position | `satellite.position_eci` | Metres, ECI frame, semicolon-separated |
-| Velocity | `satellite.velocity_eci` | m/s, ECI frame, semicolon-separated |
-| Parent | Earth (Id=3) | Satellite orbits relative to Earth |
-| RelativeTo | 1 | Positions relative to parent body |
-| Mass | `DragConfig.mass_kg` | Optional, default 500 kg |
-| Radius | `DragConfig.area_m2` | Optional, derived from cross-section |
-| Epoch date | `epoch` parameter | Simulation start time |
-| Earth | Full rendering entity | Textures, atmosphere, clouds, oceans |
+---
 
 ## SpaceEngine
 
@@ -85,17 +78,8 @@ directory.
 ### Basic export
 
 ```python
-from constellation_generator import ShellConfig, generate_walker_shell
 from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
-from datetime import datetime, timezone
 
-shell = ShellConfig(
-    altitude_km=550, inclination_deg=53, num_planes=6, sats_per_plane=10,
-    phase_factor=1, raan_offset_deg=0, shell_name="LEO-550",
-)
-sats = generate_walker_shell(shell)
-
-epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 SpaceEngineExporter().export(sats, "constellation.sc", epoch=epoch)
 ```
 
@@ -120,93 +104,280 @@ drag = DragConfig(cd=2.2, area_m2=1000.0, mass_kg=260.0)
 SpaceEngineExporter(drag_config=drag).export(sats, "constellation.sc", epoch=epoch)
 ```
 
-This gives each satellite an ~18m radius instead of ~1.8m.
-
 ### With physical properties
 
 ```python
-from constellation_generator.domain.atmosphere import DragConfig
-
 drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
 SpaceEngineExporter(drag_config=drag).export(sats, "constellation.sc", epoch=epoch)
 ```
 
-This sets:
 - **Mass**: from `mass_kg` (converted to Earth masses)
-- **Radius**: derived from `area_m2` assuming a circular cross-section (km)
+- **Radius**: derived from `area_m2` (km)
 
-### With live data
+---
+
+## Kerbal Space Program
+
+[KSP](https://www.kerbalspaceprogram.com/) uses ConfigNode `.sfs` save
+files. The exporter generates VESSEL blocks with orbital elements scaled
+from Earth to Kerbin so constellations appear at proportionally correct
+altitudes.
+
+### Basic export
 
 ```python
-from constellation_generator.adapters.celestrak import CelesTrakAdapter
+from constellation_generator.adapters.ksp_exporter import KspExporter
 
-celestrak = CelesTrakAdapter()
-starlink = celestrak.fetch_satellites(group="STARLINK")
-SpaceEngineExporter().export(starlink, "starlink.sc")
+KspExporter().export(sats, "constellation.sfs", epoch=epoch)
+```
+
+### Installation in KSP
+
+1. Export to `.sfs` file
+2. Open your KSP save's `persistent.sfs` (in `saves/<name>/`)
+3. Find the `FLIGHTSTATE { }` block inside `GAME { }`
+4. Paste the VESSEL blocks from the exported file before the closing `}`
+5. Save and load the game — satellites appear as Probe vessels orbiting Kerbin
+
+### Kerbin scaling
+
+By default, orbital elements are scaled from Earth to Kerbin using the
+radius ratio (600 km / 6371 km). Orbits that would fall below Kerbin's
+70 km atmosphere are clamped to 80 km altitude.
+
+To disable scaling and use raw Earth-scale values around Kerbin:
+
+```python
+KspExporter(scale_to_kerbin=False).export(sats, "constellation.sfs", epoch=epoch)
+```
+
+### With physical properties
+
+```python
+drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
+KspExporter(drag_config=drag).export(sats, "constellation.sfs", epoch=epoch)
+```
+
+- **Mass**: from `mass_kg` (converted to metric tons for KSP)
+- Each vessel uses a `probeCoreCube` part with `ModuleCommand`
+
+---
+
+## Celestia
+
+[Celestia](https://celestia.space/) is a free, open-source 3D space
+simulator. Custom objects are added via `.ssc` catalog files.
+
+### Basic export
+
+```python
+from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+
+CelestiaExporter().export(sats, "constellation.ssc", epoch=epoch)
+```
+
+### Installation in Celestia
+
+1. Export to `.ssc` file
+2. Copy to Celestia's `extras/` directory (or any subdirectory within it)
+3. Launch Celestia and navigate to Earth — satellites appear as spacecraft
+4. Press `Enter`, type a satellite name, and press `Enter` again to find it
+5. Press `G` to go to it, or `F` to follow it
+
+### With physical properties
+
+```python
+drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
+CelestiaExporter(drag_config=drag).export(sats, "constellation.ssc", epoch=epoch)
+```
+
+- **Mass**: from `mass_kg` (kg)
+- **Radius**: derived from `area_m2` (km); default 0.001 km without DragConfig
+
+### Format details
+
+Each satellite is a `spacecraft` object parented to `"Sol/Earth"` with
+`EllipticalOrbit` using Keplerian elements (SMA in km, period in days,
+epoch as Julian Date).
+
+---
+
+## Google Earth (KML)
+
+[Google Earth](https://earth.google.com/) supports KML files for geographic
+visualization. Each satellite gets a position marker and a full orbit path.
+
+### Basic export
+
+```python
+from constellation_generator.adapters.kml_exporter import KmlExporter
+
+KmlExporter().export(sats, "constellation.kml", epoch=epoch)
+```
+
+### Opening in Google Earth
+
+1. Export to `.kml` file
+2. Open it in Google Earth Pro (desktop) or import in Google Earth Web
+3. Each satellite appears as a placemark at its current position
+4. Orbit paths are drawn as 3D lines at orbital altitude
+
+You can also open `.kml` files in QGIS, ArcGIS, or any GIS software.
+
+### Custom name
+
+```python
+KmlExporter(name="Starlink Shell 1").export(sats, "starlink.kml", epoch=epoch)
 ```
 
 ### What the export includes
 
-| Property | Source | SpaceEngine unit |
-|----------|--------|-----------------|
-| Semi-major axis | ECI position magnitude | AU |
-| Period | Derived from SMA via Kepler's 3rd law | Years |
-| Eccentricity | 0 for Walker shells | Dimensionless |
-| Inclination | Angular momentum vector | Degrees |
-| Ascending node | `satellite.raan_deg` | Degrees |
-| Arg of pericenter | 0 for circular orbits | Degrees |
-| Mean anomaly | `satellite.true_anomaly_deg` | Degrees |
-| Reference plane | Equator | Earth's equatorial plane |
-| Mass | `DragConfig.mass_kg` | Earth masses (optional) |
-| Radius | `DragConfig.area_m2` | km (optional) |
+- **Position placemarks**: lat/lon/alt from ECI-to-geodetic conversion
+- **Orbit paths**: 36-point LineString tracing the full orbit at altitude
+- **3D altitude**: `altitudeMode` set to `absolute` (metres above WGS84)
+- Satellites grouped in Folders by name for easy toggling
 
-### SpaceEngine .sc format reference
+---
 
-Each satellite is exported as a `Moon` object (SpaceEngine's type for
-objects orbiting planets):
+## Blender
+
+[Blender](https://www.blender.org/) is a free 3D creation suite. The
+exporter generates a Python script that creates the constellation
+visualization when run inside Blender.
+
+### Basic export
+
+```python
+from constellation_generator.adapters.blender_exporter import BlenderExporter
+
+BlenderExporter().export(sats, "constellation.py", epoch=epoch)
+```
+
+### Running in Blender
+
+1. Export to `.py` file
+2. Open Blender
+3. Go to **Scripting** workspace (or open a Text Editor panel)
+4. Open the exported `.py` file
+5. Click **Run Script** (or press `Alt+P`)
+
+The script creates:
+- **Earth** as a UV sphere (radius 6.371 Blender units = 1 unit per km)
+- **Satellites** as small ico spheres at their ECI positions (in km)
+- **Orbit curves** as 3D NURBS circles for each satellite
+
+### Custom sizes
+
+```python
+BlenderExporter(
+    earth_radius_units=6.371,  # default
+    sat_radius_units=0.1,      # larger satellites
+).export(sats, "constellation.py", epoch=epoch)
+```
+
+### Rendering tips
+
+- Add a material to Earth and apply a Blue Marble texture for realism
+- Parent all satellites to an Empty and animate rotation for orbit motion
+- Use Cycles renderer with emission shaders on satellites for glow effects
+
+---
+
+## Stellarium (TLE)
+
+[Stellarium](https://stellarium.org/) is a free planetarium for your
+computer. The exporter generates standard Two-Line Element (TLE) data
+that works with Stellarium's satellite plugin, as well as STK, GMAT,
+and any other TLE-consuming software.
+
+### Basic export
+
+```python
+from constellation_generator.adapters.stellarium_exporter import StellariumExporter
+
+StellariumExporter().export(sats, "constellation.tle", epoch=epoch)
+```
+
+### Installation in Stellarium
+
+1. Export to `.tle` file
+2. Open Stellarium, go to **Configuration** -> **Plugins** -> **Satellites**
+3. Click **Configure**, then **Sources**
+4. Add the `.tle` file as a local source (or paste the TLE data)
+5. Update sources — satellites appear in the sky view
+6. Point your view at the sky to see them pass overhead
+
+### Custom catalog numbers
+
+TLE catalog numbers start at 99001 by default (above NORAD range to avoid
+conflicts). To change the starting number:
+
+```python
+StellariumExporter(catalog_start=80001).export(sats, "constellation.tle", epoch=epoch)
+```
+
+### TLE format
+
+Each satellite produces a standard 3-line TLE entry:
 
 ```
-Moon "LEO-550-Plane1-Sat1"
-{
-    ParentBody "Earth"
-
-    Orbit
-    {
-        RefPlane "Equator"
-        SemiMajorAxis 4.6300000000e-05
-        Period 1.8300000000e-04
-        Eccentricity 0.000000
-        Inclination 53.0000
-        AscendingNode 0.0000
-        ArgOfPericenter 0.0000
-        MeanAnomaly 0.0000
-    }
-}
+LEO-550-Plane1-Sat1
+1 99001U 26001A   26079.50000000  .00000000  00000-0  00000-0 0  9990
+2 99001  53.0000   0.0000 0000000   0.0000   0.0000 15.53720000    00
 ```
+
+Mean motion is computed from the orbital radius via Kepler's third law.
+Epoch is encoded as 2-digit year + fractional day of year.
+
+### Other TLE consumers
+
+The same `.tle` file works with:
+- **STK** (Systems Tool Kit): Import as satellite database
+- **GMAT** (NASA): Load as TLE ephemeris source
+- **GPredict**: Import for real-time tracking
+- **Orbitron**: Import for pass prediction
+- **PyEphem / Skyfield**: Load directly in Python
+
+---
 
 ## Combining with analysis data
 
-Both exporters accept any list of `Satellite` objects. Combine synthetic
-and live data, or filter by analysis results:
+All exporters accept any `list[Satellite]`. Combine synthetic and live
+data, or filter by analysis results:
 
 ```python
 from constellation_generator import generate_walker_shell, ShellConfig
 from constellation_generator.adapters.celestrak import CelesTrakAdapter
 from constellation_generator.adapters.ubox_exporter import UboxExporter
 from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+from constellation_generator.adapters.ksp_exporter import KspExporter
+from constellation_generator.adapters.kml_exporter import KmlExporter
+from constellation_generator.adapters.blender_exporter import BlenderExporter
+from constellation_generator.adapters.stellarium_exporter import StellariumExporter
 
-# Mix synthetic + live
+# Generate constellation
 shell = ShellConfig(altitude_km=550, inclination_deg=53, num_planes=6,
                     sats_per_plane=10, phase_factor=1, raan_offset_deg=0,
                     shell_name="MyConstellation")
-synthetic = generate_walker_shell(shell)
+sats = generate_walker_shell(shell)
 
+# Export to all formats
+UboxExporter().export(sats, "constellation.ubox")
+SpaceEngineExporter().export(sats, "constellation.sc")
+KspExporter().export(sats, "constellation.sfs")
+CelestiaExporter().export(sats, "constellation.ssc")
+KmlExporter().export(sats, "constellation.kml")
+BlenderExporter().export(sats, "constellation.py")
+StellariumExporter().export(sats, "constellation.tle")
+```
+
+### With live data
+
+```python
 celestrak = CelesTrakAdapter()
-iss = celestrak.fetch_satellites(name="ISS (ZARYA)")
+starlink = celestrak.fetch_satellites(group="STARLINK")
 
-all_sats = synthetic + iss
-
-# Export to both formats
-UboxExporter().export(all_sats, "mixed.ubox")
-SpaceEngineExporter().export(all_sats, "mixed.sc")
+# Visualize real Starlink in any simulator
+KmlExporter(name="Starlink").export(starlink, "starlink.kml")
+StellariumExporter().export(starlink, "starlink.tle")
 ```
