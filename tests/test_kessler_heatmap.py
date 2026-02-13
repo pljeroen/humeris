@@ -234,9 +234,9 @@ class TestCollisionVelocity:
         assert cell_high.mean_collision_velocity_ms > cell_low.mean_collision_velocity_ms * 5.0
 
     def test_near_equatorial_uses_minimum(self):
-        """For very small inclination (< ~3 deg), the 0.05 minimum applies."""
-        # Band 0-10 deg, mid = 5 deg, sin(5) ~ 0.087 > 0.05, so no clamp.
-        # But for a very narrow band 0-2 deg, mid = 1 deg, sin(1) = 0.0175 < 0.05 => clamped.
+        """For very small inclination (< ~1 deg), sin(1 deg) minimum applies."""
+        # Band 0-2 deg, mid = 1 deg, sin(1) = 0.01745 is the new minimum floor
+        # (R3-17 fix: clip to sin(1 deg) to avoid zero velocity at equatorial orbits)
         states = [_circular_state(550, 1)]
         hm = compute_kessler_heatmap(
             states, altitude_step_km=1800.0, inclination_step_deg=2.0,
@@ -248,8 +248,8 @@ class TestCollisionVelocity:
         r = OrbitalConstants.R_EARTH + mid_alt_m
         v_circ = math.sqrt(OrbitalConstants.MU_EARTH / r)
 
-        # Should use the 0.05 minimum floor
-        expected_clamped = v_circ * math.sqrt(2.0) * 0.05
+        # Should use the sin(1 deg) minimum floor
+        expected_clamped = v_circ * math.sqrt(2.0) * math.sin(math.radians(1.0))
         assert cell.mean_collision_velocity_ms == pytest.approx(expected_clamped, rel=0.01)
 
     def test_all_cells_positive_velocity(self):

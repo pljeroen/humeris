@@ -71,60 +71,70 @@ def _compute_checksum(line: str) -> int:
 class TestTleFormat:
     """TLE lines conform to the 69-character fixed-width format."""
 
-    def test_each_tle_has_three_lines(self):
+    # Each satellite now has 4 lines: comment, name, line1, line2
+    _STRIDE = 4
+
+    def test_each_tle_has_four_lines(self):
         lines = _export_tle_lines()
-        assert len(lines) % 3 == 0
+        assert len(lines) % self._STRIDE == 0
         assert len(lines) > 0
 
     def test_line1_is_69_chars(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            line1 = lines[i + 1]
+        for i in range(0, len(lines), self._STRIDE):
+            line1 = lines[i + 2]
             assert len(line1) == 69, f"Line 1 length {len(line1)}: '{line1}'"
 
     def test_line2_is_69_chars(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            line2 = lines[i + 2]
+        for i in range(0, len(lines), self._STRIDE):
+            line2 = lines[i + 3]
             assert len(line2) == 69, f"Line 2 length {len(line2)}: '{line2}'"
 
     def test_line1_starts_with_1(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            assert lines[i + 1][0] == "1"
+        for i in range(0, len(lines), self._STRIDE):
+            assert lines[i + 2][0] == "1"
 
     def test_line2_starts_with_2(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            assert lines[i + 2][0] == "2"
+        for i in range(0, len(lines), self._STRIDE):
+            assert lines[i + 3][0] == "2"
 
     def test_catalog_numbers_match(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            cat1 = lines[i + 1][2:7].strip()
-            cat2 = lines[i + 2][2:7].strip()
+        for i in range(0, len(lines), self._STRIDE):
+            cat1 = lines[i + 2][2:7].strip()
+            cat2 = lines[i + 3][2:7].strip()
             assert cat1 == cat2
 
     def test_catalog_numbers_sequential(self):
         lines = _export_tle_lines()
-        for idx, i in enumerate(range(0, len(lines), 3)):
-            cat_num = int(lines[i + 1][2:7])
+        for idx, i in enumerate(range(0, len(lines), self._STRIDE)):
+            cat_num = int(lines[i + 2][2:7])
             assert cat_num == 99001 + idx
 
     def test_satellite_names_preserved(self):
         sats = generate_walker_shell(SHELL)
         lines = _export_tle_lines(satellites=sats)
-        for idx, i in enumerate(range(0, len(lines), 3)):
-            assert lines[i] == sats[idx].name
+        for idx, i in enumerate(range(0, len(lines), self._STRIDE)):
+            assert lines[i + 1] == sats[idx].name
+
+    def test_comment_line_starts_with_hash(self):
+        lines = _export_tle_lines()
+        for i in range(0, len(lines), self._STRIDE):
+            assert lines[i].startswith("#")
 
 
 class TestOrbitalElements:
     """Orbital elements in TLE match the source satellite data."""
 
+    _STRIDE = 4
+
     def test_inclination_approximately_53(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            inc = float(lines[i + 2][8:16])
+        for i in range(0, len(lines), self._STRIDE):
+            inc = float(lines[i + 3][8:16])
             assert abs(inc - 53.0) < 0.01
 
     def test_mean_motion_approximately_correct(self):
@@ -133,15 +143,15 @@ class TestOrbitalElements:
         r = OrbitalConstants.R_EARTH + 550_000
         period = 2 * math.pi * math.sqrt(r**3 / OrbitalConstants.MU_EARTH)
         expected_n = 86400.0 / period
-        for i in range(0, len(lines), 3):
-            n = float(lines[i + 2][52:63])
+        for i in range(0, len(lines), self._STRIDE):
+            n = float(lines[i + 3][52:63])
             assert abs(n - expected_n) < 0.1, f"Mean motion {n} vs expected {expected_n}"
 
     def test_raan_matches_satellite(self):
         sats = generate_walker_shell(SHELL)
         lines = _export_tle_lines(satellites=sats)
-        for idx, i in enumerate(range(0, len(lines), 3)):
-            raan = float(lines[i + 2][17:25])
+        for idx, i in enumerate(range(0, len(lines), self._STRIDE)):
+            raan = float(lines[i + 3][17:25])
             expected = sats[idx].raan_deg % 360.0
             assert abs(raan - expected) < 0.01, (
                 f"RAAN {raan} vs expected {expected}"
@@ -150,8 +160,8 @@ class TestOrbitalElements:
     def test_mean_anomaly_matches_satellite(self):
         sats = generate_walker_shell(SHELL)
         lines = _export_tle_lines(satellites=sats)
-        for idx, i in enumerate(range(0, len(lines), 3)):
-            ma = float(lines[i + 2][43:51])
+        for idx, i in enumerate(range(0, len(lines), self._STRIDE)):
+            ma = float(lines[i + 3][43:51])
             expected = sats[idx].true_anomaly_deg % 360.0
             assert abs(ma - expected) < 0.01, (
                 f"Mean anomaly {ma} vs expected {expected}"
@@ -159,25 +169,27 @@ class TestOrbitalElements:
 
     def test_epoch_year_correct(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            epoch_year = int(lines[i + 1][18:20])
+        for i in range(0, len(lines), self._STRIDE):
+            epoch_year = int(lines[i + 2][18:20])
             assert epoch_year == 26
 
     def test_epoch_day_correct(self):
         """March 20, 2026 12:00:00 UTC = day 79.5"""
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            epoch_day = float(lines[i + 1][20:32])
+        for i in range(0, len(lines), self._STRIDE):
+            epoch_day = float(lines[i + 2][20:32])
             assert abs(epoch_day - 79.5) < 0.001
 
 
 class TestChecksum:
     """TLE checksum is correct (modulo 10 digit sum)."""
 
+    _STRIDE = 4
+
     def test_line1_checksum_valid(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            line1 = lines[i + 1]
+        for i in range(0, len(lines), self._STRIDE):
+            line1 = lines[i + 2]
             expected = _compute_checksum(line1)
             actual = int(line1[68])
             assert actual == expected, (
@@ -186,8 +198,8 @@ class TestChecksum:
 
     def test_line2_checksum_valid(self):
         lines = _export_tle_lines()
-        for i in range(0, len(lines), 3):
-            line2 = lines[i + 2]
+        for i in range(0, len(lines), self._STRIDE):
+            line2 = lines[i + 3]
             expected = _compute_checksum(line2)
             actual = int(line2[68])
             assert actual == expected, (

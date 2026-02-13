@@ -11,13 +11,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from humeris import (
-    OrbitalConstants,
-    ShellConfig,
-    generate_walker_shell,
-    derive_orbital_state,
-    kepler_to_cartesian,
-)
+from humeris.domain.orbital_mechanics import OrbitalConstants, kepler_to_cartesian
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
 from humeris.domain.numerical_propagation import (
     PropagationStep,
     NumericalPropagationResult,
@@ -712,12 +708,8 @@ class TestDomainPurity:
 
     def test_no_external_imports(self):
         """adaptive_integration.py must only use stdlib + domain imports."""
-        import importlib
-        import os
-        module_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "src", "humeris", "domain", "adaptive_integration.py",
-        )
+        import humeris.domain.adaptive_integration as _mod
+        module_path = _mod.__file__
         with open(module_path) as f:
             source = f.read()
 

@@ -334,9 +334,8 @@ class TestCoordinateFramesPurity:
         import os
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum',
                    '__future__', 'datetime'}
-        path = os.path.join(os.path.dirname(__file__), '..', 'src',
-                            'humeris', 'domain',
-                            'coordinate_frames.py')
+        import humeris.domain.coordinate_frames as _mod
+        path = _mod.__file__
         with open(path) as f:
             tree = ast.parse(f.read())
         for node in ast.walk(tree):

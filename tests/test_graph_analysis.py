@@ -137,6 +137,6 @@ class TestGraphAnalysisPurity:
                 else:
                     for alias in node.names:
                         top = alias.name.split(".")[0]
-                assert top in {"math", "dataclasses", "datetime", "typing", "enum", "numpy", "humeris", "__future__"}, (
+                assert top in {"math", "dataclasses", "datetime", "typing", "enum", "numpy", "humeris", "__future__", "collections"}, (
                     f"Forbidden import: {top}"
                 )

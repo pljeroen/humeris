@@ -3,7 +3,7 @@
 ## Requirements
 
 - Python 3.11+
-- No external dependencies for the core library
+- NumPy >= 1.24 (hard dependency)
 - `sgp4>=2.22` for live CelesTrak data (optional)
 
 ## Installation
@@ -58,7 +58,7 @@ shells and live ISS data. See [Viewer Server](viewer-server.md) for details.
 ### Run tests
 
 ```bash
-pytest                          # 1384 tests, all offline
+pytest                          # 3095 tests, all offline
 pytest tests/test_live_data.py  # live CelesTrak (requires network)
 ```
 
@@ -82,7 +82,7 @@ humeris -i sim.json -o out.json --export-csv sats.csv --export-geojson sats.geoj
 
 - [Simulation JSON](simulation-json.md) — input/output JSON schema
 - [Architecture](architecture.md) — hexagonal design, domain purity
-- [Viewer Server](viewer-server.md) — interactive 3D viewer with 13 analysis types
+- [Viewer Server](viewer-server.md) — interactive 3D viewer with 15 analysis types
 - [API Reference](api-reference.md) — HTTP endpoints
 - [Integration Guide](integration-guide.md) — CelesTrak, CesiumJS, custom sources, reproducibility
 - [Export Formats](export-formats.md) — CSV, GeoJSON, CZML output

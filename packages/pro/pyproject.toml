@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "humeris-pro"
+version = "1.24.0"
+description = "Humeris professional modules — advanced astrodynamics analysis"
+readme = "../../README.md"
+requires-python = ">=3.11"
+license = {text = "Commercial — see COMMERCIAL-LICENSE.md"}
+authors = [{name = "Jeroen Visser"}]
+keywords = [
+    "satellite", "constellation", "astrodynamics",
+    "conjunction-analysis", "coverage-analysis", "link-budget",
+    "debris-modeling", "space-situational-awareness",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = ["humeris-core>=1.24.0", "numpy>=1.24"]
+
+[project.optional-dependencies]
+dev = ["sgp4>=2.22", "pytest>=8.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/humeris"]

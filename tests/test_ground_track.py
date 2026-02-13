@@ -184,10 +184,8 @@ class TestComputeGroundTrackNumerical:
 
     @pytest.fixture
     def numerical_result(self, epoch):
-        from humeris import (
-            derive_orbital_state,
-            propagate_numerical,
-        )
+        from humeris.domain.propagation import derive_orbital_state
+        from humeris.domain.numerical_propagation import propagate_numerical
         from humeris.domain.numerical_propagation import (
             TwoBodyGravity,
         )
@@ -245,7 +243,8 @@ class TestComputeGroundTrackNumerical:
 
     def test_consistent_with_analytical(self, epoch):
         """Numerical ground track matches analytical within tolerance for two-body."""
-        from humeris import derive_orbital_state, propagate_numerical
+        from humeris.domain.propagation import derive_orbital_state
+        from humeris.domain.numerical_propagation import propagate_numerical
         from humeris.domain.numerical_propagation import TwoBodyGravity
         from humeris.domain.ground_track import compute_ground_track_numerical
 

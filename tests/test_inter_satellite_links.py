@@ -13,14 +13,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from humeris import (
-    OrbitalConstants,
-    OrbitalState,
-    ShellConfig,
-    generate_walker_shell,
-    derive_orbital_state,
-    propagate_to,
-)
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.propagation import OrbitalState, derive_orbital_state, propagate_to
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
 
 EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 R_E = OrbitalConstants.R_EARTH

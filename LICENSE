@@ -1,3 +1,32 @@
+# Humeris — Dual License
+
+This repository contains two categories of files under different licenses.
+The **file header** in each source file is the authoritative source of which
+license applies. When in doubt, check the file header.
+
+## MIT-Licensed Files (Open Core)
+
+The following files are licensed under the MIT License below:
+
+**Domain** (`packages/core/src/humeris/domain/`):
+  `orbital_mechanics.py`, `constellation.py`, `coordinate_frames.py`,
+  `propagation.py`, `coverage.py`, `access_windows.py`, `ground_track.py`,
+  `observation.py`, `omm.py`, `serialization.py`
+
+**Ports** (`packages/core/src/humeris/ports/`): all files
+
+**Adapters** (`packages/core/src/humeris/adapters/`):
+  `json_io.py`, `enrichment.py`, `celestrak.py`, `concurrent_celestrak.py`,
+  `csv_exporter.py`, `geojson_exporter.py`, `kml_exporter.py`,
+  `blender_exporter.py`, `stellarium_exporter.py`, `celestia_exporter.py`,
+  `spaceengine_exporter.py`, `ksp_exporter.py`, `ubox_exporter.py`
+
+**CLI**: `packages/core/src/humeris/cli.py`
+
+**Tests**: files whose header says "Licensed under the MIT License"
+
+---
+
 MIT License
 
 Copyright (c) 2026 Jeroen Visser
@@ -19,3 +48,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## Commercially Licensed Files
+
+All other files (domain modules, adapters, tests, and data files whose header
+references `COMMERCIAL-LICENSE.md`) are licensed under the terms in
+[COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+
+These files are **free** for personal, educational, academic, and
+non-commercial use. Commercial use requires a paid license.

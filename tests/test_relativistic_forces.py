@@ -169,7 +169,8 @@ class TestCombinedRelativistic:
 
 class TestDomainPurity:
     def test_no_external_imports(self):
-        source_path = "src/humeris/domain/relativistic_forces.py"
+        import humeris.domain.relativistic_forces as _mod
+        source_path = _mod.__file__
         with open(source_path) as f:
             tree = ast.parse(f.read())
         allowed = {

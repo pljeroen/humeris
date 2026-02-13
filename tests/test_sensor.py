@@ -337,9 +337,8 @@ class TestSensorCoverage:
         from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_sensor_coverage,
         )
-        from humeris import (
-            ShellConfig, generate_walker_shell, derive_orbital_state,
-        )
+        from humeris.domain.constellation import ShellConfig, generate_walker_shell
+        from humeris.domain.propagation import derive_orbital_state
         from humeris.domain.coverage import CoveragePoint
 
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
@@ -357,9 +356,8 @@ class TestSensorCoverage:
         from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_sensor_coverage,
         )
-        from humeris import (
-            ShellConfig, generate_walker_shell, derive_orbital_state,
-        )
+        from humeris.domain.constellation import ShellConfig, generate_walker_shell
+        from humeris.domain.propagation import derive_orbital_state
 
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
         shell = ShellConfig(
@@ -378,9 +376,8 @@ class TestSensorCoverage:
         from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_sensor_coverage,
         )
-        from humeris import (
-            ShellConfig, generate_walker_shell, derive_orbital_state,
-        )
+        from humeris.domain.constellation import ShellConfig, generate_walker_shell
+        from humeris.domain.propagation import derive_orbital_state
 
         shell = ShellConfig(
             altitude_km=500, inclination_deg=53,

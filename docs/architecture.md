@@ -20,7 +20,7 @@ flows through port interfaces implemented by adapters.
 │  │  ┌─────────────────────────────────────┐  │  │
 │  │  │           Domain (stdlib only)      │  │  │
 │  │  │                                     │  │  │
-│  │  │  71 modules · math/datetime only    │  │  │
+│  │  │  76 modules · math/datetime only    │  │  │
 │  │  │  Zero external dependencies         │  │  │
 │  │  └─────────────────────────────────────┘  │  │
 │  └───────────────────────────────────────────┘  │
@@ -29,11 +29,11 @@ flows through port interfaces implemented by adapters.
 
 ## Domain layer
 
-Pure business logic. Only Python stdlib (`math`, `datetime`, `dataclasses`,
-`enum`, `typing`). Enforced by purity tests that parse AST and reject any
-non-stdlib imports.
+Pure business logic. Python stdlib + NumPy (`math`, `datetime`, `dataclasses`,
+`enum`, `typing`, `numpy`). Enforced by purity tests that parse AST and reject
+any imports beyond stdlib and NumPy.
 
-### Module categories (71 modules)
+### Module categories (76 modules)
 
 **MIT core (10 modules)**:
 
@@ -50,24 +50,26 @@ non-stdlib imports.
 | `omm` | CelesTrak OMM record parsing |
 | `serialization` | Simulation format (Y/Z swap, precision) |
 
-**Commercial modules (61 modules)** — free for personal/educational/academic use:
+**Commercial modules (66 modules)** — free for personal/educational/academic use:
 
 | Category | Modules |
 |----------|---------|
-| Propagation | `numerical_propagation` (RK4, pluggable forces) |
-| Analysis | `revisit`, `conjunction`, `eclipse`, `sensor`, `pass_analysis`, `constellation_metrics`, `dilution_of_precision` |
-| Design | `orbit_design`, `trade_study`, `multi_objective_design`, `design_optimization`, `design_sensitivity`, `orbit_properties` |
+| Propagation | `numerical_propagation` (RK4, pluggable forces), `functorial_composition` (functorial force composition) |
+| Analysis | `revisit`, `conjunction`, `eclipse`, `sensor`, `pass_analysis`, `constellation_metrics`, `dilution_of_precision`, `koopman_conjunction` (Koopman-spectral screening) |
+| Design | `orbit_design`, `trade_study`, `multi_objective_design`, `design_optimization`, `design_sensitivity`, `orbit_properties`, `gramian_reconfiguration` (Gramian-guided reconfiguration) |
 | Environment | `atmosphere`, `lifetime`, `station_keeping`, `deorbit`, `radiation`, `torques`, `third_body`, `solar` |
-| Topology | `inter_satellite_links`, `link_budget`, `graph_analysis`, `information_theory`, `spectral_topology` |
-| Composition | `mission_analysis`, `conjunction_management`, `communication_analysis`, `coverage_optimization`, `environment_analysis`, `maintenance_planning`, `mission_economics`, `constellation_operability`, `cascade_analysis` |
+| Topology | `inter_satellite_links`, `link_budget`, `graph_analysis`, `information_theory`, `spectral_topology`, `hodge_cusum` (Hodge-CUSUM topology detection) |
+| Composition | `mission_analysis`, `conjunction_management`, `communication_analysis`, `coverage_optimization`, `environment_analysis`, `maintenance_planning`, `mission_economics`, `constellation_operability`, `cascade_analysis`, `competing_risks` (competing-risks population dynamics) |
 | Math | `linalg`, `control_analysis`, `statistical_analysis`, `relative_motion` |
 | Research | `decay_analysis`, `temporal_correlation`, `operational_prediction`, `sp3_parser` |
 | Maneuvers | `maneuvers` |
 | Early Warning | `orbit_determination` (EKF), `maneuver_detection` (CUSUM/EWMA/chi-squared), `hazard_reporting` (NASA-STD-8719.14), `kessler_heatmap` (spatial density + cascade) |
+| Fidelity | `time_systems` (AstroTime), `precession_nutation` (IAU 2006/2000B), `earth_orientation`, `planetary_ephemeris` (Chebyshev Sun/Moon), `nrlmsise00`, `adaptive_integration` (Dormand-Prince), `gravity_field` (EGM96), `relativistic_forces`, `tidal_forces`, `albedo_srp` |
+| Propagation | `numerical_propagation` (RK4), `koopman_propagation` (DMD), `adaptive_integration` (RK4(5)) |
 
 ## Ports layer
 
-Protocol interfaces (structural typing via `ABC`). One port per concept.
+Protocol interfaces (structural typing via `Protocol`). One port per concept.
 
 | Port | Purpose | Implemented by |
 |------|---------|----------------|
@@ -93,7 +95,7 @@ External integrations. Import domain types only.
 
 ## Key constraints
 
-1. **Domain purity**: No external dependencies in domain. stdlib only. Enforced by AST-parsing purity tests.
+1. **Domain purity**: No external dependencies in domain beyond stdlib + NumPy. Enforced by AST-parsing purity tests.
 2. **Port isolation**: Adapters depend on domain, never the reverse.
 3. **Immutable value objects**: Domain types use frozen dataclasses where appropriate.
 4. **Result types**: No exceptions for control flow. Functions return success/failure values.

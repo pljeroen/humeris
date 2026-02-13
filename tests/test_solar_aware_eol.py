@@ -453,7 +453,8 @@ class TestEdgeCasesAndPurity:
     def test_domain_purity_no_non_domain_imports(self):
         """operational_prediction.py must only import from stdlib and domain."""
         import pathlib
-        src = pathlib.Path(__file__).parent.parent / "src" / "humeris" / "domain" / "operational_prediction.py"
+        import humeris.domain.operational_prediction as _mod
+        src = pathlib.Path(_mod.__file__)
         tree = ast.parse(src.read_text())
         allowed_prefixes = (
             "humeris.domain.",

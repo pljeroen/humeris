@@ -14,14 +14,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from humeris import (
-    ShellConfig,
-    generate_walker_shell,
-    derive_orbital_state,
-    GroundStation,
-    SensorType,
-    SensorConfig,
-)
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
+from humeris.domain.observation import GroundStation
+from humeris.domain.sensor import SensorType, SensorConfig
 from humeris.adapters.czml_visualization import (
     eclipse_constellation_packets,
     eclipse_snapshot_packets,

@@ -1,8 +1,8 @@
 # Humeris
 
-[![Version](https://img.shields.io/badge/version-1.23.0-blue.svg)](pyproject.toml)
-[![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-2157_passing-brightgreen.svg)](tests/)
+[![Version](https://img.shields.io/badge/version-1.24.0-blue.svg)](packages/core/pyproject.toml)
+[![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](packages/core/pyproject.toml)
+[![Tests](https://img.shields.io/badge/tests-3158_passing-brightgreen.svg)](tests/)
 [![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE)
 
 Generate Walker constellation satellite shells and fetch live orbital data for orbit simulation tools.
@@ -20,14 +20,17 @@ Generate Walker constellation satellite shells and fetch live orbital data for o
 ## Install
 
 ```bash
-# Core (synthetic constellations only, no external deps)
-pip install .
+# Core MIT package (constellation generation, propagation, coverage, export)
+pip install humeris-core
 
 # With live CelesTrak support
-pip install ".[live]"
+pip install "humeris-core[live]"
 
-# Development
-pip install ".[dev]"
+# Full suite (core + 66 commercial analysis modules)
+pip install humeris-pro
+
+# Development (editable, from repo)
+pip install -e ./packages/core -e ./packages/pro
 ```
 
 **Python**: 3.11, 3.12, 3.13. **Platforms**: Linux, macOS, Windows (pure Python, no compiled extensions).
@@ -83,17 +86,47 @@ humeris -i sim.json -o out.json --export-csv sats.csv --export-geojson sats.geoj
 ```
 
 CSV columns: `name`, `lat_deg`, `lon_deg`, `alt_km`, `epoch`, `plane_index`,
-`sat_index`, `raan_deg`, `true_anomaly_deg`.
+`sat_index`, `raan_deg`, `true_anomaly_deg`, `altitude_km`, `inclination_deg`,
+`orbital_period_min`, `beta_angle_deg`, `atmospheric_density_kg_m3`, `l_shell`.
 
 GeoJSON produces a FeatureCollection with Point geometries. Coordinates
-follow the GeoJSON spec: `[longitude, latitude, altitude_km]`.
+follow the GeoJSON spec: `[longitude, latitude, altitude_km]`. Properties
+include the same orbital analysis fields as CSV.
+
+### Simulator exports
+
+Export directly to 3D space simulators, game engines, and planetarium software:
+
+```bash
+humeris -i sim.json -o out.json --export-celestia sats.ssc      # Celestia
+humeris -i sim.json -o out.json --export-kml sats.kml            # Google Earth
+humeris -i sim.json -o out.json --export-tle sats.tle            # Stellarium / STK / GMAT
+humeris -i sim.json -o out.json --export-blender sats.py         # Blender
+humeris -i sim.json -o out.json --export-spaceengine sats.sc     # SpaceEngine
+humeris -i sim.json -o out.json --export-ksp sats.sfs            # Kerbal Space Program
+humeris -i sim.json -o out.json --export-ubox sats.ubox          # Universe Sandbox
+```
+
+Optional visual layer flags:
+
+```bash
+--no-orbits          # Omit orbit path lines from KML and Blender exports
+--kml-planes         # Organize KML by orbital plane folders
+--kml-isl            # Include ISL topology lines in KML export
+--blender-colors     # Color-code satellites by orbital plane in Blender export
+```
+
+All exporters include orbital analysis data (altitude, inclination, period,
+beta angle, atmospheric density, L-shell) computed from the satellite state
+vectors. See [Simulator Integrations](docs/simulator-integrations.md) for
+setup instructions per tool.
 
 ### Programmatic
 
 #### Walker shell generation
 
 ```python
-from humeris import ShellConfig, generate_walker_shell
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
 
 shell = ShellConfig(
     altitude_km=550, inclination_deg=53,
@@ -135,7 +168,7 @@ method on the WGS84 ellipsoid:
 
 ```python
 from datetime import datetime, timezone
-from humeris import gmst_rad, eci_to_ecef, ecef_to_geodetic
+from humeris.domain.coordinate_frames import gmst_rad, eci_to_ecef, ecef_to_geodetic
 
 sat = gps_sats[0]
 gmst = gmst_rad(sat.epoch)
@@ -153,7 +186,8 @@ the adapter layer provides SGP4-based propagation.
 
 ```python
 from datetime import datetime, timedelta, timezone
-from humeris import compute_ground_track, generate_walker_shell, ShellConfig
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.ground_track import compute_ground_track
 
 shell = ShellConfig(
     altitude_km=500, inclination_deg=53,
@@ -176,10 +210,9 @@ Compute azimuth, elevation, and slant range from a ground station to a
 satellite:
 
 ```python
-from humeris import (
-    GroundStation, derive_orbital_state, propagate_ecef_to, compute_observation,
-    generate_walker_shell, ShellConfig,
-)
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state, propagate_ecef_to
+from humeris.domain.observation import GroundStation, compute_observation
 from datetime import datetime, timezone
 
 shell = ShellConfig(altitude_km=500, inclination_deg=53, num_planes=1,
@@ -199,10 +232,10 @@ print(f"Az={obs.azimuth_deg:.1f}°, El={obs.elevation_deg:.1f}°, Range={obs.sla
 Predict satellite visibility windows (rise/set times) from a ground station:
 
 ```python
-from humeris import (
-    GroundStation, derive_orbital_state, compute_access_windows,
-    generate_walker_shell, ShellConfig,
-)
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
+from humeris.domain.observation import GroundStation
+from humeris.domain.access_windows import compute_access_windows
 from datetime import datetime, timedelta, timezone
 
 shell = ShellConfig(altitude_km=420, inclination_deg=51.6, num_planes=1,
@@ -223,10 +256,9 @@ Compute a grid-based coverage snapshot showing how many satellites are
 visible from each point:
 
 ```python
-from humeris import (
-    derive_orbital_state, compute_coverage_snapshot,
-    generate_walker_shell, ShellConfig,
-)
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
+from humeris.domain.coverage import compute_coverage_snapshot
 from datetime import datetime, timezone
 
 shell = ShellConfig(altitude_km=500, inclination_deg=53, num_planes=6,
@@ -246,10 +278,9 @@ Compute time-domain coverage FoMs (mean/max revisit, coverage fraction,
 mean response time) over an analysis window:
 
 ```python
-from humeris import (
-    derive_orbital_state, compute_revisit,
-    generate_walker_shell, ShellConfig,
-)
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
+from humeris.domain.revisit import compute_revisit
 from datetime import datetime, timedelta, timezone
 
 shell = ShellConfig(altitude_km=550, inclination_deg=53, num_planes=6,
@@ -272,7 +303,7 @@ print(f"Mean response time: {result.mean_response_time_s/60:.0f} min")
 Sweep Walker constellation parameters and compare coverage metrics:
 
 ```python
-from humeris import (
+from humeris.domain.trade_study import (
     generate_walker_configs, run_walker_trade_study, pareto_front_indices,
 )
 from datetime import datetime, timedelta, timezone
@@ -306,10 +337,9 @@ Model atmospheric density, compute orbit lifetime under drag decay,
 and predict altitude at future times:
 
 ```python
-from humeris import (
-    DragConfig, atmospheric_density, compute_orbit_lifetime,
-    compute_altitude_at_time, OrbitalConstants,
-)
+from humeris.domain.atmosphere import DragConfig, atmospheric_density
+from humeris.domain.lifetime import compute_orbit_lifetime, compute_altitude_at_time
+from humeris.domain.orbital_mechanics import OrbitalConstants
 from datetime import datetime, timedelta, timezone
 
 drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
@@ -332,9 +362,8 @@ Compute annual delta-V for drag compensation and plane maintenance,
 total propellant budget, and operational lifetime:
 
 ```python
-from humeris import (
-    StationKeepingConfig, compute_station_keeping_budget, DragConfig,
-)
+from humeris.domain.station_keeping import StationKeepingConfig, compute_station_keeping_budget
+from humeris.domain.atmosphere import DragConfig
 
 drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
 config = StationKeepingConfig(
@@ -359,10 +388,9 @@ B-plane geometry and collision probability.
 > (e.g., from 18th Space Defense Squadron) and validated covariance realism.
 
 ```python
-from humeris import (
-    screen_conjunctions, assess_conjunction, PositionCovariance,
-    generate_walker_shell, ShellConfig, derive_orbital_state,
-)
+from humeris.domain.conjunction import screen_conjunctions, assess_conjunction, PositionCovariance
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
 from datetime import datetime, timedelta, timezone
 
 epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
@@ -386,7 +414,7 @@ if events:
 Compute Sun position in ECI coordinates at any epoch:
 
 ```python
-from humeris import sun_position_eci, solar_declination_rad
+from humeris.domain.solar import sun_position_eci, solar_declination_rad
 from datetime import datetime, timezone
 import math
 
@@ -401,10 +429,9 @@ print(f"Distance: {sun.distance_m/1.496e11:.4f} AU")
 Determine shadow conditions, beta angle, and eclipse windows:
 
 ```python
-from humeris import (
-    eclipse_fraction, compute_beta_angle, compute_eclipse_windows,
-    derive_orbital_state, generate_walker_shell, ShellConfig,
-)
+from humeris.domain.eclipse import eclipse_fraction, compute_beta_angle, compute_eclipse_windows
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
 from datetime import datetime, timedelta, timezone
 import math
 
@@ -429,10 +456,10 @@ print(f"Eclipse events in 3h: {len(windows)}")
 Plan Hohmann, bi-elliptic, plane change, and phasing maneuvers:
 
 ```python
-from humeris import (
-    hohmann_transfer, bielliptic_transfer, plane_change_dv,
-    add_propellant_estimate, OrbitalConstants,
+from humeris.domain.maneuvers import (
+    hohmann_transfer, bielliptic_transfer, plane_change_dv, add_propellant_estimate,
 )
+from humeris.domain.orbital_mechanics import OrbitalConstants
 import math
 
 R_E = OrbitalConstants.R_EARTH
@@ -458,9 +485,8 @@ Estimate orbit decay timelines against FCC 5-year / ESA 25-year guidelines:
 > assessment requires mission-specific analysis with validated tools.
 
 ```python
-from humeris import (
-    DragConfig, assess_deorbit_compliance, DeorbitRegulation,
-)
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.deorbit import assess_deorbit_compliance, DeorbitRegulation
 from datetime import datetime, timezone
 
 epoch = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -478,7 +504,7 @@ if result.maneuver_required:
 Design sun-synchronous, frozen, and repeat ground track orbits:
 
 ```python
-from humeris import (
+from humeris.domain.orbit_design import (
     design_sso_orbit, design_frozen_orbit, design_repeat_ground_track,
 )
 from datetime import datetime, timezone
@@ -501,12 +527,13 @@ Numerical orbit propagation (RK4) with composable perturbation forces:
 
 ```python
 from datetime import datetime, timedelta, timezone
-from humeris import (
-    ShellConfig, generate_walker_shell, derive_orbital_state,
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
+from humeris.domain.numerical_propagation import (
     TwoBodyGravity, J2Perturbation, J3Perturbation,
-    AtmosphericDragForce, SolarRadiationPressureForce,
-    DragConfig, propagate_numerical,
+    AtmosphericDragForce, SolarRadiationPressureForce, propagate_numerical,
 )
+from humeris.domain.atmosphere import DragConfig
 
 epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 shell = ShellConfig(altitude_km=500, inclination_deg=53, num_planes=1,
@@ -540,7 +567,7 @@ result_srp = propagate_numerical(
 Select between atmosphere density tables:
 
 ```python
-from humeris import atmospheric_density, AtmosphereModel
+from humeris.domain.atmosphere import atmospheric_density, AtmosphereModel
 
 rho_high = atmospheric_density(500, AtmosphereModel.HIGH_ACTIVITY)
 rho_vallado = atmospheric_density(500, AtmosphereModel.VALLADO_4TH)
@@ -553,7 +580,8 @@ Generate CZML for animated 3D visualization in CesiumJS:
 
 ```python
 from datetime import datetime, timedelta, timezone
-from humeris import ShellConfig, generate_walker_shell, derive_orbital_state
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
 from humeris.adapters.czml_exporter import (
     constellation_packets, ground_track_packets, coverage_packets, write_czml,
 )
@@ -569,13 +597,13 @@ packets = constellation_packets(states, epoch, timedelta(hours=2), timedelta(sec
 write_czml(packets, "constellation.czml")
 
 # Ground track polyline
-from humeris import compute_ground_track
+from humeris.domain.ground_track import compute_ground_track
 track = compute_ground_track(sats[0], epoch, timedelta(minutes=90), timedelta(minutes=1))
 gt_packets = ground_track_packets(track)
 write_czml(gt_packets, "ground_track.czml")
 
 # Coverage heatmap
-from humeris import compute_coverage_snapshot
+from humeris.domain.coverage import compute_coverage_snapshot
 grid = compute_coverage_snapshot(states, epoch, lat_step_deg=5, lon_step_deg=5)
 cov_packets = coverage_packets(grid, lat_step_deg=5, lon_step_deg=5)
 write_czml(cov_packets, "coverage.czml")
@@ -608,7 +636,7 @@ CZML data. No server required — just open the file in a browser.
 
 ##### Analysis layer types
 
-The viewer dispatches 13 analysis types, each with sensible defaults:
+The viewer dispatches 15 analysis types, each with sensible defaults:
 
 | Type | Visualization | Default parameters |
 |------|---------------|--------------------|
@@ -664,12 +692,27 @@ CsvSatelliteExporter().export(sats, "satellites.csv")
 GeoJsonSatelliteExporter().export(sats, "satellites.geojson")
 ```
 
+Simulator exporters:
+
+```python
+from humeris.adapters.celestia_exporter import CelestiaExporter
+from humeris.adapters.kml_exporter import KmlExporter
+from humeris.adapters.ubox_exporter import UboxExporter
+
+CelestiaExporter().export(sats, "constellation.ssc")
+KmlExporter().export(sats, "constellation.kml")
+UboxExporter().export(sats, "constellation.ubox")
+
+# KML with visual layer options
+KmlExporter(include_orbits=False, include_planes=True).export(sats, "planes.kml")
+```
+
 #### Mixing sources
 
 Combine synthetic and live satellites, then serialise for simulation:
 
 ```python
-from humeris import build_satellite_entity
+from humeris.domain.serialization import build_satellite_entity
 
 template = {"Name": "Sat", "Id": 0}
 all_sats = satellites + gps_sats
@@ -690,107 +733,82 @@ entities = [
 
 ## Architecture
 
-```
-src/humeris/
-├── domain/                        # Pure logic — only stdlib (72 modules)
-│   ├── orbital_mechanics.py       # Kepler → Cartesian, SSO inclination, J2/J3
-│   ├── constellation.py           # Walker shells, SSO bands, ShellConfig, Satellite
-│   ├── coordinate_frames.py       # ECI ↔ ECEF ↔ Geodetic (GMST, Bowring, WGS84)
-│   ├── propagation.py             # Shared Keplerian + J2 propagation
-│   ├── coverage.py                # Grid-based visibility coverage analysis
-│   ├── access_windows.py          # Satellite rise/set window detection
-│   ├── ground_track.py            # Ground track computation
-│   ├── observation.py             # Topocentric azimuth/elevation/range
-│   ├── serialization.py           # Simulation format (Y/Z swap, precision)
-│   ├── omm.py                     # CelesTrak OMM record → OrbitalElements
-│   ├── numerical_propagation.py   # ◆ RK4 integrator + pluggable force models
-│   ├── revisit.py                 # ◆ Time-domain revisit analysis (ECA-optimized)
-│   ├── trade_study.py             # ◆ Parametric Walker trade studies, Pareto front
-│   ├── atmosphere.py              # ◆ Exponential density model, drag acceleration
-│   ├── lifetime.py                # ◆ Orbit lifetime, decay profile
-│   ├── station_keeping.py         # ◆ Delta-V budgets, Tsiolkovsky
-│   ├── conjunction.py             # ◆ Screening, TCA, B-plane, collision probability
-│   ├── solar.py                   # ◆ Analytical solar ephemeris (Meeus/Vallado)
-│   ├── eclipse.py                 # ◆ Shadow geometry, beta angle, eclipse windows
-│   ├── maneuvers.py               # ◆ Hohmann, bi-elliptic, plane change, phasing
-│   ├── deorbit.py                 # ◆ Deorbit lifetime estimation
-│   ├── orbit_design.py            # ◆ SSO/LTAN, frozen orbit, repeat ground track
-│   ├── orbit_properties.py        # ◆ Derived properties (velocity, energy, RSW)
-│   ├── sensor.py                  # ◆ Sensor/payload FOV modeling
-│   ├── pass_analysis.py           # ◆ Doppler, visual magnitude, contact statistics
-│   ├── inter_satellite_links.py   # ◆ ISL topology, link geometry
-│   ├── link_budget.py             # ◆ RF link budget, SNR, data rate
-│   ├── relative_motion.py         # ◆ CW/Hill relative motion equations
-│   ├── torques.py                 # ◆ Gravity gradient + aerodynamic torques
-│   ├── radiation.py               # ◆ Radiation environment (L-shell, SAA)
-│   ├── third_body.py              # ◆ Solar/lunar third-body perturbations
-│   ├── constellation_metrics.py   # ◆ Coverage/revisit/eclipse statistics, scoring
-│   ├── constellation_operability.py # ◆ Operability index
-│   ├── linalg.py                  # ◆ Linear algebra (Jacobi eigensolver, DFT)
-│   ├── graph_analysis.py          # ◆ Graph-theoretic ISL (Fiedler, fragmentation)
-│   ├── information_theory.py      # ◆ BEC channel, coverage spectrum, marginal value
-│   ├── control_analysis.py        # ◆ CW controllability Gramian
-│   ├── dilution_of_precision.py   # ◆ Fisher information DOP
-│   ├── statistical_analysis.py    # ◆ Survival curves, availability, correlations
-│   ├── design_optimization.py     # ◆ Coverage drift, mass efficiency frontier
-│   ├── spectral_topology.py       # ◆ Spectral topology analysis
-│   ├── cascade_analysis.py        # ◆ Cascade/fragmentation indicators
-│   ├── mission_analysis.py        # ◆ Cross-domain mission composition
-│   ├── conjunction_management.py  # ◆ Conjunction management workflows
-│   ├── communication_analysis.py  # ◆ Network capacity analysis
-│   ├── coverage_optimization.py   # ◆ Coverage optimization
-│   ├── environment_analysis.py    # ◆ Combined environment assessment
-│   ├── maintenance_planning.py    # ◆ Maintenance and scheduling
-│   ├── mission_economics.py       # ◆ Mission economics modeling
-│   ├── multi_objective_design.py  # ◆ Multi-objective Pareto design
-│   ├── decay_analysis.py          # ◆ Exponential scale map
-│   ├── temporal_correlation.py    # ◆ Cross-spectral coherence
-│   ├── operational_prediction.py  # ◆ EOL prediction, maneuver feasibility
-│   ├── design_sensitivity.py      # ◆ Spectral fragility, altitude sensitivity
-│   ├── sp3_parser.py              # ◆ IGS SP3 precise ephemeris parser
-│   ├── orbit_determination.py     # ◆ Extended Kalman Filter orbit determination
-│   ├── maneuver_detection.py      # ◆ CUSUM/EWMA/chi-squared maneuver detection
-│   ├── hazard_reporting.py        # ◆ NASA-STD-8719.14 hazard classification + CWI
-│   ├── kessler_heatmap.py         # ◆ Kessler spatial density + cascade criticality
-│   ├── koopman_propagation.py     # ◆ Koopman operator fast propagation (DMD)
-│   └── thermal.py                 # ◆ Beta-angle thermal equilibrium analysis
-├── ports/                         # Protocol interfaces (structural typing)
-│   ├── __init__.py                # SimulationReader, SimulationWriter
-│   ├── orbital_data.py            # OrbitalDataSource
-│   └── export.py                  # SatelliteExporter
-├── adapters/                      # Infrastructure (JSON I/O, HTTP, SGP4, export)
-│   ├── __init__.py                # JsonSimulationReader/Writer, exporters
-│   ├── celestrak.py               # CelesTrakAdapter, SGP4Adapter
-│   ├── concurrent_celestrak.py    # ConcurrentCelesTrakAdapter (ThreadPoolExecutor)
-│   ├── csv_exporter.py            # CsvSatelliteExporter
-│   ├── geojson_exporter.py        # GeoJsonSatelliteExporter
-│   ├── czml_exporter.py           # ◆ CZML packets for CesiumJS visualization
-│   ├── czml_visualization.py      # ◆ Advanced CZML (ISL, fragility, hazard)
-│   ├── cesium_viewer.py           # ◆ Self-contained HTML viewer
-│   └── viewer_server.py           # ◆ Interactive viewer server (13 analysis types)
-└── cli.py                         # CLI entry point
+Two pip-installable packages share the `humeris` namespace via PEP 420
+implicit namespace packages. Import paths are unchanged:
+`from humeris.domain.constellation import Satellite`.
 
-# ◆ = commercial license (free for personal/educational/academic use)
+```
+packages/
+├── core/                            # humeris-core (MIT)
+│   ├── pyproject.toml
+│   ├── LICENSE                      # MIT
+│   └── src/humeris/                 # NO __init__.py (namespace package)
+│       ├── cli.py                   # CLI entry point
+│       ├── domain/                  # 10 MIT domain modules
+│       │   ├── orbital_mechanics.py
+│       │   ├── constellation.py
+│       │   ├── coordinate_frames.py
+│       │   ├── propagation.py
+│       │   ├── coverage.py
+│       │   ├── access_windows.py
+│       │   ├── ground_track.py
+│       │   ├── observation.py
+│       │   ├── omm.py
+│       │   └── serialization.py
+│       ├── ports/                   # Protocol interfaces
+│       │   ├── __init__.py
+│       │   ├── export.py
+│       │   └── orbital_data.py
+│       └── adapters/                # 13 MIT adapters
+│           ├── json_io.py
+│           ├── enrichment.py
+│           ├── csv_exporter.py
+│           ├── geojson_exporter.py
+│           ├── celestrak.py
+│           ├── concurrent_celestrak.py
+│           ├── kml_exporter.py
+│           ├── blender_exporter.py
+│           ├── stellarium_exporter.py
+│           ├── celestia_exporter.py
+│           ├── spaceengine_exporter.py
+│           ├── ksp_exporter.py
+│           └── ubox_exporter.py
+└── pro/                             # humeris-pro (Commercial)
+    ├── pyproject.toml
+    ├── LICENSE                      # Commercial
+    └── src/humeris/                 # NO __init__.py (namespace package)
+        ├── domain/                  # 66 commercial domain modules
+        │   ├── numerical_propagation.py, adaptive_integration.py, ...
+        │   ├── conjunction.py, eclipse.py, maneuvers.py, ...
+        │   ├── orbit_design.py, trade_study.py, ...
+        │   └── (full list in COMMERCIAL-LICENSE.md)
+        ├── adapters/                # 4 commercial adapters
+        │   ├── czml_exporter.py
+        │   ├── czml_visualization.py
+        │   ├── cesium_viewer.py
+        │   └── viewer_server.py
+        └── data/                    # Reference data files
+            └── *.json (8 files)
 ```
 
-The domain layer has zero external dependencies. All I/O (file access,
+The domain layer depends only on Python stdlib and NumPy. All I/O (file access,
 HTTP, SGP4 propagation, export) is confined to the adapter layer behind
 port interfaces.
 
 ## Tests
 
 ```bash
-pytest                           # all 2157 tests (offline, no network required)
+pytest                           # all 3158 tests (offline, no network required)
 pytest tests/test_live_data.py   # live CelesTrak tests (requires network)
 ```
 
-The test suite covers all 72 domain modules, 6 invariant test suites, adapter
-tests, and domain purity tests (verifying zero external dependencies).
-All tests except `test_live_data.py` run offline.
+The test suite covers all 76 domain modules (10 core + 66 commercial), 6 invariant
+test suites, adapter tests, and domain purity tests (verifying no external
+dependencies beyond NumPy). All tests except `test_live_data.py` run offline.
 
 ### Validated against
 
-The library includes 81 validation tests that cross-check results against
+The library includes 100+ validation tests that cross-check results against
 independent references:
 
 - **Vallado** — Circular orbit velocities, orbital periods, Hohmann transfer
@@ -802,6 +820,21 @@ independent references:
 - **SP3 precise ephemeris** — Parser for IGS Standard Product #3 format
   (centimeter-accurate post-processed GNSS orbits), with physical consistency
   checks against known GPS constellation geometry
+- **Real-world scenarios** — Six historical spaceflight events validated
+  against published data:
+  - *'Oumuamua* — Hyperbolic orbit math (e > 1), periapsis distance exact to
+    1e-10, positive specific energy cross-checked against vis-viva
+  - *ISS* — Orbital period within 0.5 min of 92.68 min, J2 RAAN drift within
+    0.15 deg/day of -5.0 deg/day, revolutions/day within 0.1 of 15.54
+  - *Tiangong-1* — Orbit lifetime from 340 km converges to weeks-to-months
+    (actual reentry ~91 days), monotonic decay trajectory, reentry at 100 km
+  - *Starlink* — Hohmann 440→550 km within 5 m/s of ~60 m/s, transfer time
+    within 2 min of ~46 min, Walker shell geometry and RAAN separation exact
+  - *ENVISAT* — SSO inclination at 770 km within 0.5 deg of 98.55 deg, RAAN
+    drift rate within 0.02 deg/day of solar rate (0.9856 deg/day)
+  - *Iridium 33 / Cosmos 2251* — Collision relative velocity within 2 km/s of
+    11.7 km/s, B-plane conjunction assessment, SIR cascade debris increase,
+    orbital periods within 1.5 min of ~100 min
 - **Internal cross-checks** — Energy conservation, angular momentum
   invariance, vis-viva identity, coordinate frame round-trips, eclipse
   fraction vs eclipse windows agreement, J2 drift vs SSO condition
@@ -836,7 +869,7 @@ results without network access.
 - [Getting Started](docs/getting-started.md) — installation, quickstart, CLI
 - [Simulation JSON](docs/simulation-json.md) — input/output JSON schema
 - [Architecture](docs/architecture.md) — hexagonal design, module categories
-- [Viewer Server](docs/viewer-server.md) — interactive 3D viewer, 13 analysis types
+- [Viewer Server](docs/viewer-server.md) — interactive 3D viewer, 15 analysis types
 - [API Reference](docs/api-reference.md) — HTTP endpoints
 - [Integration Guide](docs/integration-guide.md) — CelesTrak, CesiumJS, custom sources
 - [Export Formats](docs/export-formats.md) — CSV, GeoJSON, CZML
@@ -852,7 +885,7 @@ generator script by [Scott Manley](https://www.youtube.com/@scottmanley) that
 produces satellite shells for orbit simulation tools. That original script —
 Keplerian-to-Cartesian conversion, Walker phasing, and SSO band generation in
 ~175 lines of pure Python — remains the conceptual seed. Humeris has since
-grown into a full astrodynamics library: 72 domain modules covering
+grown into a full astrodynamics library: 76 domain modules (10 MIT + 66 commercial) covering
 propagation, conjunction analysis, orbit design, link budgets, environmental
 modeling, and interactive 3D visualization, still pure Python with no compiled
 extensions.
@@ -879,7 +912,7 @@ and IGS SP3 precise ephemerides. Six invariant test suites verify energy
 conservation, angular momentum, vis-viva identity, and coordinate frame
 round-trips.
 
-**Cross-domain composition.** The 61 commercial domain modules are
+**Cross-domain composition.** The 66 commercial domain modules are
 designed to compose: conjunction management chains screening into
 collision probability into avoidance maneuver planning. Mission analysis
 combines coverage, eclipse, link budget, and lifetime into a single
@@ -906,7 +939,7 @@ This project uses a dual-license model:
 propagation, coordinate frames, coverage analysis, observation geometry,
 ground track, access windows, export adapters). See [`LICENSE`](LICENSE).
 
-**Commercial** — extended modules (62 domain modules, 4 adapters, 76 test
+**Commercial** — extended modules (66 domain modules, 4 adapters, test
 files) covering numerical propagation, atmospheric drag, eclipse, maneuvers,
 ISL topology, link budgets, conjunction, radiation, statistical analysis,
 design optimization, orbit determination, maneuver detection, hazard

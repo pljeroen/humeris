@@ -199,25 +199,31 @@ class TestDomainPurity:
     def test_domain_imports_only_allowed_stdlib(self):
         """Domain modules must only import allowed stdlib modules."""
         import ast
-        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime', 'json', 'pathlib', 'hashlib', 'hmac'}
-        domain_dir = os.path.join(os.path.dirname(__file__), '..', 'src',
-                                  'humeris', 'domain')
-        for fname in os.listdir(domain_dir):
-            if not fname.endswith('.py') or fname == '__init__.py':
+        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime', 'json', 'pathlib', 'hashlib', 'hmac', 'collections'}
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        domain_dirs = [
+            os.path.join(project_root, 'packages', 'core', 'src', 'humeris', 'domain'),
+            os.path.join(project_root, 'packages', 'pro', 'src', 'humeris', 'domain'),
+        ]
+        for domain_dir in domain_dirs:
+            if not os.path.isdir(domain_dir):
                 continue
-            with open(os.path.join(domain_dir, fname)) as f:
-                tree = ast.parse(f.read())
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    for alias in node.names:
-                        root = alias.name.split('.')[0]
-                        if root not in allowed and not root.startswith('humeris'):
-                            assert False, f"Disallowed import '{alias.name}' in domain/{fname}"
-                if isinstance(node, ast.ImportFrom):
-                    if node.module and node.level == 0:  # absolute imports
-                        root = node.module.split('.')[0]
-                        if root not in allowed and root != 'humeris':
-                            assert False, f"Disallowed import from '{node.module}' in domain/{fname}"
+            for fname in os.listdir(domain_dir):
+                if not fname.endswith('.py') or fname == '__init__.py':
+                    continue
+                with open(os.path.join(domain_dir, fname)) as f:
+                    tree = ast.parse(f.read())
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Import):
+                        for alias in node.names:
+                            root = alias.name.split('.')[0]
+                            if root not in allowed and not root.startswith('humeris'):
+                                assert False, f"Disallowed import '{alias.name}' in domain/{fname}"
+                    if isinstance(node, ast.ImportFrom):
+                        if node.module and node.level == 0:  # absolute imports
+                            root = node.module.split('.')[0]
+                            if root not in allowed and root != 'humeris':
+                                assert False, f"Disallowed import from '{node.module}' in domain/{fname}"
 
 
 # ── Integration ─────────────────────────────────────────────────────

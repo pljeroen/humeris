@@ -93,7 +93,7 @@ class TestDecayAnalysisPurity:
         import humeris.domain.decay_analysis as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
-        allowed = {"math", "numpy", "dataclasses", "datetime", "humeris"}
+        allowed = {"math", "numpy", "dataclasses", "datetime", "typing", "humeris"}
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:

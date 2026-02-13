@@ -672,13 +672,8 @@ class TestDomainPurity:
     def test_no_external_imports(self):
         """nrlmsise00.py should only import stdlib and domain modules."""
         import pathlib
-        module_path = (
-            pathlib.Path(__file__).parent.parent
-            / "src"
-            / "humeris"
-            / "domain"
-            / "nrlmsise00.py"
-        )
+        import humeris.domain.nrlmsise00 as _mod
+        module_path = pathlib.Path(_mod.__file__)
         source = module_path.read_text()
         tree = ast.parse(source)
 

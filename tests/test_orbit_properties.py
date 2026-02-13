@@ -14,16 +14,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from humeris import (
-    OrbitalConstants,
-    OrbitalState,
-    ShellConfig,
-    generate_walker_shell,
-    derive_orbital_state,
-    propagate_to,
-    kepler_to_cartesian,
-    sso_inclination_deg,
+from humeris.domain.orbital_mechanics import (
+    OrbitalConstants, kepler_to_cartesian, sso_inclination_deg,
 )
+from humeris.domain.propagation import OrbitalState, derive_orbital_state, propagate_to
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
 
 EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 MU = OrbitalConstants.MU_EARTH

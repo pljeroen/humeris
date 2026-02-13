@@ -13,18 +13,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from humeris import (
-    OrbitalConstants,
-    OrbitalState,
-    ShellConfig,
-    generate_walker_shell,
-    derive_orbital_state,
-    propagate_to,
-    CoveragePoint,
-    GroundStation,
-    AccessWindow,
-    compute_coverage_snapshot,
-)
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.propagation import OrbitalState, derive_orbital_state, propagate_to
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.coverage import CoveragePoint, compute_coverage_snapshot
+from humeris.domain.observation import GroundStation
+from humeris.domain.access_windows import AccessWindow
 
 EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 MU = OrbitalConstants.MU_EARTH

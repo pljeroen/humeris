@@ -289,7 +289,8 @@ class TestScreenConjunctionsNumerical:
 
         Each result is for a satellite at 550 km + offset, 53 deg inclination.
         """
-        from humeris import derive_orbital_state, propagate_numerical
+        from humeris.domain.propagation import derive_orbital_state
+        from humeris.domain.numerical_propagation import propagate_numerical
         from humeris.domain.numerical_propagation import TwoBodyGravity
         from humeris.domain.constellation import (
             ShellConfig, generate_walker_shell,

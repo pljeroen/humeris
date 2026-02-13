@@ -492,9 +492,8 @@ class TestDomainPurity:
     """Verify time_systems.py has zero external dependencies."""
 
     def test_no_external_imports(self):
-        source_path = (
-            "src/humeris/domain/time_systems.py"
-        )
+        import humeris.domain.time_systems as _mod
+        source_path = _mod.__file__
         with open(source_path) as f:
             tree = ast.parse(f.read())
         allowed = {

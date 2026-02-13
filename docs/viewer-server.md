@@ -4,7 +4,7 @@
 
 The viewer server provides a browser-based 3D visualization of satellite
 constellations using CesiumJS. It runs a local HTTP server that serves a
-Cesium globe and generates CZML data on demand for 13 analysis layer types.
+Cesium globe and generates CZML data on demand for 15 analysis layer types.
 
 ## Launching
 

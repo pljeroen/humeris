@@ -403,7 +403,8 @@ class TestDomainPurity:
     """Verify precession_nutation.py has zero external dependencies."""
 
     def test_no_external_imports(self):
-        source_path = "src/humeris/domain/precession_nutation.py"
+        import humeris.domain.precession_nutation as _mod
+        source_path = _mod.__file__
         with open(source_path) as f:
             tree = ast.parse(f.read())
         allowed = {

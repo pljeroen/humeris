@@ -10,13 +10,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from humeris import (
-    OrbitalConstants,
-    ShellConfig,
-    generate_walker_shell,
-    derive_orbital_state,
-    kepler_to_cartesian,
-)
+from humeris.domain.orbital_mechanics import OrbitalConstants, kepler_to_cartesian
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
 from humeris.domain.numerical_propagation import (
     PropagationStep,
     NumericalPropagationResult,
@@ -223,7 +219,7 @@ class TestAtmosphericDragForce:
 
     def test_drag_opposes_velocity(self, epoch):
         """dot(a_drag, v_rel) < 0 — drag opposes relative velocity."""
-        from humeris import DragConfig
+        from humeris.domain.atmosphere import DragConfig
 
         drag = AtmosphericDragForce(DragConfig(cd=2.2, area_m2=10.0, mass_kg=400.0))
         r = OrbitalConstants.R_EARTH + 300_000
@@ -239,7 +235,7 @@ class TestAtmosphericDragForce:
 
     def test_drag_decreases_with_altitude(self, epoch):
         """300 km drag > 600 km drag."""
-        from humeris import DragConfig
+        from humeris.domain.atmosphere import DragConfig
 
         drag = AtmosphericDragForce(DragConfig(cd=2.2, area_m2=10.0, mass_kg=400.0))
 
@@ -264,7 +260,7 @@ class TestSolarRadiationPressure:
 
     def test_srp_direction_away_from_sun(self, epoch):
         """SRP has component away from Sun."""
-        from humeris import sun_position_eci
+        from humeris.domain.solar import sun_position_eci
 
         srp = SolarRadiationPressureForce(cr=1.5, area_m2=10.0, mass_kg=400.0)
         r = OrbitalConstants.R_EARTH + 500_000
@@ -596,7 +592,7 @@ class TestPropagateNumerical:
 
     def test_drag_decreases_energy(self, epoch):
         """Final energy < initial energy when drag is present."""
-        from humeris import DragConfig
+        from humeris.domain.atmosphere import DragConfig
 
         shell = ShellConfig(
             altitude_km=300,
@@ -648,7 +644,7 @@ class TestSolarRadiationPressureShadow:
 
     def test_umbra_returns_zero(self, epoch):
         """Position in umbra → zero acceleration."""
-        from humeris import sun_position_eci
+        from humeris.domain.solar import sun_position_eci
 
         srp = SolarRadiationPressureForce(cr=1.5, area_m2=10.0, mass_kg=400.0, include_shadow=True)
         sun = sun_position_eci(epoch)
@@ -672,7 +668,7 @@ class TestSolarRadiationPressureShadow:
         srp_noshadow = SolarRadiationPressureForce(cr=1.5, area_m2=10.0, mass_kg=400.0, include_shadow=False)
 
         # Sunlit position (arbitrary, should be on sunlit side)
-        from humeris import sun_position_eci
+        from humeris.domain.solar import sun_position_eci
         sun = sun_position_eci(epoch)
         sx, sy, sz = sun.position_eci_m
         sun_mag = math.sqrt(sx * sx + sy * sy + sz * sz)
@@ -740,7 +736,7 @@ class TestSolarRadiationPressureShadow:
 
     def test_eclipsed_satellite_zero_srp(self, epoch):
         """Satellite directly behind Earth gets zero SRP with shadow enabled."""
-        from humeris import sun_position_eci
+        from humeris.domain.solar import sun_position_eci
 
         srp = SolarRadiationPressureForce(cr=1.5, area_m2=10.0, mass_kg=400.0, include_shadow=True)
         sun = sun_position_eci(epoch)

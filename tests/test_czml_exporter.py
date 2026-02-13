@@ -13,13 +13,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from humeris import (
-    ShellConfig,
-    generate_walker_shell,
-    derive_orbital_state,
-    CoveragePoint,
-    GroundTrackPoint,
-)
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
+from humeris.domain.coverage import CoveragePoint
+from humeris.domain.ground_track import GroundTrackPoint
 from humeris.adapters.czml_exporter import (
     constellation_packets,
     snapshot_packets,

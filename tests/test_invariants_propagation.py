@@ -15,12 +15,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from humeris import (
-    OrbitalConstants,
-    ShellConfig,
-    generate_walker_shell,
-    derive_orbital_state,
-)
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.propagation import derive_orbital_state
 from humeris.domain.numerical_propagation import (
     TwoBodyGravity,
     propagate_numerical,

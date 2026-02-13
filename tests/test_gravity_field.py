@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from humeris import OrbitalConstants, kepler_to_cartesian
+from humeris.domain.orbital_mechanics import OrbitalConstants, kepler_to_cartesian
 from humeris.domain.gravity_field import (
     GravityFieldModel,
     CunninghamGravity,
@@ -252,11 +252,8 @@ class TestCunninghamIntegration:
 
     def test_propagate_numerical_with_cunningham(self, epoch):
         """propagate_numerical() completes with CunninghamGravity."""
-        from humeris import (
-            ShellConfig,
-            generate_walker_shell,
-            derive_orbital_state,
-        )
+        from humeris.domain.constellation import ShellConfig, generate_walker_shell
+        from humeris.domain.propagation import derive_orbital_state
 
         shell = ShellConfig(
             altitude_km=500,
@@ -286,11 +283,8 @@ class TestCunninghamIntegration:
 
     def test_energy_bounded_one_orbit(self, epoch):
         """Specific energy stays bounded over one orbit (TwoBody + Cunningham)."""
-        from humeris import (
-            ShellConfig,
-            generate_walker_shell,
-            derive_orbital_state,
-        )
+        from humeris.domain.constellation import ShellConfig, generate_walker_shell
+        from humeris.domain.propagation import derive_orbital_state
 
         shell = ShellConfig(
             altitude_km=500,

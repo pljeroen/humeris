@@ -145,7 +145,7 @@ class TestCommunicationAnalysisPurity:
     def test_module_pure(self):
         import humeris.domain.communication_analysis as mod
 
-        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
+        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime', 'collections'}
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
         for node in ast.walk(tree):

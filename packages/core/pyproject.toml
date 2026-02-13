@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "humeris-core"
+version = "1.24.0"
+description = "Astrodynamics library for satellite constellation design — MIT open core"
+readme = "../../README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "Jeroen Visser"}]
+keywords = ["satellite", "constellation", "orbital-mechanics", "astrodynamics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+live = ["sgp4>=2.22"]
+
+[project.scripts]
+humeris = "humeris.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/humeris"]

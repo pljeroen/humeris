@@ -60,8 +60,12 @@ class TestCsvExporter:
             with open(path) as f:
                 reader = csv.reader(f)
                 header = next(reader)
-            expected = ['name', 'lat_deg', 'lon_deg', 'alt_km', 'epoch',
-                        'plane_index', 'sat_index', 'raan_deg', 'true_anomaly_deg']
+            expected = [
+                'name', 'lat_deg', 'lon_deg', 'alt_km', 'epoch',
+                'plane_index', 'sat_index', 'raan_deg', 'true_anomaly_deg',
+                'altitude_km', 'inclination_deg', 'orbital_period_min',
+                'beta_angle_deg', 'atmospheric_density_kg_m3', 'l_shell',
+            ]
             assert header == expected
         finally:
             os.unlink(path)
