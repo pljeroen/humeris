@@ -619,13 +619,33 @@ def propagate_numerical(
         step: Integration time step.
         force_models: List of force models to sum.
         epoch: Override epoch (defaults to initial_state.reference_epoch).
-        integrator: Integration method — "rk4", "verlet", or "yoshida".
+        integrator: Integration method — "rk4", "verlet", "yoshida", or "dormand_prince".
     """
     # Import here to avoid circular import at module level
     from constellation_generator.domain.propagation import OrbitalState as _OS
 
-    if integrator not in ("rk4", "verlet", "yoshida"):
-        raise ValueError(f"Unknown integrator: {integrator!r}. Use 'rk4', 'verlet', or 'yoshida'.")
+    if integrator not in ("rk4", "verlet", "yoshida", "dormand_prince"):
+        raise ValueError(f"Unknown integrator: {integrator!r}. Use 'rk4', 'verlet', 'yoshida', or 'dormand_prince'.")
+
+    if integrator == "dormand_prince":
+        from constellation_generator.domain.adaptive_integration import (
+            propagate_adaptive,
+            AdaptiveStepConfig,
+        )
+        ref_epoch_dp = epoch if epoch is not None else initial_state.reference_epoch
+        dp_result = propagate_adaptive(
+            initial_state=initial_state,
+            duration=duration,
+            force_models=force_models,
+            epoch=ref_epoch_dp,
+            output_step_s=step.total_seconds(),
+        )
+        return NumericalPropagationResult(
+            steps=dp_result.steps,
+            epoch=dp_result.epoch,
+            duration_s=dp_result.duration_s,
+            force_model_names=dp_result.force_model_names,
+        )
 
     ref_epoch = epoch if epoch is not None else initial_state.reference_epoch
     duration_s = duration.total_seconds()

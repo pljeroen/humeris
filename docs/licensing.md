@@ -25,7 +25,7 @@ Use freely for any purpose. See [LICENSE](../LICENSE).
 
 ### Commercial (extended modules)
 
-49 domain modules and 4 adapters. Copyright "Jeroen Visser".
+50 domain modules and 4 adapters. Copyright "Jeroen Visser".
 
 **Free for**: personal use, educational use, academic research.
 

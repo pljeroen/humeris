@@ -6,6 +6,7 @@ The following files are **not** covered by the MIT License:
 
 **Domain modules** (`src/constellation_generator/domain/`):
 
+- `adaptive_integration.py` — Dormand-Prince RK4(5) adaptive integrator
 - `atmosphere.py` — Exponential density model, drag acceleration
 - `cascade_analysis.py` — Cascade/fragmentation indicators
 - `communication_analysis.py` — Network capacity analysis
@@ -20,9 +21,11 @@ The following files are **not** covered by the MIT License:
 - `design_optimization.py` — Coverage drift, mass efficiency frontier
 - `design_sensitivity.py` — Spectral fragility, altitude sensitivity
 - `dilution_of_precision.py` — Fisher information DOP
+- `earth_orientation.py` — Earth Orientation Parameters (UT1-UTC, polar motion)
 - `eclipse.py` — Shadow geometry, beta angle, eclipse windows
 - `environment_analysis.py` — Combined environment assessment
 - `graph_analysis.py` — Graph-theoretic ISL (Fiedler, fragmentation)
+- `gravity_field.py` — Cunningham V/W spherical harmonic gravity (EGM96 70x70)
 - `information_theory.py` — BEC channel, coverage spectrum, marginal value
 - `inter_satellite_links.py` — ISL topology, link geometry
 - `lifetime.py` — Orbit lifetime, decay profile
@@ -33,11 +36,14 @@ The following files are **not** covered by the MIT License:
 - `mission_analysis.py` — Cross-domain mission composition
 - `mission_economics.py` — Mission economics modeling
 - `multi_objective_design.py` — Multi-objective Pareto design
+- `nrlmsise00.py` — NRLMSISE-00 atmosphere model with solar activity
 - `numerical_propagation.py` — RK4 integrator + pluggable force models
+- `precession_nutation.py` — IAU 2006 precession + IAU 2000B nutation + GCRS↔ITRS
 - `operational_prediction.py` — EOL prediction, maneuver feasibility
 - `orbit_design.py` — SSO/LTAN, frozen orbit, repeat ground track
 - `orbit_properties.py` — Derived properties (velocity, energy, RSW, LTAN)
 - `pass_analysis.py` — Doppler, visual magnitude, contact statistics
+- `planetary_ephemeris.py` — Chebyshev interpolation for Sun/Moon positions
 - `radiation.py` — Radiation environment (L-shell, SAA)
 - `relative_motion.py` — CW/Hill relative motion equations
 - `revisit.py` — Time-domain revisit analysis
@@ -49,7 +55,11 @@ The following files are **not** covered by the MIT License:
 - `statistical_analysis.py` — Survival curves, availability, correlations
 - `temporal_correlation.py` — Cross-spectral coherence
 - `third_body.py` — Solar/lunar third-body perturbations
+- `time_systems.py` — AstroTime value object, UTC/TAI/TT/TDB/GPS conversions
 - `torques.py` — Gravity gradient + aerodynamic torques
+- `relativistic_forces.py` — Schwarzschild, Lense-Thirring, de Sitter corrections
+- `tidal_forces.py` — Solid Earth tides (IERS 2010) + FES2004 ocean tides
+- `albedo_srp.py` — Earth albedo + infrared radiation pressure
 - `trade_study.py` — Parametric Walker trade studies, Pareto front
 
 **Adapters** (`src/constellation_generator/adapters/`):
@@ -61,7 +71,7 @@ The following files are **not** covered by the MIT License:
 
 **Tests** (`tests/`):
 
-- `test_atmosphere.py`, `test_cascade_analysis.py`, `test_cesium_viewer.py`,
+- `test_adaptive_integration.py`, `test_atmosphere.py`, `test_cascade_analysis.py`, `test_cesium_viewer.py`,
   `test_communication_analysis.py`, `test_conjunction.py`,
   `test_conjunction_management.py`, `test_constellation_metrics.py`,
   `test_constellation_operability.py`, `test_control_analysis.py`,
@@ -70,19 +80,24 @@ The following files are **not** covered by the MIT License:
   `test_design_optimization.py`, `test_design_sensitivity.py`,
   `test_dilution_of_precision.py`, `test_eclipse.py`,
   `test_environment_analysis.py`, `test_graph_analysis.py`,
-  `test_information_theory.py`, `test_inter_satellite_links.py`,
+  `test_gravity_field.py`, `test_information_theory.py`,
+  `test_inter_satellite_links.py`,
   `test_invariants_conjunction.py`, `test_invariants_exporters.py`,
   `test_invariants_frames.py`, `test_invariants_geodetic.py`,
   `test_invariants_j2_sso.py`, `test_invariants_two_body.py`,
   `test_lifetime.py`, `test_linalg.py`, `test_link_budget.py`,
   `test_maintenance_planning.py`, `test_maneuvers.py`,
   `test_mission_analysis.py`, `test_mission_economics.py`,
-  `test_multi_objective_design.py`, `test_numerical_propagation.py`,
+  `test_multi_objective_design.py`, `test_nrlmsise00.py`, `test_numerical_propagation.py`,
   `test_operational_prediction.py`, `test_orbit_design.py`,
+  `test_earth_orientation.py`,
+  `test_precession_nutation.py`, `test_time_systems.py`,
+  `test_planetary_ephemeris.py`,
   `test_orbit_properties.py`, `test_pass_analysis.py`, `test_radiation.py`,
   `test_relative_motion.py`, `test_revisit.py`, `test_sensor.py`,
   `test_solar.py`, `test_spectral_topology.py`, `test_station_keeping.py`,
   `test_statistical_analysis.py`, `test_temporal_correlation.py`,
+  `test_relativistic_forces.py`, `test_tidal_forces.py`, `test_albedo_srp.py`,
   `test_third_body.py`, `test_torques.py`, `test_trade_study.py`,
   `test_validation_vallado.py`, `test_validation_sgp4.py`,
   `test_validation_crosscheck.py`, `test_validation_sp3.py`,

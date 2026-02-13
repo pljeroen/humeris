@@ -185,6 +185,11 @@ from constellation_generator.domain.numerical_propagation import (
     rk4_step,
     propagate_numerical,
 )
+from constellation_generator.domain.gravity_field import (
+    GravityFieldModel,
+    CunninghamGravity,
+    load_gravity_field,
+)
 from constellation_generator.domain.orbit_properties import (
     OrbitalVelocity,
     EnergyMomentum,
@@ -468,6 +473,58 @@ from constellation_generator.domain.sp3_parser import (
     parse_sp3,
     filter_satellite,
 )
+from constellation_generator.domain.time_systems import (
+    AstroTime,
+    datetime_to_jd,
+    utc_to_tai_seconds,
+)
+from constellation_generator.domain.adaptive_integration import (
+    AdaptiveStepConfig,
+    AdaptiveStepResult,
+)
+from constellation_generator.domain.precession_nutation import (
+    fundamental_arguments,
+    precession_matrix,
+    nutation_angles,
+    nutation_matrix,
+    frame_bias_matrix,
+    earth_rotation_angle,
+    gcrs_to_itrs_matrix,
+    eci_to_ecef_precise,
+    mean_obliquity,
+)
+from constellation_generator.domain.earth_orientation import (
+    EOPEntry,
+    EOPTable,
+    load_eop,
+    interpolate_eop,
+    polar_motion_matrix,
+    datetime_to_mjd,
+)
+from constellation_generator.domain.nrlmsise00 import (
+    SpaceWeather,
+    AtmosphereState,
+    NRLMSISE00DragForce,
+    SpaceWeatherHistory,
+)
+from constellation_generator.domain.planetary_ephemeris import (
+    chebyshev_evaluate,
+    load_ephemeris,
+    evaluate_position,
+    evaluate_velocity,
+)
+from constellation_generator.domain.relativistic_forces import (
+    SchwarzschildForce,
+    LenseThirringForce,
+    DeSitterForce,
+)
+from constellation_generator.domain.tidal_forces import (
+    SolidTideForce,
+    OceanTideForce,
+)
+from constellation_generator.domain.albedo_srp import (
+    AlbedoRadiationPressure,
+)
 from constellation_generator.domain.design_sensitivity import (
     SpectralFragility,
     CoverageConnectivityPoint,
@@ -478,7 +535,7 @@ from constellation_generator.domain.design_sensitivity import (
     compute_altitude_sensitivity,
 )
 
-__version__ = "1.19.0"
+__version__ = "1.20.0"
 
 __all__ = [
     "OrbitalConstants",
@@ -602,6 +659,10 @@ __all__ = [
     "SolarRadiationPressureForce",
     "rk4_step",
     "propagate_numerical",
+    # gravity_field
+    "GravityFieldModel",
+    "CunninghamGravity",
+    "load_gravity_field",
     # orbit_properties
     "OrbitalVelocity",
     "EnergyMomentum",
@@ -862,4 +923,47 @@ __all__ = [
     "SP3Ephemeris",
     "parse_sp3",
     "filter_satellite",
+    # time_systems
+    "AstroTime",
+    "datetime_to_jd",
+    "utc_to_tai_seconds",
+    # adaptive_integration
+    "AdaptiveStepConfig",
+    "AdaptiveStepResult",
+    # precession_nutation
+    "fundamental_arguments",
+    "precession_matrix",
+    "nutation_angles",
+    "nutation_matrix",
+    "frame_bias_matrix",
+    "earth_rotation_angle",
+    "gcrs_to_itrs_matrix",
+    "eci_to_ecef_precise",
+    "mean_obliquity",
+    # earth_orientation
+    "EOPEntry",
+    "EOPTable",
+    "load_eop",
+    "interpolate_eop",
+    "polar_motion_matrix",
+    "datetime_to_mjd",
+    # nrlmsise00
+    "SpaceWeather",
+    "AtmosphereState",
+    "NRLMSISE00DragForce",
+    "SpaceWeatherHistory",
+    # planetary_ephemeris
+    "chebyshev_evaluate",
+    "load_ephemeris",
+    "evaluate_position",
+    "evaluate_velocity",
+    # relativistic_forces
+    "SchwarzschildForce",
+    "LenseThirringForce",
+    "DeSitterForce",
+    # tidal_forces
+    "SolidTideForce",
+    "OceanTideForce",
+    # albedo_srp
+    "AlbedoRadiationPressure",
 ]

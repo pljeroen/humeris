@@ -1,0 +1,85 @@
+{
+  "source": "FES2004 main tidal constituents (simplified)",
+  "description": "Ocean tide spherical harmonic corrections for 8 main constituents",
+  "reference": "IERS Conventions 2010, Chapter 6",
+  "constituents": [
+    {
+      "name": "M2",
+      "doodson": "255.555",
+      "period_hours": 12.4206,
+      "description": "Principal lunar semidiurnal",
+      "corrections_nm": [
+        {"n": 2, "m": 0, "Cp": 0.0, "Sp": 0.0, "Cm": -1.824e-12, "Sm": 0.0},
+        {"n": 2, "m": 1, "Cp": -0.413e-12, "Sp": 0.173e-12, "Cm": -0.297e-12, "Sm": -0.064e-12},
+        {"n": 2, "m": 2, "Cp": -6.578e-12, "Sp": 1.494e-12, "Cm": -0.201e-12, "Sm": -2.802e-12}
+      ]
+    },
+    {
+      "name": "S2",
+      "doodson": "273.555",
+      "period_hours": 12.0000,
+      "description": "Principal solar semidiurnal",
+      "corrections_nm": [
+        {"n": 2, "m": 0, "Cp": 0.0, "Sp": 0.0, "Cm": -0.701e-12, "Sm": 0.0},
+        {"n": 2, "m": 1, "Cp": -0.106e-12, "Sp": 0.111e-12, "Cm": -0.030e-12, "Sm": -0.020e-12},
+        {"n": 2, "m": 2, "Cp": -2.979e-12, "Sp": 1.261e-12, "Cm": -0.110e-12, "Sm": -1.312e-12}
+      ]
+    },
+    {
+      "name": "N2",
+      "doodson": "245.655",
+      "period_hours": 12.6583,
+      "description": "Larger lunar elliptic semidiurnal",
+      "corrections_nm": [
+        {"n": 2, "m": 0, "Cp": 0.0, "Sp": 0.0, "Cm": -0.350e-12, "Sm": 0.0},
+        {"n": 2, "m": 2, "Cp": -1.272e-12, "Sp": 0.272e-12, "Cm": -0.034e-12, "Sm": -0.538e-12}
+      ]
+    },
+    {
+      "name": "K2",
+      "doodson": "275.555",
+      "period_hours": 11.9672,
+      "description": "Lunisolar semidiurnal",
+      "corrections_nm": [
+        {"n": 2, "m": 2, "Cp": -0.812e-12, "Sp": 0.340e-12, "Cm": -0.029e-12, "Sm": -0.355e-12}
+      ]
+    },
+    {
+      "name": "K1",
+      "doodson": "165.555",
+      "period_hours": 23.9345,
+      "description": "Lunisolar diurnal",
+      "corrections_nm": [
+        {"n": 2, "m": 0, "Cp": 0.0, "Sp": 0.0, "Cm": -0.043e-12, "Sm": 0.0},
+        {"n": 2, "m": 1, "Cp": -2.762e-12, "Sp": -0.014e-12, "Cm": -0.129e-12, "Sm": 0.561e-12}
+      ]
+    },
+    {
+      "name": "O1",
+      "doodson": "145.555",
+      "period_hours": 25.8193,
+      "description": "Principal lunar diurnal",
+      "corrections_nm": [
+        {"n": 2, "m": 1, "Cp": -1.550e-12, "Sp": -0.080e-12, "Cm": 0.050e-12, "Sm": 0.369e-12}
+      ]
+    },
+    {
+      "name": "P1",
+      "doodson": "163.555",
+      "period_hours": 24.0659,
+      "description": "Principal solar diurnal",
+      "corrections_nm": [
+        {"n": 2, "m": 1, "Cp": -0.919e-12, "Sp": 0.006e-12, "Cm": -0.054e-12, "Sm": 0.186e-12}
+      ]
+    },
+    {
+      "name": "Q1",
+      "doodson": "135.655",
+      "period_hours": 26.8684,
+      "description": "Larger lunar elliptic diurnal",
+      "corrections_nm": [
+        {"n": 2, "m": 1, "Cp": -0.304e-12, "Sp": -0.015e-12, "Cm": 0.009e-12, "Sm": 0.072e-12}
+      ]
+    }
+  ]
+}
