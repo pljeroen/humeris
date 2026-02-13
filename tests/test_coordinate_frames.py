@@ -49,15 +49,27 @@ class TestGMST:
 class TestECItoECEF:
 
     def test_identity_at_zero_gmst(self):
-        """At GMST=0, ECEF equals ECI."""
+        """At GMST=0, position is identity but velocity includes Coriolis.
+
+        v_ECEF = R * v_ECI - omega_E x r_ECEF.
+        At GMST=0, R=I so r_ECEF = r_ECI and v_ECEF = v_ECI - omega x r_ECI.
+        """
         pos_eci = (7_000_000.0, 0.0, 0.0)
         vel_eci = (0.0, 7_500.0, 0.0)
-        # J2000 epoch is close enough; use explicit gmst=0 test
-        # by testing the rotation directly
+        omega_e = OrbitalConstants.EARTH_ROTATION_RATE
         pos_ecef, vel_ecef = eci_to_ecef(pos_eci, vel_eci, gmst_angle_rad=0.0)
+        # Position: R=identity, so pos_ecef == pos_eci
         for i in range(3):
             assert abs(pos_ecef[i] - pos_eci[i]) < 1.0
-            assert abs(vel_ecef[i] - vel_eci[i]) < 0.01
+        # Velocity: v_ECEF = v_ECI - omega x r_ECI
+        # omega x r = (0,0,omega_E) x (7M,0,0) = (0, omega_E*7M, 0)
+        expected_vel = (
+            vel_eci[0] - (-omega_e * pos_eci[1]),   # vx - (-omega*y) = 0
+            vel_eci[1] - (omega_e * pos_eci[0]),     # vy - omega*x = 7500 - 510.45
+            vel_eci[2],                               # vz unchanged
+        )
+        for i in range(3):
+            assert abs(vel_ecef[i] - expected_vel[i]) < 0.01
 
     def test_rotation_preserves_position_magnitude(self):
         """‖ECEF(pos)‖ = ‖pos_ECI‖ for any GMST angle."""
@@ -70,14 +82,31 @@ class TestECItoECEF:
             r_ecef = math.sqrt(sum(p**2 for p in pos_ecef))
             assert abs(r_ecef - r_eci) < 1.0
 
-    def test_rotation_preserves_velocity_magnitude(self):
-        """‖ECEF(vel)‖ = ‖vel_ECI‖ for any GMST angle."""
+    def test_velocity_transformation_coriolis(self):
+        """v_ECEF = R * v_ECI - omega_E x r_ECEF for any GMST angle."""
         pos_eci = (6_778_000.0, 0.0, 0.0)
         vel_eci = (0.0, 7_500.0, 1_000.0)
-        pos_ecef, vel_ecef = eci_to_ecef(pos_eci, vel_eci, gmst_angle_rad=math.radians(90))
-        v_eci = math.sqrt(sum(v**2 for v in vel_eci))
-        v_ecef = math.sqrt(sum(v**2 for v in vel_ecef))
-        assert abs(v_ecef - v_eci) < 0.1
+        omega_e = OrbitalConstants.EARTH_ROTATION_RATE
+        for angle_deg in [0, 45, 90, 135, 180, 270]:
+            angle_rad = math.radians(angle_deg)
+            cos_t = math.cos(angle_rad)
+            sin_t = math.sin(angle_rad)
+            pos_ecef, vel_ecef = eci_to_ecef(pos_eci, vel_eci, gmst_angle_rad=angle_rad)
+            # Manually compute R * v_ECI
+            rv_x = cos_t * vel_eci[0] + sin_t * vel_eci[1]
+            rv_y = -sin_t * vel_eci[0] + cos_t * vel_eci[1]
+            rv_z = vel_eci[2]
+            # omega x r_ECEF = (0,0,omega_E) x (rx,ry,rz) = (-omega_E*ry, omega_E*rx, 0)
+            cross_x = -omega_e * pos_ecef[1]
+            cross_y = omega_e * pos_ecef[0]
+            cross_z = 0.0
+            # Expected: R*v - omega x r
+            expected = (rv_x - cross_x, rv_y - cross_y, rv_z - cross_z)
+            for i in range(3):
+                assert abs(vel_ecef[i] - expected[i]) < 1e-6, (
+                    f"angle={angle_deg}deg, component {i}: "
+                    f"got {vel_ecef[i]}, expected {expected[i]}"
+                )
 
     def test_90deg_rotation(self):
         """At GMST=90°, ECI x-axis maps to ECEF -y-axis (approximately)."""

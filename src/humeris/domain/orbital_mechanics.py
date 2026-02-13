@@ -19,7 +19,7 @@ class _OrbitalConstants:
     R_EARTH: float = 6_371_000          # m — mean radius
     J2_EARTH: float = 1.08263e-3        # J2 perturbation coefficient
     J3_EARTH: float = -2.53215e-6       # J3 zonal harmonic coefficient
-    EARTH_OMEGA: float = 1.99e-7        # rad/s — rotation rate for SSO
+    EARTH_OMEGA: float = 1.99098659e-7   # rad/s — rotation rate for SSO (2π / (365.2422 * 86400))
     EARTH_ROTATION_RATE: float = 7.2921159e-5  # rad/s — sidereal rotation rate
     # WGS84 ellipsoid
     R_EARTH_EQUATORIAL: float = 6_378_137.0       # m — semi-major axis
@@ -104,8 +104,8 @@ def sso_inclination_deg(altitude_km: float) -> float:
         Inclination in degrees (retrograde, > 90°)
     """
     c = OrbitalConstants
-    r = altitude_km * 1000 + c.R_EARTH
-    cos_i = -(2 * c.EARTH_OMEGA / (3 * c.J2_EARTH * c.R_EARTH**2)) * (
+    r = altitude_km * 1000 + c.R_EARTH_EQUATORIAL
+    cos_i = -(2 * c.EARTH_OMEGA / (3 * c.J2_EARTH * c.R_EARTH_EQUATORIAL**2)) * (
         r**3.5 / float(np.sqrt(c.MU_EARTH))
     )
     if cos_i < -1.0 or cos_i > 1.0:
@@ -129,7 +129,7 @@ def j2_raan_rate(n: float, a: float, e: float, i_rad: float) -> float:
         RAAN rate in rad/s. Negative for prograde, positive for retrograde.
     """
     c = OrbitalConstants
-    p_ratio = (c.R_EARTH / a) ** 2
+    p_ratio = (c.R_EARTH_EQUATORIAL / a) ** 2
     return float(-1.5 * n * c.J2_EARTH * p_ratio * np.cos(i_rad) / (1 - e**2) ** 2)
 
 
@@ -151,7 +151,7 @@ def j2_arg_perigee_rate(n: float, a: float, e: float, i_rad: float) -> float:
         Argument of perigee rate in rad/s.
     """
     c = OrbitalConstants
-    p_ratio = (c.R_EARTH / a) ** 2
+    p_ratio = (c.R_EARTH_EQUATORIAL / a) ** 2
     return float(1.5 * n * c.J2_EARTH * p_ratio * (2 - 2.5 * np.sin(i_rad) ** 2) / (1 - e**2) ** 2)
 
 
@@ -171,5 +171,5 @@ def j2_mean_motion_correction(n: float, a: float, e: float, i_rad: float) -> flo
         Corrected mean motion in rad/s.
     """
     c = OrbitalConstants
-    p_ratio = (c.R_EARTH / a) ** 2
+    p_ratio = (c.R_EARTH_EQUATORIAL / a) ** 2
     return float(n * (1 + 1.5 * c.J2_EARTH * p_ratio * np.sqrt(1 - e**2) * (1 - 1.5 * np.sin(i_rad) ** 2)))

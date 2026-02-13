@@ -245,14 +245,27 @@ class TestCoordinateRoundTrips:
             assert abs(alt2 - alt) < 1.0, f"Alt: {alt} → {alt2}"
 
     def test_eci_ecef_roundtrip(self):
-        """ECI → ECEF at GMST=0 should be identity transform."""
+        """ECI -> ECEF at GMST=0: position is identity, velocity has Coriolis.
+
+        v_ECEF = R * v_ECI - omega_E x r_ECEF.
+        At GMST=0, R=I, so v_ECEF = v_ECI - omega x r_ECI.
+        """
         pos = (7000000.0, 0.0, 0.0)
         vel = (0.0, 7500.0, 0.0)
+        omega_e = OrbitalConstants.EARTH_ROTATION_RATE
         ecef_pos, ecef_vel = eci_to_ecef(pos, vel, 0.0)
-        # At GMST=0, ECI = ECEF
+        # At GMST=0, position: ECI = ECEF
         for i in range(3):
             assert abs(ecef_pos[i] - pos[i]) < 0.01
-            assert abs(ecef_vel[i] - vel[i]) < 0.01
+        # Velocity: v_ECEF = v_ECI - omega x r_ECI
+        # omega x r = (0,0,omega_E) x (7M,0,0) = (0, omega_E*7M, 0)
+        expected_vel = (
+            vel[0] - (-omega_e * pos[1]),
+            vel[1] - (omega_e * pos[0]),
+            vel[2],
+        )
+        for i in range(3):
+            assert abs(ecef_vel[i] - expected_vel[i]) < 0.01
 
 
 class TestAccessWindowsConsistency:

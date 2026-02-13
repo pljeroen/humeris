@@ -19,6 +19,7 @@ from humeris.domain.coordinate_frames import (
     gmst_rad,
     eci_to_ecef,
 )
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # Deterministic test vectors (position, velocity pairs)
@@ -47,7 +48,7 @@ def _dot(a, b):
 
 
 class TestB1NormPreservation:
-    """B1: Rotation preserves vector norm. |eci_to_ecef(r)| == |r|."""
+    """B1: Rotation preserves position norm. Velocity includes Coriolis."""
 
     @pytest.mark.parametrize("pos,vel,label", _TEST_VECTORS)
     def test_position_norm(self, pos, vel, label):
@@ -59,11 +60,25 @@ class TestB1NormPreservation:
 
     @pytest.mark.parametrize("pos,vel,label", _TEST_VECTORS)
     def test_velocity_norm(self, pos, vel, label):
+        """v_ECEF = R*v_ECI - omega x r_ECEF matches returned velocity."""
+        omega_e = OrbitalConstants.EARTH_ROTATION_RATE
         for epoch in _TEST_EPOCHS:
             gmst = gmst_rad(epoch)
-            _, vel_ecef = eci_to_ecef(pos, vel, gmst)
-            assert abs(_mag(vel_ecef) - _mag(vel)) / _mag(vel) < 1e-12, \
-                f"{label} at {epoch}"
+            cos_t = math.cos(gmst)
+            sin_t = math.sin(gmst)
+            pos_ecef, vel_ecef = eci_to_ecef(pos, vel, gmst)
+            # R * v_ECI
+            rv_x = cos_t * vel[0] + sin_t * vel[1]
+            rv_y = -sin_t * vel[0] + cos_t * vel[1]
+            rv_z = vel[2]
+            # omega x r_ECEF
+            cross_x = -omega_e * pos_ecef[1]
+            cross_y = omega_e * pos_ecef[0]
+            # Expected: R*v - omega x r
+            expected = (rv_x - cross_x, rv_y - cross_y, rv_z)
+            for i in range(3):
+                assert abs(vel_ecef[i] - expected[i]) < 1e-6, \
+                    f"{label} at {epoch} component {i}"
 
 
 class TestB2DotProductPreservation:
@@ -87,18 +102,43 @@ class TestB2DotProductPreservation:
 
 
 class TestB3RoundTrip:
-    """B3: Rotating by +theta then -theta recovers the original vector."""
+    """B3: ECI->ECEF->ECI round-trip recovers original state.
+
+    Position: inverse rotation by -gmst recovers pos_ECI.
+    Velocity: must undo Coriolis before inverse rotation:
+        v_ECI = R^T * (v_ECEF + omega x r_ECEF)
+    """
 
     @pytest.mark.parametrize("pos,vel,label", _TEST_VECTORS)
     def test_inverse_rotation(self, pos, vel, label):
+        omega_e = OrbitalConstants.EARTH_ROTATION_RATE
         for epoch in _TEST_EPOCHS:
             gmst = gmst_rad(epoch)
+            cos_t = math.cos(gmst)
+            sin_t = math.sin(gmst)
             pos_ecef, vel_ecef = eci_to_ecef(pos, vel, gmst)
-            # Inverse: rotate by -gmst
-            pos_back, vel_back = eci_to_ecef(pos_ecef, vel_ecef, -gmst)
+
+            # Position inverse: R^T * pos_ECEF (rotation by -gmst)
+            pos_back = (
+                cos_t * pos_ecef[0] - sin_t * pos_ecef[1],
+                sin_t * pos_ecef[0] + cos_t * pos_ecef[1],
+                pos_ecef[2],
+            )
             for i in range(3):
                 assert abs(pos_back[i] - pos[i]) < 1e-4, \
                     f"{label} pos[{i}] roundtrip: {pos_back[i]} vs {pos[i]}"
+
+            # Velocity inverse: v_ECI = R^T * (v_ECEF + omega x r_ECEF)
+            # omega x r_ECEF = (-omega_E * ry, omega_E * rx, 0)
+            corrected_vx = vel_ecef[0] + (-omega_e * pos_ecef[1])
+            corrected_vy = vel_ecef[1] + (omega_e * pos_ecef[0])
+            corrected_vz = vel_ecef[2]
+            vel_back = (
+                cos_t * corrected_vx - sin_t * corrected_vy,
+                sin_t * corrected_vx + cos_t * corrected_vy,
+                corrected_vz,
+            )
+            for i in range(3):
                 assert abs(vel_back[i] - vel[i]) < 1e-4, \
                     f"{label} vel[{i}] roundtrip: {vel_back[i]} vs {vel[i]}"
 

@@ -54,6 +54,7 @@ class PropagationStep:
     time: datetime
     position_eci: tuple[float, float, float]
     velocity_eci: tuple[float, float, float]
+    specific_energy_j_kg: float = 0.0  # v²/2 - μ/r (J/kg)
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,19 @@ class NumericalPropagationResult:
     epoch: datetime
     duration_s: float
     force_model_names: tuple[str, ...]
+    initial_energy_j_kg: float = 0.0
+    final_energy_j_kg: float = 0.0
+    max_energy_drift_j_kg: float = 0.0
+    relative_energy_drift: float = 0.0  # |dE/E0|
+
+
+# --- Energy computation ---
+
+def _specific_energy(pos: tuple[float, float, float], vel: tuple[float, float, float]) -> float:
+    """Compute specific orbital energy: E = v²/2 - μ/r."""
+    r = math.sqrt(pos[0]**2 + pos[1]**2 + pos[2]**2)
+    v = math.sqrt(vel[0]**2 + vel[1]**2 + vel[2]**2)
+    return 0.5 * v**2 - OrbitalConstants.MU_EARTH / r
 
 
 # --- Force models ---
@@ -645,11 +659,44 @@ def propagate_numerical(
             epoch=ref_epoch_dp,
             output_step_s=step.total_seconds(),
         )
+        dp_steps = dp_result.steps
+        if dp_steps:
+            dp_positions = np.array([(s.position_eci[0], s.position_eci[1], s.position_eci[2]) for s in dp_steps])
+            dp_velocities = np.array([(s.velocity_eci[0], s.velocity_eci[1], s.velocity_eci[2]) for s in dp_steps])
+            dp_r = np.sqrt(np.sum(dp_positions**2, axis=1))
+            dp_v = np.sqrt(np.sum(dp_velocities**2, axis=1))
+            dp_energies = 0.5 * dp_v**2 - OrbitalConstants.MU_EARTH / dp_r
+
+            dp_steps_with_energy = tuple(
+                PropagationStep(
+                    time=s.time,
+                    position_eci=s.position_eci,
+                    velocity_eci=s.velocity_eci,
+                    specific_energy_j_kg=float(dp_energies[i]),
+                )
+                for i, s in enumerate(dp_steps)
+            )
+            dp_initial_energy = float(dp_energies[0])
+            dp_final_energy = float(dp_energies[-1])
+            dp_drift = np.abs(dp_energies - dp_initial_energy)
+            dp_max_drift = float(np.max(dp_drift))
+            dp_relative_drift = abs(dp_max_drift / dp_initial_energy) if dp_initial_energy != 0.0 else 0.0
+        else:
+            dp_steps_with_energy = dp_steps
+            dp_initial_energy = 0.0
+            dp_final_energy = 0.0
+            dp_max_drift = 0.0
+            dp_relative_drift = 0.0
+
         return NumericalPropagationResult(
-            steps=dp_result.steps,
+            steps=dp_steps_with_energy,
             epoch=dp_result.epoch,
             duration_s=dp_result.duration_s,
             force_model_names=dp_result.force_model_names,
+            initial_energy_j_kg=dp_initial_energy,
+            final_energy_j_kg=dp_final_energy,
+            max_energy_drift_j_kg=dp_max_drift,
+            relative_energy_drift=dp_relative_drift,
         )
 
     ref_epoch = epoch if epoch is not None else initial_state.reference_epoch
@@ -727,9 +774,36 @@ def propagate_numerical(
         if i < num_steps - 1:
             t_current, state_vec = step_fn(t_current, state_vec, step_s)
 
+    # Compute energy for each step using numpy for efficiency
+    positions = np.array([(s.position_eci[0], s.position_eci[1], s.position_eci[2]) for s in steps])
+    velocities = np.array([(s.velocity_eci[0], s.velocity_eci[1], s.velocity_eci[2]) for s in steps])
+    r_magnitudes = np.sqrt(np.sum(positions**2, axis=1))
+    v_magnitudes = np.sqrt(np.sum(velocities**2, axis=1))
+    energies = 0.5 * v_magnitudes**2 - OrbitalConstants.MU_EARTH / r_magnitudes
+
+    # Rebuild steps with energy populated
+    steps_with_energy: list[PropagationStep] = []
+    for i, s in enumerate(steps):
+        steps_with_energy.append(PropagationStep(
+            time=s.time,
+            position_eci=s.position_eci,
+            velocity_eci=s.velocity_eci,
+            specific_energy_j_kg=float(energies[i]),
+        ))
+
+    initial_energy = float(energies[0])
+    final_energy = float(energies[-1])
+    drift_from_initial = np.abs(energies - initial_energy)
+    max_drift = float(np.max(drift_from_initial))
+    relative_drift = abs(max_drift / initial_energy) if initial_energy != 0.0 else 0.0
+
     return NumericalPropagationResult(
-        steps=tuple(steps),
+        steps=tuple(steps_with_energy),
         epoch=ref_epoch,
         duration_s=duration_s,
         force_model_names=model_names,
+        initial_energy_j_kg=initial_energy,
+        final_energy_j_kg=final_energy,
+        max_energy_drift_j_kg=max_drift,
+        relative_energy_drift=relative_drift,
     )

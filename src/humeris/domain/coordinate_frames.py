@@ -72,6 +72,12 @@ def eci_to_ecef(
         [y_ecef] = [-sin(θ)  cos(θ)  0] [y_eci]
         [z_ecef]   [   0       0     1] [z_eci]
 
+    Velocity includes the Coriolis correction for the rotating frame:
+        v_ECEF = R * v_ECI - omega_E x r_ECEF
+
+    where omega_E = (0, 0, 7.2921159e-5) rad/s is the Earth sidereal
+    rotation rate.
+
     Args:
         pos_eci: Position in ECI frame (x, y, z) in meters.
         vel_eci: Velocity in ECI frame (vx, vy, vz) in m/s.
@@ -90,7 +96,8 @@ def eci_to_ecef(
     ])
 
     pos_ecef_arr = rot @ np.array(pos_eci)
-    vel_ecef_arr = rot @ np.array(vel_eci)
+    omega_earth = np.array([0.0, 0.0, OrbitalConstants.EARTH_ROTATION_RATE])
+    vel_ecef_arr = rot @ np.array(vel_eci) - np.cross(omega_earth, pos_ecef_arr)
 
     pos_ecef = (float(pos_ecef_arr[0]), float(pos_ecef_arr[1]), float(pos_ecef_arr[2]))
     vel_ecef = (float(vel_ecef_arr[0]), float(vel_ecef_arr[1]), float(vel_ecef_arr[2]))

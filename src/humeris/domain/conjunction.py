@@ -432,3 +432,210 @@ def screen_conjunctions_numerical(
 
     candidates.sort(key=lambda x: x[3])
     return candidates
+
+
+# ── FTLE for Conjunction Risk Classification ───────────────────────
+
+@dataclass(frozen=True)
+class ConjunctionPredictability:
+    """Finite-Time Lyapunov Exponent for conjunction risk assessment."""
+    ftle: float                        # Finite-time Lyapunov exponent (1/s)
+    max_singular_value: float          # Largest singular value of relative STM
+    is_chaotic: bool                   # FTLE > threshold
+    margin_multiplier: float           # Suggested safety margin multiplier (1.0 = nominal)
+    predictability_horizon_s: float    # Time horizon for reliable prediction
+
+
+def compute_conjunction_ftle(
+    state1: OrbitalState,
+    state2: OrbitalState,
+    tca: datetime,
+    window_s: float = 1800.0,
+    perturbation_m: float = 1.0,
+    chaos_threshold: float = 1e-4,
+) -> ConjunctionPredictability:
+    """Compute finite-time Lyapunov exponent for conjunction risk assessment.
+
+    Estimates dynamical sensitivity of the relative state at TCA by
+    numerical differentiation of the position flow map.
+
+    Steps:
+    1. Propagate both objects to TCA (nominal relative state).
+    2. Perturb position of object 1 in each of 3 directions.
+    3. Propagate nominal and perturbed states for window_s.
+    4. Build 3x3 position sensitivity matrix from finite differences.
+    5. SVD to get maximum singular value.
+    6. FTLE = ln(sigma_max) / window_s.
+
+    Args:
+        state1: First satellite orbital state.
+        state2: Second satellite orbital state.
+        tca: Time of closest approach.
+        window_s: Propagation window for FTLE computation (seconds).
+        perturbation_m: Position perturbation magnitude (meters).
+        chaos_threshold: FTLE threshold for chaotic classification (1/s).
+
+    Returns:
+        ConjunctionPredictability with FTLE, singular value, and margins.
+    """
+    from humeris.domain.orbital_mechanics import kepler_to_cartesian, OrbitalConstants
+
+    t_end = tca + timedelta(seconds=window_s)
+
+    # Nominal propagation to end of window
+    pos1_end, _ = propagate_to(state1, t_end)
+    pos2_end, _ = propagate_to(state2, t_end)
+    dr_nominal = np.array(pos1_end) - np.array(pos2_end)
+
+    # Build 3x3 position sensitivity matrix via finite differences
+    # Perturb state1 position in each of 3 ECI directions
+    phi = np.zeros((3, 3))
+
+    for axis in range(3):
+        # Create perturbed state1: shift position by perturbation_m along axis
+        # We achieve this by propagating state1 to TCA, perturbing, then
+        # creating a new OrbitalState from the perturbed Cartesian state.
+        pos1_tca, vel1_tca = propagate_to(state1, tca)
+        pos1_perturbed = list(pos1_tca)
+        pos1_perturbed[axis] += perturbation_m
+
+        # Convert perturbed Cartesian back to orbital elements for propagation
+        perturbed_state1 = _cartesian_to_orbital_state(
+            pos1_perturbed, vel1_tca, tca,
+        )
+
+        # Propagate perturbed state to end of window
+        pos1p_end, _ = propagate_to(perturbed_state1, t_end)
+        pos2p_end, _ = propagate_to(state2, t_end)
+        dr_perturbed = np.array(pos1p_end) - np.array(pos2p_end)
+
+        # Finite difference: d(dr)/d(pos1_axis)
+        phi[:, axis] = (dr_perturbed - dr_nominal) / perturbation_m
+
+    # SVD of the sensitivity matrix
+    _, singular_values, _ = np.linalg.svd(phi)
+    sigma_max = float(singular_values[0])
+
+    # Ensure sigma_max >= 1 (identity map has sigma = 1)
+    sigma_max = max(sigma_max, 1.0)
+
+    # FTLE
+    ftle = math.log(sigma_max) / window_s
+
+    # Ensure non-negative (log(1) = 0 is the minimum)
+    ftle = max(ftle, 0.0)
+
+    is_chaotic = ftle > chaos_threshold
+    margin_multiplier = max(1.0, sigma_max / 10.0)
+    predictability_horizon_s = 1.0 / max(ftle, 1e-12)
+
+    return ConjunctionPredictability(
+        ftle=ftle,
+        max_singular_value=sigma_max,
+        is_chaotic=is_chaotic,
+        margin_multiplier=margin_multiplier,
+        predictability_horizon_s=predictability_horizon_s,
+    )
+
+
+def _cartesian_to_orbital_state(
+    position: list[float],
+    velocity: list[float],
+    epoch: datetime,
+) -> OrbitalState:
+    """Convert Cartesian ECI state to OrbitalState for two-body propagation.
+
+    Uses standard Keplerian element recovery from position/velocity vectors.
+    Assumes two-body dynamics (no J2 corrections).
+
+    Args:
+        position: ECI position [x, y, z] in meters.
+        velocity: ECI velocity [vx, vy, vz] in m/s.
+        epoch: Reference epoch for the state.
+
+    Returns:
+        OrbitalState suitable for propagate_to.
+    """
+    from humeris.domain.orbital_mechanics import OrbitalConstants
+
+    mu = OrbitalConstants.MU_EARTH
+
+    r_vec = np.array(position)
+    v_vec = np.array(velocity)
+    r_mag = float(np.linalg.norm(r_vec))
+    v_mag = float(np.linalg.norm(v_vec))
+
+    # Specific angular momentum
+    h_vec = np.cross(r_vec, v_vec)
+    h_mag = float(np.linalg.norm(h_vec))
+
+    # Node vector
+    k_hat = np.array([0.0, 0.0, 1.0])
+    n_vec = np.cross(k_hat, h_vec)
+    n_mag = float(np.linalg.norm(n_vec))
+
+    # Eccentricity vector
+    e_vec = ((v_mag ** 2 - mu / r_mag) * r_vec
+             - float(np.dot(r_vec, v_vec)) * v_vec) / mu
+    e = float(np.linalg.norm(e_vec))
+
+    # Semi-major axis (vis-viva)
+    energy = v_mag ** 2 / 2.0 - mu / r_mag
+    if abs(energy) < 1e-20:
+        # Parabolic — use r_mag as approximation
+        a = r_mag
+    else:
+        a = -mu / (2.0 * energy)
+
+    # Inclination
+    i_rad = math.acos(max(-1.0, min(1.0, h_vec[2] / h_mag))) if h_mag > 0 else 0.0
+
+    # RAAN
+    if n_mag > 1e-10:
+        raan_rad = math.acos(max(-1.0, min(1.0, n_vec[0] / n_mag)))
+        if n_vec[1] < 0:
+            raan_rad = 2.0 * math.pi - raan_rad
+    else:
+        raan_rad = 0.0
+
+    # Argument of perigee
+    if n_mag > 1e-10 and e > 1e-10:
+        arg_perigee_rad = math.acos(
+            max(-1.0, min(1.0, float(np.dot(n_vec, e_vec)) / (n_mag * e)))
+        )
+        if e_vec[2] < 0:
+            arg_perigee_rad = 2.0 * math.pi - arg_perigee_rad
+    else:
+        arg_perigee_rad = 0.0
+
+    # True anomaly
+    if e > 1e-10:
+        cos_nu = max(-1.0, min(1.0, float(np.dot(e_vec, r_vec)) / (e * r_mag)))
+        nu_rad = math.acos(cos_nu)
+        if float(np.dot(r_vec, v_vec)) < 0:
+            nu_rad = 2.0 * math.pi - nu_rad
+    else:
+        # Circular orbit: use argument of latitude
+        if n_mag > 1e-10:
+            cos_u = max(-1.0, min(1.0, float(np.dot(n_vec, r_vec)) / (n_mag * r_mag)))
+            nu_rad = math.acos(cos_u)
+            if r_vec[2] < 0:
+                nu_rad = 2.0 * math.pi - nu_rad
+            nu_rad = nu_rad - arg_perigee_rad
+        else:
+            # Equatorial circular: use longitude
+            nu_rad = math.atan2(r_vec[1], r_vec[0])
+
+    # Mean motion
+    n = math.sqrt(mu / abs(a) ** 3) if a > 0 else math.sqrt(mu / r_mag ** 3)
+
+    return OrbitalState(
+        semi_major_axis_m=a,
+        eccentricity=e,
+        inclination_rad=i_rad,
+        raan_rad=raan_rad,
+        arg_perigee_rad=arg_perigee_rad,
+        true_anomaly_rad=nu_rad,
+        mean_motion_rad_s=n,
+        reference_epoch=epoch,
+    )

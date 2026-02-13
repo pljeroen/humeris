@@ -115,6 +115,7 @@ from humeris.domain.station_keeping import (
 from humeris.domain.conjunction import (
     PositionCovariance,
     ConjunctionEvent,
+    ConjunctionPredictability,
     screen_conjunctions,
     screen_conjunctions_numerical,
     refine_tca,
@@ -122,6 +123,13 @@ from humeris.domain.conjunction import (
     foster_max_collision_probability,
     collision_probability_2d,
     assess_conjunction,
+    compute_conjunction_ftle,
+)
+from humeris.domain.koopman_propagation import (
+    KoopmanModel,
+    KoopmanPrediction,
+    fit_koopman_model,
+    predict_koopman,
 )
 from humeris.domain.solar import (
     SunPosition,
@@ -378,8 +386,10 @@ from humeris.domain.graph_analysis import (
     TopologyResilience,
     FragmentationEvent,
     FragmentationTimeline,
+    HodgeTopology,
     compute_topology_resilience,
     compute_fragmentation_timeline,
+    compute_hodge_topology,
 )
 from humeris.domain.information_theory import (
     EclipseChannelCapacity,
@@ -443,7 +453,9 @@ from humeris.domain.multi_objective_design import (
 )
 from humeris.domain.cascade_analysis import (
     CascadeIndicator,
+    CascadeSIR,
     compute_cascade_indicator,
+    compute_cascade_sir,
 )
 from humeris.domain.decay_analysis import (
     ExponentialProcess,
@@ -564,7 +576,7 @@ from humeris.domain.kessler_heatmap import (
     update_persistence,
 )
 
-__version__ = "1.22.0"
+__version__ = "1.23.0"
 
 __all__ = [
     "OrbitalConstants",
@@ -640,6 +652,16 @@ __all__ = [
     "foster_max_collision_probability",
     "collision_probability_2d",
     "assess_conjunction",
+    "ConjunctionPredictability",
+    "compute_conjunction_ftle",
+    # koopman_propagation
+    "KoopmanModel",
+    "KoopmanPrediction",
+    "fit_koopman_model",
+    "predict_koopman",
+    # graph_analysis (Hodge)
+    "HodgeTopology",
+    "compute_hodge_topology",
     "SunPosition",
     "sun_position_eci",
     "solar_declination_rad",
@@ -919,7 +941,9 @@ __all__ = [
     "compute_entropy_collision_efficiency",
     # cascade_analysis
     "CascadeIndicator",
+    "CascadeSIR",
     "compute_cascade_indicator",
+    "compute_cascade_sir",
     # decay_analysis
     "ExponentialProcess",
     "ExponentialScaleMap",

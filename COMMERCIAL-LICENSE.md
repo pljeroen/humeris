@@ -13,6 +13,7 @@ The following files are **not** covered by the MIT License:
 - `conjunction.py` — Screening, TCA, B-plane, collision probability
 - `conjunction_management.py` — Conjunction management workflows
 - `kessler_heatmap.py` — Kessler spatial density heatmap, percolation, cascade k_eff
+- `koopman_propagation.py` — Koopman operator fast propagation via Dynamic Mode Decomposition
 - `constellation_metrics.py` — Coverage/revisit/eclipse statistics, scoring
 - `constellation_operability.py` — Operability index
 - `control_analysis.py` — CW controllability Gramian
@@ -64,6 +65,7 @@ The following files are **not** covered by the MIT License:
 - `relativistic_forces.py` — Schwarzschild, Lense-Thirring, de Sitter corrections
 - `tidal_forces.py` — Solid Earth tides (IERS 2010) + FES2004 ocean tides
 - `albedo_srp.py` — Earth albedo + infrared radiation pressure
+- `thermal.py` — Beta-angle thermal equilibrium analysis
 - `trade_study.py` — Parametric Walker trade studies, Pareto front
 
 **Adapters** (`src/humeris/adapters/`):
@@ -71,12 +73,13 @@ The following files are **not** covered by the MIT License:
 - `cesium_viewer.py` — Self-contained HTML viewer with layer selector
 - `czml_exporter.py` — CZML packets for CesiumJS visualization
 - `czml_visualization.py` — Advanced CZML (ISL, fragility, hazard, coverage)
-- `viewer_server.py` — Interactive viewer server with 13 analysis types
+- `viewer_server.py` — Interactive viewer server with 15 analysis types
 
 **Tests** (`tests/`):
 
 - `test_adaptive_integration.py`, `test_atmosphere.py`, `test_cascade_analysis.py`, `test_cesium_viewer.py`,
-  `test_communication_analysis.py`, `test_conjunction.py`,
+  `test_cascade_sir.py`, `test_communication_analysis.py`, `test_conjunction.py`,
+  `test_conjunction_ftle.py`,
   `test_conjunction_management.py`, `test_constellation_metrics.py`,
   `test_hazard_reporting.py`, `test_kessler_heatmap.py`,
   `test_maneuver_detection.py`, `test_orbit_determination.py`,
@@ -85,12 +88,13 @@ The following files are **not** covered by the MIT License:
   `test_czml_visualization.py`, `test_decay_analysis.py`, `test_deorbit.py`,
   `test_design_optimization.py`, `test_design_sensitivity.py`,
   `test_dilution_of_precision.py`, `test_eclipse.py`,
-  `test_environment_analysis.py`, `test_graph_analysis.py`,
+  `test_environment_analysis.py`, `test_graph_analysis.py`, `test_hodge_topology.py`,
   `test_gravity_field.py`, `test_information_theory.py`,
   `test_inter_satellite_links.py`,
   `test_invariants_conjunction.py`, `test_invariants_exporters.py`,
   `test_invariants_frames.py`, `test_invariants_geodetic.py`,
   `test_invariants_j2_sso.py`, `test_invariants_two_body.py`,
+  `test_koopman_propagation.py`,
   `test_lifetime.py`, `test_linalg.py`, `test_link_budget.py`,
   `test_maintenance_planning.py`, `test_maneuvers.py`,
   `test_mission_analysis.py`, `test_mission_economics.py`,

@@ -2,10 +2,16 @@
 # Licensed under the terms in COMMERCIAL-LICENSE.md.
 # Free for personal, educational, and academic use.
 # Commercial use requires a paid license — see COMMERCIAL-LICENSE.md.
-"""ISL topology graph analysis — algebraic connectivity and fragmentation timeline.
+"""ISL topology graph analysis — algebraic connectivity, fragmentation timeline,
+and Hodge Laplacian higher-order topology.
 
 Computes the graph Laplacian of the ISL network with SNR-weighted edges,
 then uses Jacobi eigendecomposition to find the Fiedler value (lambda_2).
+
+Also provides Hodge Laplacian analysis via simplicial complexes: boundary
+operators B1 (edge-node) and B2 (triangle-edge) yield the edge Laplacian
+L1 = B1 B1^T + B2^T B2, whose null space dimension is the first Betti
+number beta_1 (independent routing cycles not filled by triangles).
 
 No external dependencies — only stdlib + domain modules.
 """
@@ -230,4 +236,129 @@ def compute_fragmentation_timeline(
         fragmentation_count=frag_count,
         mean_fiedler_value=mean_fiedler,
         resilience_margin=resilience_margin,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hodge Laplacian topology
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class HodgeTopology:
+    """Higher-order topological analysis of ISL network."""
+    betti_1: int                    # First Betti number (independent routing cycles)
+    l1_spectral_gap: float          # Spectral gap of edge Laplacian
+    triangle_count: int             # Number of triangles (2-simplices)
+    routing_redundancy: float       # beta_1 / edge_count (cycle density)
+    l1_smallest_nonzero: float      # Smallest nonzero eigenvalue of L_1
+
+
+def compute_hodge_topology(
+    adjacency: list[list[float]],
+    n_nodes: int,
+) -> HodgeTopology:
+    """Compute Hodge Laplacian topology from adjacency matrix.
+
+    Builds the simplicial complex (edges + triangles), computes the boundary
+    operators B1 (edges -> nodes) and B2 (triangles -> edges), then assembles
+    the edge Laplacian L1 = B1 B1^T + B2^T B2.
+
+    The null space of L1 corresponds to harmonic 1-forms, whose dimension is
+    the first Betti number beta_1 — the number of independent cycles in the
+    graph that are NOT boundaries of 2-simplices (triangles).
+
+    Args:
+        adjacency: n_nodes x n_nodes adjacency matrix (symmetric, weight > 0
+            indicates an edge).
+        n_nodes: Number of nodes in the graph.
+
+    Returns:
+        HodgeTopology with Betti number, spectral gap, and cycle metrics.
+    """
+    # Step 1: Extract oriented edges from upper triangle (i < j, weight > 0)
+    edges = []
+    edge_index = {}  # (i, j) -> edge index
+    for i in range(n_nodes):
+        for j in range(i + 1, n_nodes):
+            if adjacency[i][j] > 0:
+                idx = len(edges)
+                edges.append((i, j))
+                edge_index[(i, j)] = idx
+
+    n_edges = len(edges)
+
+    # Handle degenerate case: no edges
+    if n_edges == 0:
+        return HodgeTopology(
+            betti_1=0,
+            l1_spectral_gap=0.0,
+            triangle_count=0,
+            routing_redundancy=0.0,
+            l1_smallest_nonzero=0.0,
+        )
+
+    # Step 2: Enumerate triangles (i < j < k where all three edges exist)
+    triangles = []
+    for i in range(n_nodes):
+        for j in range(i + 1, n_nodes):
+            if (i, j) not in edge_index:
+                continue
+            for k in range(j + 1, n_nodes):
+                if (i, k) in edge_index and (j, k) in edge_index:
+                    triangles.append((i, j, k))
+
+    n_triangles = len(triangles)
+
+    # Step 3: Build boundary operator B1 (n_edges x n_nodes)
+    # For edge (i -> j): B1[edge_idx, i] = -1, B1[edge_idx, j] = +1
+    b1 = np.zeros((n_edges, n_nodes), dtype=np.float64)
+    for e_idx, (i, j) in enumerate(edges):
+        b1[e_idx, i] = -1.0
+        b1[e_idx, j] = 1.0
+
+    # Step 4: Build boundary operator B2 (n_triangles x n_edges)
+    # For triangle (i, j, k) with i < j < k:
+    #   boundary = edge(i,j) - edge(i,k) + edge(j,k)
+    #   B2[tri_idx, edge(i,j)] = +1
+    #   B2[tri_idx, edge(j,k)] = +1
+    #   B2[tri_idx, edge(i,k)] = -1
+    b2 = np.zeros((n_triangles, n_edges), dtype=np.float64)
+    for t_idx, (i, j, k) in enumerate(triangles):
+        b2[t_idx, edge_index[(i, j)]] = 1.0
+        b2[t_idx, edge_index[(j, k)]] = 1.0
+        b2[t_idx, edge_index[(i, k)]] = -1.0
+
+    # Step 5: Assemble Hodge Laplacian L_1 (n_edges x n_edges)
+    #
+    # Convention: standard B_1 is (n_nodes x n_edges), B_2 is (n_edges x n_triangles).
+    # Our b1 = B_1^T (n_edges x n_nodes), b2 = B_2^T (n_triangles x n_edges).
+    # L_1 = B_1^T B_1 + B_2 B_2^T = b1 b1^T + b2^T b2
+    l1 = b1 @ b1.T + b2.T @ b2
+
+    # Step 6: Eigendecompose L1 (symmetric positive semi-definite)
+    eigenvalues = np.linalg.eigh(l1)[0]
+    eigenvalues = np.sort(eigenvalues)
+
+    # Count zero eigenvalues (tolerance 1e-10) = beta_1
+    tol = 1e-10
+    betti_1 = int(np.sum(np.abs(eigenvalues) < tol))
+
+    # Smallest nonzero eigenvalue
+    nonzero_eigs = eigenvalues[np.abs(eigenvalues) >= tol]
+    if len(nonzero_eigs) > 0:
+        l1_smallest_nonzero = float(nonzero_eigs[0])
+        l1_spectral_gap = l1_smallest_nonzero
+    else:
+        l1_smallest_nonzero = 0.0
+        l1_spectral_gap = 0.0
+
+    # Routing redundancy
+    routing_redundancy = betti_1 / n_edges if n_edges > 0 else 0.0
+
+    return HodgeTopology(
+        betti_1=betti_1,
+        l1_spectral_gap=l1_spectral_gap,
+        triangle_count=n_triangles,
+        routing_redundancy=routing_redundancy,
+        l1_smallest_nonzero=l1_smallest_nonzero,
     )

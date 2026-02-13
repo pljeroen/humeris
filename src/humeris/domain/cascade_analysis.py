@@ -127,3 +127,138 @@ def compute_cascade_indicator(
         orbital_frequency_hz=orbital_freq,
         is_cascade_risk=is_risk,
     )
+
+
+# ── SIR Epidemic Model for Debris Cascade ──────────────────────────
+
+_SECONDS_PER_YEAR = 365.25 * 86400.0
+
+
+@dataclass(frozen=True)
+class CascadeSIR:
+    """SIR epidemic model results for debris cascade dynamics."""
+    r_0: float                    # Basic reproduction number
+    time_to_peak_years: float     # Time to peak debris population
+    equilibrium_debris: float     # Steady-state debris count (0 if subcritical)
+    is_supercritical: bool        # R_0 > 1
+    time_series_years: tuple      # Time points
+    susceptible: tuple            # S(t) — intact satellites
+    infected: tuple               # I(t) — active debris
+    recovered: tuple              # R(t) — deorbited debris
+
+
+def compute_cascade_sir(
+    shell_volume_km3: float,
+    spatial_density_per_km3: float,
+    mean_collision_velocity_ms: float,
+    satellite_count: int,
+    launch_rate_per_year: float = 0.0,
+    fragments_per_collision: float = 100.0,
+    drag_lifetime_years: float = 25.0,
+    collision_cross_section_km2: float = 1e-5,
+    duration_years: float = 100.0,
+    step_years: float = 0.1,
+) -> CascadeSIR:
+    """Compute SIR epidemic model for debris cascade dynamics.
+
+    Models debris cascade as an epidemic: intact satellites are susceptible,
+    debris fragments are infected, deorbited fragments are recovered.
+
+    Uses forward Euler integration.
+
+    Args:
+        shell_volume_km3: Volume of the orbital shell (km^3).
+        spatial_density_per_km3: Current debris spatial density (objects/km^3).
+        mean_collision_velocity_ms: Mean relative collision velocity (m/s).
+        satellite_count: Number of intact satellites (S_0).
+        launch_rate_per_year: New satellite launches per year (replenishment).
+        fragments_per_collision: Average fragments generated per collision.
+        drag_lifetime_years: Mean drag lifetime for debris (years).
+        collision_cross_section_km2: Effective collision cross-section (km^2).
+        duration_years: Simulation duration (years).
+        step_years: Integration time step (years).
+
+    Returns:
+        CascadeSIR with R_0, time series, and equilibrium analysis.
+    """
+    # Compute beta: collision rate per object per year
+    # Convert velocity from m/s to km/s, multiply by seconds_per_year
+    velocity_km_s = mean_collision_velocity_ms * 0.001
+    beta = (collision_cross_section_km2 * velocity_km_s
+            * _SECONDS_PER_YEAR / shell_volume_km3)
+
+    # Recovery rate
+    gamma = 1.0 / drag_lifetime_years
+
+    # Basic reproduction number
+    r_0 = fragments_per_collision * beta * satellite_count / gamma
+
+    is_supercritical = r_0 > 1.0
+
+    # Initial conditions
+    s_0 = float(satellite_count)
+    i_0 = spatial_density_per_km3 * shell_volume_km3  # existing debris count
+    r_0_count = 0.0
+
+    # Time to peak (exponential growth phase estimate)
+    if is_supercritical and i_0 > 0:
+        growth_rate = beta * s_0 * fragments_per_collision - gamma
+        if growth_rate > 0 and i_0 > 0:
+            time_to_peak = math.log(s_0 / i_0) / growth_rate
+        else:
+            time_to_peak = 0.0
+    else:
+        time_to_peak = 0.0
+
+    # Equilibrium debris
+    if is_supercritical and launch_rate_per_year > 0 and s_0 > 0:
+        equilibrium_debris = (launch_rate_per_year * (r_0 - 1.0)
+                              / (beta * fragments_per_collision * s_0))
+    else:
+        equilibrium_debris = 0.0
+
+    # Forward Euler integration
+    n_steps = int(duration_years / step_years) + 1
+    dt = step_years
+
+    time_arr = []
+    s_arr = []
+    i_arr = []
+    r_arr = []
+
+    s = s_0
+    i = i_0
+    r = r_0_count
+
+    for k in range(n_steps):
+        t = k * dt
+        time_arr.append(t)
+        s_arr.append(s)
+        i_arr.append(i)
+        r_arr.append(r)
+
+        # Derivatives
+        ds_dt = launch_rate_per_year - beta * s * i
+        di_dt = fragments_per_collision * beta * s * i - gamma * i
+        dr_dt = gamma * i
+
+        # Euler step
+        s = s + ds_dt * dt
+        i = i + di_dt * dt
+        r = r + dr_dt * dt
+
+        # Clamp to non-negative (physical constraint)
+        s = max(s, 0.0)
+        i = max(i, 0.0)
+        r = max(r, 0.0)
+
+    return CascadeSIR(
+        r_0=r_0,
+        time_to_peak_years=time_to_peak,
+        equilibrium_debris=equilibrium_debris,
+        is_supercritical=is_supercritical,
+        time_series_years=tuple(time_arr),
+        susceptible=tuple(s_arr),
+        infected=tuple(i_arr),
+        recovered=tuple(r_arr),
+    )

@@ -1,8 +1,8 @@
 # Humeris
 
-[![Version](https://img.shields.io/badge/version-1.22.0-blue.svg)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-1.23.0-blue.svg)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-2060_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2157_passing-brightgreen.svg)](tests/)
 [![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE)
 
 Generate Walker constellation satellite shells and fetch live orbital data for orbit simulation tools.
@@ -692,7 +692,7 @@ entities = [
 
 ```
 src/humeris/
-├── domain/                        # Pure logic — only stdlib (71 modules)
+├── domain/                        # Pure logic — only stdlib (72 modules)
 │   ├── orbital_mechanics.py       # Kepler → Cartesian, SSO inclination, J2/J3
 │   ├── constellation.py           # Walker shells, SSO bands, ShellConfig, Satellite
 │   ├── coordinate_frames.py       # ECI ↔ ECEF ↔ Geodetic (GMST, Bowring, WGS84)
@@ -751,7 +751,9 @@ src/humeris/
 │   ├── orbit_determination.py     # ◆ Extended Kalman Filter orbit determination
 │   ├── maneuver_detection.py      # ◆ CUSUM/EWMA/chi-squared maneuver detection
 │   ├── hazard_reporting.py        # ◆ NASA-STD-8719.14 hazard classification + CWI
-│   └── kessler_heatmap.py         # ◆ Kessler spatial density + cascade criticality
+│   ├── kessler_heatmap.py         # ◆ Kessler spatial density + cascade criticality
+│   ├── koopman_propagation.py     # ◆ Koopman operator fast propagation (DMD)
+│   └── thermal.py                 # ◆ Beta-angle thermal equilibrium analysis
 ├── ports/                         # Protocol interfaces (structural typing)
 │   ├── __init__.py                # SimulationReader, SimulationWriter
 │   ├── orbital_data.py            # OrbitalDataSource
@@ -778,11 +780,11 @@ port interfaces.
 ## Tests
 
 ```bash
-pytest                           # all 2060 tests (offline, no network required)
+pytest                           # all 2157 tests (offline, no network required)
 pytest tests/test_live_data.py   # live CelesTrak tests (requires network)
 ```
 
-The test suite covers all 71 domain modules, 6 invariant test suites, adapter
+The test suite covers all 72 domain modules, 6 invariant test suites, adapter
 tests, and domain purity tests (verifying zero external dependencies).
 All tests except `test_live_data.py` run offline.
 
@@ -843,10 +845,22 @@ results without network access.
 - [Licensing](docs/licensing.md) — MIT core + commercial extensions
 - [Changelog](CHANGELOG.md) — version history
 
+## Origins
+
+Humeris started as a rewrite of `generate_shells.py`, a Walker constellation
+generator script by [Scott Manley](https://www.youtube.com/@scottmanley) that
+produces satellite shells for orbit simulation tools. That original script —
+Keplerian-to-Cartesian conversion, Walker phasing, and SSO band generation in
+~175 lines of pure Python — remains the conceptual seed. Humeris has since
+grown into a full astrodynamics library: 72 domain modules covering
+propagation, conjunction analysis, orbit design, link budgets, environmental
+modeling, and interactive 3D visualization, still pure Python with no compiled
+extensions.
+
 ## Credits
 
-Inspired by [Scott Manley](https://www.youtube.com/@scottmanley)'s orbital mechanics
-visualizations. Written by Jeroen Visser.
+Written by Jeroen Visser. Inspired by Scott Manley's orbital mechanics
+visualizations.
 
 ## What the commercial license provides
 
@@ -892,10 +906,11 @@ This project uses a dual-license model:
 propagation, coordinate frames, coverage analysis, observation geometry,
 ground track, access windows, export adapters). See [`LICENSE`](LICENSE).
 
-**Commercial** — extended modules (61 domain modules, 4 adapters, 72 test
+**Commercial** — extended modules (62 domain modules, 4 adapters, 76 test
 files) covering numerical propagation, atmospheric drag, eclipse, maneuvers,
 ISL topology, link budgets, conjunction, radiation, statistical analysis,
 design optimization, orbit determination, maneuver detection, hazard
-reporting, Kessler density analysis, interactive viewer, and more. Free for
+reporting, Kessler density analysis, Koopman propagation, interactive viewer,
+and more. Free for
 personal, educational, and academic use. Commercial use requires a paid
 license starting at EUR 2,000. See [`COMMERCIAL-LICENSE.md`](COMMERCIAL-LICENSE.md).

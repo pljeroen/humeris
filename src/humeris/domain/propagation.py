@@ -127,6 +127,12 @@ def propagate_to(
     """
     dt = (target_time - state.reference_epoch).total_seconds()
 
+    if state.eccentricity > 1e-6:
+        raise ValueError(
+            f"Analytical propagation requires near-circular orbit (e < 1e-6), "
+            f"got e={state.eccentricity:.6f}. Use propagate_numerical for eccentric orbits."
+        )
+
     raan = state.raan_rad + state.j2_raan_rate * dt
     arg_perigee = state.arg_perigee_rad + state.j2_arg_perigee_rate * dt
 

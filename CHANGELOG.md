@@ -4,6 +4,45 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-02-13
+
+### Mathematical corrections (from 3-pass verification against Vallado, Montenbruck & Gill, IERS)
+
+- **Coriolis term** — ECI-to-ECEF velocity transformation now includes Earth rotation
+  correction: `v_ECEF = R * v_ECI - omega_E × r_ECEF` (was missing ~465 m/s term)
+- **Equatorial radius** — J2/J3/SSO perturbation formulas now use WGS84 equatorial
+  radius (6378.137 km) instead of mean radius (6371 km), fixing ~0.1% systematic error
+- **Propagation guard** — `propagate_to` raises `ValueError` for eccentricity > 1e-6
+  (linear true anomaly advance is only valid for circular orbits)
+- **EARTH_OMEGA** — SSO rate constant updated to `1.99098659e-7` (was truncated to `1.99e-7`)
+
+### New capabilities (from cross-disciplinary creative exploration)
+
+- **SIR cascade model** — Epidemiological (SIR) dynamics for debris cascade prediction
+  with R_0, time-to-peak, equilibrium debris population, and full S/I/R time series.
+  Maps Kessler heatmap parameters to epidemic rates (beta from collision cross-section,
+  gamma from drag lifetime)
+- **FTLE conjunction risk** — Finite-Time Lyapunov Exponent for conjunction predictability
+  classification. High FTLE = chaotic sensitivity (widen margins), low FTLE = reliable
+  prediction (reduce margins). Uses finite-difference STM via SVD
+- **Koopman propagator** — Dynamic Mode Decomposition for fast long-term propagation.
+  Fits Koopman operator from numerical propagation snapshots, predicts via matrix power.
+  100-1000x speedup after training for J2-dominated orbits
+- **Hodge Laplacian** — Higher-order ISL topology analysis. L1 edge Laplacian from
+  triangle boundary operators, beta_1 (independent routing cycles), L1 spectral gap
+  (routing redundancy). Distinguishes "connected but fragile" from "connected and resilient"
+- **Energy monitoring** — Numerical propagation tracks specific orbital energy (v²/2 - μ/r)
+  per step with initial/final energy, max drift, and relative energy drift in results
+- **Thermal equilibrium** — Beta-angle driven spacecraft thermal analysis using
+  Stefan-Boltzmann energy balance
+
+### Project
+
+- Renamed from `constellation-generator` to `humeris`
+- Added origin story in README
+
+**Tests**: 2157 passing (+97 from v1.22.0)
+
 ## [1.22.0] - 2026-02-13
 
 ### Early warning and hazard analysis
