@@ -3,8 +3,8 @@
 """Relativistic force models for high-fidelity orbit propagation.
 
 Post-Newtonian corrections per IERS 2010 Conventions (Chapter 10):
-- Schwarzschild: dominant relativistic term (~3e-9 m/s² at LEO)
-- Lense-Thirring: frame-dragging from Earth rotation (~1e-12 m/s²)
+- Schwarzschild: dominant relativistic term (~2e-8 m/s² at LEO)
+- Lense-Thirring: frame-dragging from Earth rotation (~2e-10 m/s² at LEO)
 - de Sitter: geodesic precession from heliocentric motion (~5e-13 m/s²)
 
 All three implement the ForceModel protocol (structural typing).
@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 
 _GM_EARTH: float = 3.986004418e14  # m³/s² (Earth gravitational parameter)
 _C_LIGHT: float = 299792458.0  # m/s (speed of light)
-_J_EARTH: float = 9.8e37  # kg·m²/s (Earth angular momentum, Lense-Thirring)
+_J_EARTH: float = 5.86e33  # kg·m²/s (Earth angular momentum = C·ω, Lense-Thirring)
 _GM_SUN: float = 1.32712440041e20  # m³/s² (Sun gravitational parameter)
 _G_NEWTON: float = 6.67430e-11  # m³/(kg·s²) (gravitational constant, for LT)
 
@@ -102,14 +102,13 @@ class SchwarzschildForce:
     Isotropic PPN gauge with beta = gamma = 1 (General Relativity).
 
     Acceleration (isotropic gauge, β=γ=1):
-        a = (GM/(c²r³)) * [4(GM/r)r - v²v + 4(r·v)v]
+        a = (GM/(c²r³)) * [(4GM/r - v²)r + 4(r·v)v]
 
-    The v² term multiplies v (not r) in this gauge choice, producing
-    both radial and along-track acceleration components even for
-    circular orbits. Both formulations yield identical secular
-    precession rates (6πGM/(c²a(1-e²)) rad/orbit).
+    For circular orbits (r·v = 0), the acceleration is purely radial.
+    For eccentric orbits, the 4(r·v)v term produces an along-track
+    component. Secular precession: 6πGM/(c²a(1-e²)) rad/orbit.
 
-    Magnitude at LEO (~400 km): ~1e-8 m/s².
+    Magnitude at LEO (~400 km): ~2e-8 m/s².
     """
 
     gm: float = _GM_EARTH
@@ -133,11 +132,12 @@ class SchwarzschildForce:
         coeff = self.gm / (c2 * r * r_sq)
 
         gm_over_r = self.gm / r
-        vel_factor = 4.0 * r_dot_v - v_sq
+        pos_factor = 4.0 * gm_over_r - v_sq
+        vel_factor = 4.0 * r_dot_v
 
-        ax = coeff * (4.0 * gm_over_r * x + vel_factor * vx)
-        ay = coeff * (4.0 * gm_over_r * y + vel_factor * vy)
-        az = coeff * (4.0 * gm_over_r * z + vel_factor * vz)
+        ax = coeff * (pos_factor * x + vel_factor * vx)
+        ay = coeff * (pos_factor * y + vel_factor * vy)
+        az = coeff * (pos_factor * z + vel_factor * vz)
 
         return (ax, ay, az)
 
@@ -147,16 +147,15 @@ class LenseThirringForce:
     """Lense-Thirring frame-dragging acceleration (IERS 2010, eq. 10.5).
 
     Arises from Earth's rotation (angular momentum J along z-axis).
-    Uses the post-Newtonian formulation from Soffel et al. (2003):
+    Post-Newtonian formulation (IERS 2010, Soffel et al. 2003):
 
     Acceleration:
-        a = (2G/(c³r³)) * { (3/r²)(r·J)(r × v) + (v × J) }
+        a = (2G/(c²r³)) * { (3/r²)(r·J)(r × v) + (v × J) }
 
-    where J = (0, 0, J_EARTH) is Earth's spin angular momentum vector,
-    G is Newton's gravitational constant, and the c³ denominator arises
-    from the gravitomagnetic potential in the harmonic gauge.
+    where J = (0, 0, J_EARTH) is Earth's spin angular momentum vector
+    (J = C·ω ≈ 5.86e33 kg·m²/s), G is Newton's gravitational constant.
 
-    Magnitude at LEO: ~1e-14 to 1e-12 m/s² depending on orbit inclination.
+    Magnitude at LEO: ~2e-10 m/s² (equatorial), varies with inclination.
     """
 
     j_earth: float = _J_EARTH
@@ -189,8 +188,8 @@ class LenseThirringForce:
         vxJ_y = -vx * self.j_earth
         vxJ_z = 0.0
 
-        c3 = self.c * self.c * self.c
-        coeff = 2.0 * self.g_newton / (c3 * r * r_sq)
+        c2 = self.c * self.c
+        coeff = 2.0 * self.g_newton / (c2 * r * r_sq)
         inner_coeff = 3.0 * r_dot_J / r_sq
 
         ax = coeff * (inner_coeff * rxv_x + vxJ_x)

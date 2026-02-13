@@ -28,8 +28,8 @@ class TestSchwarzschildForce:
         mag = _vec_mag(acc)
         assert 1e-10 < mag < 1e-7
 
-    def test_direction_at_leo(self):
-        """Schwarzschild has both radial and along-track components."""
+    def test_direction_circular_purely_radial(self):
+        """Schwarzschild is purely radial for circular orbits (r·v=0)."""
         from constellation_generator.domain.relativistic_forces import SchwarzschildForce
 
         force = SchwarzschildForce()
@@ -37,7 +37,20 @@ class TestSchwarzschildForce:
         pos = (6778137.0, 0.0, 0.0)
         vel = (0.0, 7668.0, 0.0)
         acc = force.acceleration(dt, pos, vel)
-        # Should have non-zero components
+        # Radial component non-zero, along-track zero for circular orbit
+        assert acc[0] != 0.0
+        assert acc[1] == 0.0
+
+    def test_direction_eccentric_has_along_track(self):
+        """Schwarzschild has along-track component for eccentric orbits (r·v≠0)."""
+        from constellation_generator.domain.relativistic_forces import SchwarzschildForce
+
+        force = SchwarzschildForce()
+        dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        # Slightly non-circular: r·v = 6778137 * 500 ≠ 0
+        pos = (6778137.0, 0.0, 0.0)
+        vel = (500.0, 7668.0, 0.0)
+        acc = force.acceleration(dt, pos, vel)
         assert acc[0] != 0.0
         assert acc[1] != 0.0
 
@@ -76,14 +89,14 @@ class TestLenseThirringForce:
     """Frame-dragging from Earth rotation."""
 
     def test_magnitude_at_leo(self):
-        """Lense-Thirring ~1e-12 m/s² at LEO."""
+        """Lense-Thirring ~2e-10 m/s² at equatorial LEO."""
         from constellation_generator.domain.relativistic_forces import LenseThirringForce
 
         force = LenseThirringForce()
         dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
         acc = force.acceleration(dt, (6778137.0, 0.0, 0.0), (0.0, 7668.0, 0.0))
         mag = _vec_mag(acc)
-        assert 1e-14 < mag < 1e-10
+        assert 1e-12 < mag < 1e-8
 
     def test_force_model_compliance(self):
         from constellation_generator.domain.relativistic_forces import LenseThirringForce
