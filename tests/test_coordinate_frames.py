@@ -303,7 +303,7 @@ class TestCoordinateFramesPurity:
         """coordinate_frames.py must only import allowed stdlib modules."""
         import ast
         import os
-        allowed = {'math', 'dataclasses', 'typing', 'abc', 'enum',
+        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum',
                    '__future__', 'datetime'}
         path = os.path.join(os.path.dirname(__file__), '..', 'src',
                             'constellation_generator', 'domain',

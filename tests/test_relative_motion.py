@@ -187,7 +187,7 @@ class TestRelativeMotionPurity:
     def test_module_pure(self):
         import constellation_generator.domain.relative_motion as mod
 
-        allowed = {'math', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
+        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 

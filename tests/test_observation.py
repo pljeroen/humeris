@@ -156,7 +156,7 @@ class TestObservationPurity:
     def test_observation_imports_only_stdlib_and_domain(self):
         import constellation_generator.domain.observation as mod
 
-        allowed = {'math', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
+        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 

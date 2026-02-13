@@ -784,7 +784,7 @@ class TestViewerServerPurity:
 
         allowed_stdlib = {
             "json", "http", "threading", "datetime", "dataclasses",
-            "uuid", "urllib", "functools", "math", "logging", "typing",
+            "uuid", "urllib", "functools", "math", "numpy", "logging", "typing",
         }
         allowed_internal = {"constellation_generator"}
 

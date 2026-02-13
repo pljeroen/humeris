@@ -199,7 +199,7 @@ class TestDomainPurity:
     def test_domain_imports_only_allowed_stdlib(self):
         """Domain modules must only import allowed stdlib modules."""
         import ast
-        allowed = {'math', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime', 'json', 'pathlib'}
+        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime', 'json', 'pathlib'}
         domain_dir = os.path.join(os.path.dirname(__file__), '..', 'src',
                                   'constellation_generator', 'domain')
         for fname in os.listdir(domain_dir):

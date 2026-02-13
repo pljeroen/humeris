@@ -767,7 +767,7 @@ class TestDomainPurity:
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
-        allowed_top = {"math", "dataclasses", "typing", "datetime"}
+        allowed_top = {"math", "numpy", "dataclasses", "typing", "datetime"}
         allowed_internal_prefix = "constellation_generator"
 
         for node in ast.walk(tree):

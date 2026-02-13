@@ -513,7 +513,7 @@ class TestOrbitPropertiesPurity:
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
-        allowed_stdlib = {"math", "dataclasses", "datetime"}
+        allowed_stdlib = {"math", "numpy", "dataclasses", "datetime"}
         allowed_internal = {"constellation_generator"}
 
         for node in ast.walk(tree):

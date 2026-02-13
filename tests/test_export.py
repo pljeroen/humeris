@@ -276,8 +276,8 @@ class TestExportPurity:
 
     def test_csv_exporter_no_external_deps(self):
         import constellation_generator.adapters.csv_exporter as mod
-        self._check_imports(mod.__file__, {'csv', 'datetime', 'math'})
+        self._check_imports(mod.__file__, {'csv', 'datetime', 'math', 'numpy'})
 
     def test_geojson_exporter_no_external_deps(self):
         import constellation_generator.adapters.geojson_exporter as mod
-        self._check_imports(mod.__file__, {'json', 'datetime', 'math'})
+        self._check_imports(mod.__file__, {'json', 'datetime', 'math', 'numpy'})

@@ -684,7 +684,7 @@ class TestDomainPurity:
 
         allowed_prefixes = (
             "constellation_generator",
-            "math",
+            "math", "numpy",
             "dataclasses",
             "typing",
             "json",

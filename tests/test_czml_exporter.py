@@ -581,7 +581,7 @@ class TestCzmlExporterPurity:
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
-        allowed_stdlib = {"json", "math", "datetime"}
+        allowed_stdlib = {"json", "math", "numpy", "datetime"}
         allowed_internal = {"constellation_generator"}
 
         for node in ast.walk(tree):

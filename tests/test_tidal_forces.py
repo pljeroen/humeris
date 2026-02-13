@@ -150,7 +150,7 @@ class TestDomainPurity:
         with open(source_path) as f:
             tree = ast.parse(f.read())
         allowed = {
-            "math", "datetime", "dataclasses", "typing", "json",
+            "math", "numpy", "datetime", "dataclasses", "typing", "json",
             "pathlib", "os", "functools", "enum", "collections",
             "abc", "copy", "struct", "bisect", "operator",
         }

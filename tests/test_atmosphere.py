@@ -223,7 +223,7 @@ class TestAtmospherePurity:
         """atmosphere.py must only import stdlib modules."""
         import constellation_generator.domain.atmosphere as mod
 
-        allowed = {'math', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
+        allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 

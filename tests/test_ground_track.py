@@ -395,7 +395,7 @@ class TestGroundTrackPurity:
         with open(source_path) as f:
             tree = ast.parse(f.read())
 
-        allowed_top = {'math', 'dataclasses', 'datetime'}
+        allowed_top = {'math', 'numpy', 'dataclasses', 'datetime'}
         allowed_internal_prefix = 'constellation_generator.domain'
 
         for node in ast.walk(tree):

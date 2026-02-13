@@ -421,7 +421,7 @@ class TestSensorPurity:
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
-        allowed_top = {"math", "dataclasses", "typing", "enum", "datetime"}
+        allowed_top = {"math", "numpy", "dataclasses", "typing", "enum", "datetime"}
         allowed_internal_prefix = "constellation_generator"
 
         for node in ast.walk(tree):

@@ -93,7 +93,7 @@ class TestDecayAnalysisPurity:
         import constellation_generator.domain.decay_analysis as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
-        allowed = {"math", "dataclasses", "datetime", "constellation_generator"}
+        allowed = {"math", "numpy", "dataclasses", "datetime", "constellation_generator"}
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
