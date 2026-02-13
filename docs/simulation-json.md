@@ -97,7 +97,7 @@ CelesTrak satellites keep their catalog name (e.g. `ISS (ZARYA)`,
 **Command**:
 
 ```bash
-constellation-generator -i template.json -o output.json --base-id 100
+humeris -i template.json -o output.json --base-id 100
 ```
 
 **Output** (`output.json`):
@@ -130,8 +130,8 @@ Note that `Mass: 250` is carried from the template to each generated entity.
 ## Programmatic access
 
 ```python
-from constellation_generator.adapters import JsonSimulationReader, JsonSimulationWriter
-from constellation_generator.domain.serialization import build_satellite_entity
+from humeris.adapters import JsonSimulationReader, JsonSimulationWriter
+from humeris.domain.serialization import build_satellite_entity
 
 reader = JsonSimulationReader()
 writer = JsonSimulationWriter()

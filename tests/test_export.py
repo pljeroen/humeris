@@ -13,10 +13,10 @@ import tempfile
 
 import pytest
 
-from constellation_generator.domain.constellation import ShellConfig, generate_walker_shell
-from constellation_generator.ports.export import SatelliteExporter
-from constellation_generator.adapters.csv_exporter import CsvSatelliteExporter
-from constellation_generator.adapters.geojson_exporter import GeoJsonSatelliteExporter
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.ports.export import SatelliteExporter
+from humeris.adapters.csv_exporter import CsvSatelliteExporter
+from humeris.adapters.geojson_exporter import GeoJsonSatelliteExporter
 
 
 def _make_satellites(count=3):
@@ -260,7 +260,7 @@ class TestExportPurity:
         with open(module_path) as f:
             tree = ast.parse(f.read())
 
-        allowed_internal = {'constellation_generator'}
+        allowed_internal = {'humeris'}
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -275,9 +275,9 @@ class TestExportPurity:
                         f"Forbidden import from: {node.module}"
 
     def test_csv_exporter_no_external_deps(self):
-        import constellation_generator.adapters.csv_exporter as mod
+        import humeris.adapters.csv_exporter as mod
         self._check_imports(mod.__file__, {'csv', 'datetime', 'math', 'numpy'})
 
     def test_geojson_exporter_no_external_deps(self):
-        import constellation_generator.adapters.geojson_exporter as mod
+        import humeris.adapters.geojson_exporter as mod
         self._check_imports(mod.__file__, {'json', 'datetime', 'math', 'numpy'})

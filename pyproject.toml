@@ -3,20 +3,19 @@ requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "constellation-generator"
+name = "humeris"
 version = "1.22.0"
-description = "Generate Walker constellation satellite shells and fetch live orbital data for orbit simulation tools"
+description = "Astrodynamics library for satellite constellation design, analysis, and operations"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [
     {name = "Jeroen Visser"},
 ]
-keywords = ["satellite", "constellation", "orbital-mechanics", "walker", "celestrak", "sgp4"]
+keywords = ["satellite", "constellation", "orbital-mechanics", "astrodynamics", "walker", "celestrak", "sgp4"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -34,13 +33,13 @@ dev = [
 ]
 
 [project.scripts]
-constellation-generator = "constellation_generator.cli:main"
+humeris = "humeris.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-constellation_generator = ["data/*.json"]
+humeris = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

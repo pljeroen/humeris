@@ -7,18 +7,18 @@ import re
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import (
+from humeris.domain.orbital_mechanics import (
     kepler_to_cartesian,
     OrbitalConstants,
     sso_inclination_deg,
 )
-from constellation_generator.domain.constellation import (
+from humeris.domain.constellation import (
     ShellConfig,
     Satellite,
     generate_walker_shell,
     generate_sso_band_configs,
 )
-from constellation_generator.domain.serialization import (
+from humeris.domain.serialization import (
     format_position,
     format_velocity,
     build_satellite_entity,
@@ -201,7 +201,7 @@ class TestDomainPurity:
         import ast
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime', 'json', 'pathlib', 'hashlib', 'hmac'}
         domain_dir = os.path.join(os.path.dirname(__file__), '..', 'src',
-                                  'constellation_generator', 'domain')
+                                  'humeris', 'domain')
         for fname in os.listdir(domain_dir):
             if not fname.endswith('.py') or fname == '__init__.py':
                 continue
@@ -211,12 +211,12 @@ class TestDomainPurity:
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         root = alias.name.split('.')[0]
-                        if root not in allowed and not root.startswith('constellation_generator'):
+                        if root not in allowed and not root.startswith('humeris'):
                             assert False, f"Disallowed import '{alias.name}' in domain/{fname}"
                 if isinstance(node, ast.ImportFrom):
                     if node.module and node.level == 0:  # absolute imports
                         root = node.module.split('.')[0]
-                        if root not in allowed and root != 'constellation_generator':
+                        if root not in allowed and root != 'humeris':
                             assert False, f"Disallowed import from '{node.module}' in domain/{fname}"
 
 

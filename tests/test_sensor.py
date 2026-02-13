@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
@@ -21,7 +21,7 @@ EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 class TestSensorType:
 
     def test_enum_values(self):
-        from constellation_generator.domain.sensor import SensorType
+        from humeris.domain.sensor import SensorType
         assert SensorType.CIRCULAR.value == "circular"
         assert SensorType.RECTANGULAR.value == "rectangular"
 
@@ -29,19 +29,19 @@ class TestSensorType:
 class TestSensorConfig:
 
     def test_frozen(self):
-        from constellation_generator.domain.sensor import SensorType, SensorConfig
+        from humeris.domain.sensor import SensorType, SensorConfig
         cfg = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
         with pytest.raises(AttributeError):
             cfg.half_angle_deg = 45.0
 
     def test_circular_fields(self):
-        from constellation_generator.domain.sensor import SensorType, SensorConfig
+        from humeris.domain.sensor import SensorType, SensorConfig
         cfg = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
         assert cfg.sensor_type == SensorType.CIRCULAR
         assert cfg.half_angle_deg == 30.0
 
     def test_rectangular_fields(self):
-        from constellation_generator.domain.sensor import SensorType, SensorConfig
+        from humeris.domain.sensor import SensorType, SensorConfig
         cfg = SensorConfig(
             sensor_type=SensorType.RECTANGULAR,
             half_angle_deg=0.0,
@@ -55,7 +55,7 @@ class TestSensorConfig:
 class TestGroundFootprint:
 
     def test_frozen(self):
-        from constellation_generator.domain.sensor import GroundFootprint
+        from humeris.domain.sensor import GroundFootprint
         fp = GroundFootprint(
             center_lat_deg=0.0, center_lon_deg=0.0,
             swath_width_km=100.0, along_track_extent_km=50.0,
@@ -64,7 +64,7 @@ class TestGroundFootprint:
             fp.swath_width_km = 200.0
 
     def test_fields(self):
-        from constellation_generator.domain.sensor import GroundFootprint
+        from humeris.domain.sensor import GroundFootprint
         fp = GroundFootprint(
             center_lat_deg=10.0, center_lon_deg=20.0,
             swath_width_km=100.0, along_track_extent_km=50.0,
@@ -78,13 +78,13 @@ class TestGroundFootprint:
 class TestSensorAccessResult:
 
     def test_frozen(self):
-        from constellation_generator.domain.sensor import SensorAccessResult
+        from humeris.domain.sensor import SensorAccessResult
         r = SensorAccessResult(is_visible=True, off_nadir_angle_deg=5.0, ground_range_km=100.0)
         with pytest.raises(AttributeError):
             r.is_visible = False
 
     def test_fields(self):
-        from constellation_generator.domain.sensor import SensorAccessResult
+        from humeris.domain.sensor import SensorAccessResult
         r = SensorAccessResult(is_visible=True, off_nadir_angle_deg=5.0, ground_range_km=100.0)
         assert r.is_visible is True
         assert r.off_nadir_angle_deg == 5.0
@@ -97,26 +97,26 @@ class TestSwathWidth:
 
     def test_known_geometry(self):
         """Computed swath width matches formula for 500 km, 30 deg half-angle."""
-        from constellation_generator.domain.sensor import compute_swath_width
+        from humeris.domain.sensor import compute_swath_width
         swath = compute_swath_width(500.0, 30.0)
         # Manual check: should be several hundred km
         assert 400 < swath < 1200
 
     def test_increases_with_altitude(self):
-        from constellation_generator.domain.sensor import compute_swath_width
+        from humeris.domain.sensor import compute_swath_width
         sw_low = compute_swath_width(300.0, 30.0)
         sw_high = compute_swath_width(800.0, 30.0)
         assert sw_high > sw_low
 
     def test_increases_with_angle(self):
-        from constellation_generator.domain.sensor import compute_swath_width
+        from humeris.domain.sensor import compute_swath_width
         sw_narrow = compute_swath_width(500.0, 10.0)
         sw_wide = compute_swath_width(500.0, 40.0)
         assert sw_wide > sw_narrow
 
     def test_small_angle_near_flat_earth(self):
         """Small angle approximation: swath ≈ 2*h*tan(alpha)."""
-        from constellation_generator.domain.sensor import compute_swath_width
+        from humeris.domain.sensor import compute_swath_width
         h = 500.0
         alpha = 1.0  # 1 degree
         swath = compute_swath_width(h, alpha)
@@ -125,17 +125,17 @@ class TestSwathWidth:
         assert abs(swath - flat_approx) / flat_approx < 0.05
 
     def test_zero_altitude_raises(self):
-        from constellation_generator.domain.sensor import compute_swath_width
+        from humeris.domain.sensor import compute_swath_width
         with pytest.raises(ValueError):
             compute_swath_width(0.0, 30.0)
 
     def test_negative_angle_raises(self):
-        from constellation_generator.domain.sensor import compute_swath_width
+        from humeris.domain.sensor import compute_swath_width
         with pytest.raises(ValueError):
             compute_swath_width(500.0, -5.0)
 
     def test_angle_90_raises(self):
-        from constellation_generator.domain.sensor import compute_swath_width
+        from humeris.domain.sensor import compute_swath_width
         with pytest.raises(ValueError):
             compute_swath_width(500.0, 90.0)
 
@@ -146,7 +146,7 @@ class TestNadirFootprint:
 
     def test_circular_symmetric(self):
         """Circular sensor → swath_width_km == along_track_extent_km."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_nadir_footprint,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
@@ -155,7 +155,7 @@ class TestNadirFootprint:
 
     def test_rectangular_asymmetric(self):
         """Rectangular sensor → swath != along_track (different half-angles)."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_nadir_footprint,
         )
         sensor = SensorConfig(
@@ -168,7 +168,7 @@ class TestNadirFootprint:
         assert abs(fp.swath_width_km - fp.along_track_extent_km) > 10
 
     def test_zero_altitude_raises(self):
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_nadir_footprint,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
@@ -176,7 +176,7 @@ class TestNadirFootprint:
             compute_nadir_footprint(0.0, sensor)
 
     def test_center_coordinates(self):
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_nadir_footprint,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
@@ -186,7 +186,7 @@ class TestNadirFootprint:
 
     def test_footprint_size_reasonable(self):
         """30 deg half-angle at 500 km → footprint 400-1200 km."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_nadir_footprint,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
@@ -200,10 +200,10 @@ class TestIsInSensorFov:
 
     def test_nadir_point_visible(self):
         """Point directly below satellite → visible."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, is_in_sensor_fov,
         )
-        from constellation_generator.domain.coordinate_frames import (
+        from humeris.domain.coordinate_frames import (
             gmst_rad, geodetic_to_ecef,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
@@ -211,7 +211,7 @@ class TestIsInSensorFov:
         sat_eci = (r, 0.0, 0.0)
         gmst = gmst_rad(EPOCH)
         # Sub-satellite point: transform sat to ECEF, then to geodetic, then back
-        from constellation_generator.domain.coordinate_frames import (
+        from humeris.domain.coordinate_frames import (
             eci_to_ecef, ecef_to_geodetic,
         )
         sat_ecef, _ = eci_to_ecef(sat_eci, (0.0, 7500.0, 0.0), gmst)
@@ -223,10 +223,10 @@ class TestIsInSensorFov:
 
     def test_far_point_not_visible(self):
         """Point on opposite side of Earth → not visible."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, is_in_sensor_fov,
         )
-        from constellation_generator.domain.coordinate_frames import (
+        from humeris.domain.coordinate_frames import (
             gmst_rad, geodetic_to_ecef, eci_to_ecef, ecef_to_geodetic,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
@@ -246,10 +246,10 @@ class TestIsInSensorFov:
 
     def test_off_nadir_angle_correct(self):
         """Off-nadir angle approximately matches expected geometry."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, is_in_sensor_fov,
         )
-        from constellation_generator.domain.coordinate_frames import (
+        from humeris.domain.coordinate_frames import (
             gmst_rad, geodetic_to_ecef, eci_to_ecef, ecef_to_geodetic,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=45.0)
@@ -267,10 +267,10 @@ class TestIsInSensorFov:
 
     def test_circular_fov_boundary(self):
         """Point just outside FOV → not visible."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, is_in_sensor_fov,
         )
-        from constellation_generator.domain.coordinate_frames import (
+        from humeris.domain.coordinate_frames import (
             gmst_rad, geodetic_to_ecef, eci_to_ecef, ecef_to_geodetic,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=5.0)
@@ -287,10 +287,10 @@ class TestIsInSensorFov:
 
     def test_rectangular_fov_within(self):
         """Point within rectangular FOV → visible."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, is_in_sensor_fov,
         )
-        from constellation_generator.domain.coordinate_frames import (
+        from humeris.domain.coordinate_frames import (
             gmst_rad, geodetic_to_ecef, eci_to_ecef, ecef_to_geodetic,
         )
         sensor = SensorConfig(
@@ -311,10 +311,10 @@ class TestIsInSensorFov:
 
     def test_ground_range_positive(self):
         """Ground range > 0 for non-nadir point."""
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, is_in_sensor_fov,
         )
-        from constellation_generator.domain.coordinate_frames import (
+        from humeris.domain.coordinate_frames import (
             gmst_rad, geodetic_to_ecef, eci_to_ecef, ecef_to_geodetic,
         )
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=45.0)
@@ -334,13 +334,13 @@ class TestIsInSensorFov:
 class TestSensorCoverage:
 
     def test_returns_coverage_points(self):
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_sensor_coverage,
         )
-        from constellation_generator import (
+        from humeris import (
             ShellConfig, generate_walker_shell, derive_orbital_state,
         )
-        from constellation_generator.domain.coverage import CoveragePoint
+        from humeris.domain.coverage import CoveragePoint
 
         sensor = SensorConfig(sensor_type=SensorType.CIRCULAR, half_angle_deg=30.0)
         shell = ShellConfig(
@@ -354,10 +354,10 @@ class TestSensorCoverage:
         assert all(isinstance(p, CoveragePoint) for p in grid)
 
     def test_grid_size_matches_parameters(self):
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_sensor_coverage,
         )
-        from constellation_generator import (
+        from humeris import (
             ShellConfig, generate_walker_shell, derive_orbital_state,
         )
 
@@ -375,10 +375,10 @@ class TestSensorCoverage:
         assert len(grid) == expected
 
     def test_narrow_fov_fewer_visible(self):
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_sensor_coverage,
         )
-        from constellation_generator import (
+        from humeris import (
             ShellConfig, generate_walker_shell, derive_orbital_state,
         )
 
@@ -401,7 +401,7 @@ class TestSensorCoverage:
         assert visible_narrow <= visible_wide
 
     def test_empty_states_all_zero(self):
-        from constellation_generator.domain.sensor import (
+        from humeris.domain.sensor import (
             SensorType, SensorConfig, compute_sensor_coverage,
         )
 
@@ -416,13 +416,13 @@ class TestSensorPurity:
 
     def test_sensor_module_pure(self):
         """sensor.py must only import from stdlib and domain."""
-        import constellation_generator.domain.sensor as mod
+        import humeris.domain.sensor as mod
 
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
         allowed_top = {"math", "numpy", "dataclasses", "typing", "enum", "datetime"}
-        allowed_internal_prefix = "constellation_generator"
+        allowed_internal_prefix = "humeris"
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

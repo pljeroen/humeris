@@ -12,28 +12,28 @@
 #
 # Static mode output: constellation_viewer.html (self-contained, no server)
 # Server mode: opens browser to localhost, add/remove constellations live
-# Requires: pip install constellation-generator[live]
+# Requires: pip install humeris[live]
 
 import sys
 import webbrowser
 from datetime import datetime, timedelta, timezone
 
-from constellation_generator.domain.constellation import (
+from humeris.domain.constellation import (
     ShellConfig,
     generate_walker_shell,
 )
-from constellation_generator.domain.propagation import derive_orbital_state
-from constellation_generator.domain.observation import GroundStation
-from constellation_generator.adapters.czml_exporter import (
+from humeris.domain.propagation import derive_orbital_state
+from humeris.domain.observation import GroundStation
+from humeris.adapters.czml_exporter import (
     constellation_packets,
     snapshot_packets,
 )
-from constellation_generator.adapters.czml_visualization import (
+from humeris.adapters.czml_visualization import (
     eclipse_snapshot_packets,
     ground_station_packets,
 )
-from constellation_generator.adapters.cesium_viewer import write_cesium_html
-from constellation_generator.adapters.celestrak import CelesTrakAdapter
+from humeris.adapters.cesium_viewer import write_cesium_html
+from humeris.adapters.celestrak import CelesTrakAdapter
 
 DURATION = timedelta(hours=2)
 STEP = timedelta(seconds=60)
@@ -72,7 +72,7 @@ STATIONS = [
 
 def run_serve_mode(port=8765):
     """Start interactive viewer server with pre-loaded constellations."""
-    from constellation_generator.adapters.viewer_server import (
+    from humeris.adapters.viewer_server import (
         LayerManager,
         create_viewer_server,
     )

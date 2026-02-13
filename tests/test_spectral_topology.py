@@ -7,10 +7,10 @@ import ast
 import math
 from datetime import datetime, timezone, timedelta
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.link_budget import LinkConfig
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.link_budget import LinkConfig
 
-from constellation_generator.domain.spectral_topology import (
+from humeris.domain.spectral_topology import (
     FragmentationSpectralAnalysis,
     EclipseSpectralInvariant,
     ProximitySpectralResult,
@@ -157,7 +157,7 @@ class TestProximitySpectrum:
 
 class TestSpectralTopologyPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.spectral_topology as mod
+        import humeris.domain.spectral_topology as mod
         source = ast.parse(open(mod.__file__).read())
         for node in ast.walk(source):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -166,6 +166,6 @@ class TestSpectralTopologyPurity:
                 else:
                     for alias in node.names:
                         top = alias.name.split(".")[0]
-                assert top in {"math", "dataclasses", "datetime", "typing", "enum", "numpy", "constellation_generator", "__future__"}, (
+                assert top in {"math", "dataclasses", "datetime", "typing", "enum", "numpy", "humeris", "__future__"}, (
                     f"Forbidden import: {top}"
                 )

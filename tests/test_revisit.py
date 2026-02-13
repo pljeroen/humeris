@@ -9,8 +9,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.constellation import ShellConfig, generate_walker_shell
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ _EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _make_states(inclination_deg=53.0, altitude_km=500.0, num_planes=3, sats_per_plane=6):
-    from constellation_generator.domain.propagation import derive_orbital_state
+    from humeris.domain.propagation import derive_orbital_state
 
     shell = ShellConfig(
         altitude_km=altitude_km, inclination_deg=inclination_deg,
@@ -32,7 +32,7 @@ def _make_states(inclination_deg=53.0, altitude_km=500.0, num_planes=3, sats_per
 
 
 def _make_single_state(inclination_deg=53.0, altitude_km=500.0):
-    from constellation_generator.domain.propagation import derive_orbital_state
+    from humeris.domain.propagation import derive_orbital_state
 
     shell = ShellConfig(
         altitude_km=altitude_km, inclination_deg=inclination_deg,
@@ -49,7 +49,7 @@ def _make_single_state(inclination_deg=53.0, altitude_km=500.0):
 class TestGridPoint:
 
     def test_frozen(self):
-        from constellation_generator.domain.revisit import GridPoint
+        from humeris.domain.revisit import GridPoint
 
         pt = GridPoint(
             lat_deg=0.0, lon_deg=0.0,
@@ -60,7 +60,7 @@ class TestGridPoint:
             pt.lat_deg = 5.0
 
     def test_fields(self):
-        from constellation_generator.domain.revisit import GridPoint
+        from humeris.domain.revisit import GridPoint
 
         pt = GridPoint(
             lat_deg=45.0, lon_deg=-90.0,
@@ -78,7 +78,7 @@ class TestGridPoint:
 class TestPointRevisitResult:
 
     def test_frozen(self):
-        from constellation_generator.domain.revisit import PointRevisitResult
+        from humeris.domain.revisit import PointRevisitResult
 
         pr = PointRevisitResult(
             lat_deg=0.0, lon_deg=0.0, num_passes=1,
@@ -90,7 +90,7 @@ class TestPointRevisitResult:
             pr.num_passes = 5
 
     def test_fields(self):
-        from constellation_generator.domain.revisit import PointRevisitResult
+        from humeris.domain.revisit import PointRevisitResult
 
         pr = PointRevisitResult(
             lat_deg=30.0, lon_deg=60.0, num_passes=3,
@@ -108,7 +108,7 @@ class TestPointRevisitResult:
 class TestCoverageResult:
 
     def test_frozen(self):
-        from constellation_generator.domain.revisit import CoverageResult
+        from humeris.domain.revisit import CoverageResult
 
         cr = CoverageResult(
             analysis_duration_s=3600.0, num_grid_points=4, num_satellites=2,
@@ -121,7 +121,7 @@ class TestCoverageResult:
             cr.max_revisit_s = 0.0
 
     def test_fields(self):
-        from constellation_generator.domain.revisit import CoverageResult
+        from humeris.domain.revisit import CoverageResult
 
         cr = CoverageResult(
             analysis_duration_s=7200.0, num_grid_points=10, num_satellites=6,
@@ -141,7 +141,7 @@ class TestEarthCentralAngleLimit:
 
     def test_500km_10deg_elevation(self):
         """Spot check: 500 km orbit, 10° min elevation → expected cos(rho_max)."""
-        from constellation_generator.domain.revisit import _earth_central_angle_limit
+        from humeris.domain.revisit import _earth_central_angle_limit
 
         cos_rho = _earth_central_angle_limit(500_000.0, 10.0)
         # rho_max = 90 - 10 - asin(R_E * cos(10°) / (R_E + 500km))
@@ -153,7 +153,7 @@ class TestEarthCentralAngleLimit:
 
     def test_zero_elevation_geometric_horizon(self):
         """0° elevation → rho_max = acos(R_E / (R_E + h)), i.e. geometric horizon."""
-        from constellation_generator.domain.revisit import _earth_central_angle_limit
+        from humeris.domain.revisit import _earth_central_angle_limit
 
         h = 500_000.0
         r_e = OrbitalConstants.R_EARTH
@@ -170,14 +170,14 @@ class TestGenerateGrid:
 
     def test_90deg_step_gives_expected_count(self):
         """90° step → lat [-90, 0, 90] (3) × lon [-180, -90, 0, 90] (4) = 12 points."""
-        from constellation_generator.domain.revisit import _generate_grid
+        from humeris.domain.revisit import _generate_grid
 
         grid = _generate_grid(90.0, 90.0, (-90.0, 90.0), (-180.0, 180.0))
         assert len(grid) == 12
 
     def test_unit_vectors_normalized(self):
         """All grid point unit vectors should have magnitude ≈ 1.0."""
-        from constellation_generator.domain.revisit import _generate_grid
+        from humeris.domain.revisit import _generate_grid
 
         grid = _generate_grid(30.0, 60.0, (-90.0, 90.0), (-180.0, 180.0))
         for pt in grid:
@@ -191,7 +191,7 @@ class TestVisibility:
 
     def test_satellite_directly_above_visible(self):
         """A satellite directly above a grid point should be visible."""
-        from constellation_generator.domain.revisit import compute_single_coverage_fraction
+        from humeris.domain.revisit import compute_single_coverage_fraction
 
         # Place a satellite at 0° lat, 0° lon by choosing epoch where
         # sub-satellite point is near the equator/prime meridian.
@@ -210,7 +210,7 @@ class TestVisibility:
 
     def test_satellite_opposite_side_not_visible(self):
         """With only a tiny grid on the opposite side, coverage should be 0."""
-        from constellation_generator.domain.revisit import compute_single_coverage_fraction
+        from humeris.domain.revisit import compute_single_coverage_fraction
 
         # Equatorial satellite at ~lon 0. Grid only at lon 180 ± small window.
         state = _make_single_state(altitude_km=500, inclination_deg=0.0)
@@ -231,7 +231,7 @@ class TestComputeRevisit:
 
     def test_single_satellite_detects_pass(self):
         """Single satellite over ~90 min should detect at least 1 pass at some grid point."""
-        from constellation_generator.domain.revisit import compute_revisit
+        from humeris.domain.revisit import compute_revisit
 
         state = _make_single_state(altitude_km=500)
         result = compute_revisit(
@@ -244,7 +244,7 @@ class TestComputeRevisit:
 
     def test_single_satellite_max_gap_approx_orbital_period(self):
         """Single sat, 24h analysis: max gap for most points ≈ orbital period (~94 min for 500 km)."""
-        from constellation_generator.domain.revisit import compute_revisit
+        from humeris.domain.revisit import compute_revisit
 
         state = _make_single_state(altitude_km=500)
         result = compute_revisit(
@@ -265,7 +265,7 @@ class TestComputeRevisit:
 
     def test_more_satellites_shorter_mean_revisit(self):
         """Increasing satellite count should reduce mean revisit time (monotonicity)."""
-        from constellation_generator.domain.revisit import compute_revisit
+        from humeris.domain.revisit import compute_revisit
 
         states_small = _make_states(num_planes=2, sats_per_plane=3)
         states_large = _make_states(num_planes=4, sats_per_plane=6)
@@ -282,7 +282,7 @@ class TestComputeRevisit:
 
     def test_coverage_fraction_in_range(self):
         """All per-point coverage fractions should be in [0, 1]."""
-        from constellation_generator.domain.revisit import compute_revisit
+        from humeris.domain.revisit import compute_revisit
 
         states = _make_states(num_planes=2, sats_per_plane=4)
         result = compute_revisit(
@@ -294,7 +294,7 @@ class TestComputeRevisit:
 
     def test_mean_response_time_is_half_mean_gap(self):
         """Mean response time should equal mean_gap / 2 for each point."""
-        from constellation_generator.domain.revisit import compute_revisit
+        from humeris.domain.revisit import compute_revisit
 
         states = _make_states(num_planes=2, sats_per_plane=4)
         result = compute_revisit(
@@ -307,7 +307,7 @@ class TestComputeRevisit:
 
     def test_zero_satellites_zero_coverage(self):
         """Empty satellite list → coverage fraction 0, num_passes 0 everywhere."""
-        from constellation_generator.domain.revisit import compute_revisit
+        from humeris.domain.revisit import compute_revisit
 
         result = compute_revisit(
             [], _EPOCH, timedelta(hours=1), timedelta(seconds=60),
@@ -320,7 +320,7 @@ class TestComputeRevisit:
 
     def test_compute_single_coverage_fraction_matches_revisit(self):
         """Single-epoch fraction should match revisit fraction at same epoch."""
-        from constellation_generator.domain.revisit import (
+        from humeris.domain.revisit import (
             compute_revisit,
             compute_single_coverage_fraction,
         )
@@ -347,7 +347,7 @@ class TestComputeRevisit:
 class TestRevisitPurity:
 
     def test_revisit_imports_only_stdlib_and_domain(self):
-        import constellation_generator.domain.revisit as mod
+        import humeris.domain.revisit as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -357,10 +357,10 @@ class TestRevisitPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

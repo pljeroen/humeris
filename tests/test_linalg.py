@@ -8,7 +8,7 @@ import math
 
 import pytest
 
-from constellation_generator.domain.linalg import (
+from humeris.domain.linalg import (
     EigenDecomposition,
     DFTResult,
     mat_zeros,
@@ -166,7 +166,7 @@ class TestDFT:
 
 class TestLinalgPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.linalg as mod
+        import humeris.domain.linalg as mod
         source = ast.parse(open(mod.__file__).read())
         for node in ast.walk(source):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -175,6 +175,6 @@ class TestLinalgPurity:
                 else:
                     for alias in node.names:
                         top = alias.name.split(".")[0]
-                assert top in {"math", "numpy", "dataclasses", "typing", "constellation_generator", "__future__"}, (
+                assert top in {"math", "numpy", "dataclasses", "typing", "humeris", "__future__"}, (
                     f"Forbidden import: {top}"
                 )

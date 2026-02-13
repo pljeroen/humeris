@@ -7,10 +7,10 @@ import ast
 import math
 from datetime import datetime, timezone, timedelta
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.atmosphere import DragConfig
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.atmosphere import DragConfig
 
-from constellation_generator.domain.temporal_correlation import (
+from humeris.domain.temporal_correlation import (
     SignalCoherence,
     SpectralCrossCorrelation,
     AvailabilitySpectralDecomposition,
@@ -80,7 +80,7 @@ class TestComputeSpectralCrossCorrelation:
 
 class TestComputeAvailabilitySpectralDecomposition:
     def test_returns_type(self):
-        from constellation_generator.domain.statistical_analysis import (
+        from humeris.domain.statistical_analysis import (
             compute_mission_availability,
         )
         state = _state()
@@ -93,7 +93,7 @@ class TestComputeAvailabilitySpectralDecomposition:
         assert isinstance(result, AvailabilitySpectralDecomposition)
 
     def test_coherence_bounded(self):
-        from constellation_generator.domain.statistical_analysis import (
+        from humeris.domain.statistical_analysis import (
             compute_mission_availability,
         )
         state = _state()
@@ -108,7 +108,7 @@ class TestComputeAvailabilitySpectralDecomposition:
         assert -1.0 <= result.power_conjunction_coherence <= 1.0
 
     def test_dominant_frequency_non_negative(self):
-        from constellation_generator.domain.statistical_analysis import (
+        from humeris.domain.statistical_analysis import (
             compute_mission_availability,
         )
         state = _state()
@@ -123,7 +123,7 @@ class TestComputeAvailabilitySpectralDecomposition:
 
 class TestComputeNetworkCapacitySpectrum:
     def test_returns_type(self):
-        from constellation_generator.domain.communication_analysis import (
+        from humeris.domain.communication_analysis import (
             NetworkCapacityTimeline,
             NetworkCapacitySnapshot,
         )
@@ -145,7 +145,7 @@ class TestComputeNetworkCapacitySpectrum:
         assert isinstance(result, CapacitySpectrum)
 
     def test_frequencies_present(self):
-        from constellation_generator.domain.communication_analysis import (
+        from humeris.domain.communication_analysis import (
             NetworkCapacityTimeline,
             NetworkCapacitySnapshot,
         )
@@ -168,7 +168,7 @@ class TestComputeNetworkCapacitySpectrum:
         assert len(result.power_density) > 0
 
     def test_orbital_frequency_detected(self):
-        from constellation_generator.domain.communication_analysis import (
+        from humeris.domain.communication_analysis import (
             NetworkCapacityTimeline,
             NetworkCapacitySnapshot,
         )
@@ -192,10 +192,10 @@ class TestComputeNetworkCapacitySpectrum:
 
 class TestTemporalCorrelationPurity:
     def test_no_external_deps(self):
-        import constellation_generator.domain.temporal_correlation as mod
+        import humeris.domain.temporal_correlation as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
-        allowed = {"math", "numpy", "dataclasses", "datetime", "constellation_generator"}
+        allowed = {"math", "numpy", "dataclasses", "datetime", "humeris"}
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:

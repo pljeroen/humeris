@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.solar import (
+from humeris.domain.solar import (
     AU_METERS,
     SunPosition,
     julian_centuries_j2000,
@@ -155,7 +155,7 @@ class TestSolarPurity:
 
     def test_solar_module_pure(self):
         """solar.py must only import stdlib modules."""
-        import constellation_generator.domain.solar as mod
+        import humeris.domain.solar as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -165,10 +165,10 @@ class TestSolarPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

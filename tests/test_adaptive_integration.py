@@ -11,14 +11,14 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator import (
+from humeris import (
     OrbitalConstants,
     ShellConfig,
     generate_walker_shell,
     derive_orbital_state,
     kepler_to_cartesian,
 )
-from constellation_generator.domain.numerical_propagation import (
+from humeris.domain.numerical_propagation import (
     PropagationStep,
     NumericalPropagationResult,
     TwoBodyGravity,
@@ -27,7 +27,7 @@ from constellation_generator.domain.numerical_propagation import (
     propagate_numerical,
     ForceModel,
 )
-from constellation_generator.domain.adaptive_integration import (
+from humeris.domain.adaptive_integration import (
     AdaptiveStepConfig,
     AdaptiveStepResult,
     dormand_prince_step,
@@ -716,7 +716,7 @@ class TestDomainPurity:
         import os
         module_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "src", "constellation_generator", "domain", "adaptive_integration.py",
+            "src", "humeris", "domain", "adaptive_integration.py",
         )
         with open(module_path) as f:
             source = f.read()
@@ -728,14 +728,14 @@ class TestDomainPurity:
                     mod = alias.name.split(".")[0]
                     assert mod in (
                         "math", "numpy", "dataclasses", "datetime", "typing",
-                        "constellation_generator",
+                        "humeris",
                     ), f"External import: {alias.name}"
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
                     mod = node.module.split(".")[0]
                     assert mod in (
                         "math", "numpy", "dataclasses", "datetime", "typing",
-                        "constellation_generator",
+                        "humeris",
                     ), f"External import from: {node.module}"
 
 

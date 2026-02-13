@@ -11,8 +11,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.constellation import ShellConfig, generate_walker_shell
-from constellation_generator.domain.ground_track import (
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.ground_track import (
     AscendingNodePass,
     GroundTrackCrossing,
     GroundTrackPoint,
@@ -184,11 +184,11 @@ class TestComputeGroundTrackNumerical:
 
     @pytest.fixture
     def numerical_result(self, epoch):
-        from constellation_generator import (
+        from humeris import (
             derive_orbital_state,
             propagate_numerical,
         )
-        from constellation_generator.domain.numerical_propagation import (
+        from humeris.domain.numerical_propagation import (
             TwoBodyGravity,
         )
         sat = _make_satellite(inclination_deg=53.0, altitude_km=500.0)
@@ -199,55 +199,55 @@ class TestComputeGroundTrackNumerical:
         )
 
     def test_returns_ground_track_points(self, numerical_result):
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris.domain.ground_track import compute_ground_track_numerical
         result = compute_ground_track_numerical(numerical_result.steps)
         assert all(isinstance(p, GroundTrackPoint) for p in result)
 
     def test_point_count_matches_steps(self, numerical_result):
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris.domain.ground_track import compute_ground_track_numerical
         result = compute_ground_track_numerical(numerical_result.steps)
         assert len(result) == len(numerical_result.steps)
 
     def test_latitude_bounded_by_inclination(self, numerical_result):
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris.domain.ground_track import compute_ground_track_numerical
         result = compute_ground_track_numerical(numerical_result.steps)
         for p in result:
             assert abs(p.lat_deg) <= 53.5, f"Lat {p.lat_deg} exceeds inclination"
 
     def test_altitude_near_orbital(self, numerical_result):
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris.domain.ground_track import compute_ground_track_numerical
         result = compute_ground_track_numerical(numerical_result.steps)
         for p in result:
             assert 470 < p.alt_km < 530, f"Alt {p.alt_km} outside expected range"
 
     def test_longitude_in_range(self, numerical_result):
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris.domain.ground_track import compute_ground_track_numerical
         result = compute_ground_track_numerical(numerical_result.steps)
         for p in result:
             assert -180.0 <= p.lon_deg <= 180.0
 
     def test_times_match_step_times(self, numerical_result):
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris.domain.ground_track import compute_ground_track_numerical
         result = compute_ground_track_numerical(numerical_result.steps)
         for pt, step in zip(result, numerical_result.steps):
             assert pt.time == step.time
 
     def test_empty_steps_returns_empty(self):
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris.domain.ground_track import compute_ground_track_numerical
         result = compute_ground_track_numerical(())
         assert result == []
 
     def test_single_step(self, numerical_result):
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris.domain.ground_track import compute_ground_track_numerical
         result = compute_ground_track_numerical(numerical_result.steps[:1])
         assert len(result) == 1
         assert isinstance(result[0], GroundTrackPoint)
 
     def test_consistent_with_analytical(self, epoch):
         """Numerical ground track matches analytical within tolerance for two-body."""
-        from constellation_generator import derive_orbital_state, propagate_numerical
-        from constellation_generator.domain.numerical_propagation import TwoBodyGravity
-        from constellation_generator.domain.ground_track import compute_ground_track_numerical
+        from humeris import derive_orbital_state, propagate_numerical
+        from humeris.domain.numerical_propagation import TwoBodyGravity
+        from humeris.domain.ground_track import compute_ground_track_numerical
 
         sat = _make_satellite(inclination_deg=53.0, altitude_km=500.0)
         state = derive_orbital_state(sat, epoch)
@@ -390,13 +390,13 @@ class TestGroundTrackPurity:
     """Domain purity: ground_track.py must only import from stdlib and domain."""
 
     def test_no_external_imports(self):
-        import constellation_generator.domain.ground_track as mod
+        import humeris.domain.ground_track as mod
         source_path = mod.__file__
         with open(source_path) as f:
             tree = ast.parse(f.read())
 
         allowed_top = {'math', 'numpy', 'dataclasses', 'datetime'}
-        allowed_internal_prefix = 'constellation_generator.domain'
+        allowed_internal_prefix = 'humeris.domain'
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

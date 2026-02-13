@@ -7,13 +7,13 @@ Geodetic satellite positions as comma-separated values.
 ### CLI
 
 ```bash
-constellation-generator -i sim.json -o out.json --export-csv satellites.csv
+humeris -i sim.json -o out.json --export-csv satellites.csv
 ```
 
 ### Programmatic
 
 ```python
-from constellation_generator.adapters.csv_exporter import CsvSatelliteExporter
+from humeris.adapters.csv_exporter import CsvSatelliteExporter
 
 exporter = CsvSatelliteExporter()
 count = exporter.export(satellites, "satellites.csv")
@@ -42,13 +42,13 @@ Standard GeoJSON FeatureCollection with Point geometries.
 ### CLI
 
 ```bash
-constellation-generator -i sim.json -o out.json --export-geojson satellites.geojson
+humeris -i sim.json -o out.json --export-geojson satellites.geojson
 ```
 
 ### Programmatic
 
 ```python
-from constellation_generator.adapters.geojson_exporter import GeoJsonSatelliteExporter
+from humeris.adapters.geojson_exporter import GeoJsonSatelliteExporter
 
 exporter = GeoJsonSatelliteExporter()
 count = exporter.export(satellites, "satellites.geojson")
@@ -92,7 +92,7 @@ heatmaps, and advanced analysis visualizations.
 ### Writing CZML files
 
 ```python
-from constellation_generator.adapters.czml_exporter import (
+from humeris.adapters.czml_exporter import (
     constellation_packets, snapshot_packets, ground_track_packets,
     coverage_packets, write_czml,
 )
@@ -106,13 +106,13 @@ packets = snapshot_packets(states, epoch)
 write_czml(packets, "snapshot.czml")
 
 # Ground track polyline
-from constellation_generator import compute_ground_track
+from humeris import compute_ground_track
 track = compute_ground_track(satellite, epoch, duration, step)
 packets = ground_track_packets(track)
 write_czml(packets, "ground_track.czml")
 
 # Coverage heatmap
-from constellation_generator import compute_coverage_snapshot
+from humeris import compute_coverage_snapshot
 grid = compute_coverage_snapshot(states, epoch, lat_step_deg=5, lon_step_deg=5)
 packets = coverage_packets(grid, lat_step_deg=5, lon_step_deg=5)
 write_czml(packets, "coverage.czml")
@@ -121,7 +121,7 @@ write_czml(packets, "coverage.czml")
 ### Advanced CZML visualization
 
 ```python
-from constellation_generator.adapters.czml_visualization import (
+from humeris.adapters.czml_visualization import (
     eclipse_constellation_packets,
     eclipse_snapshot_packets,
     sensor_footprint_packets,
@@ -189,7 +189,7 @@ tools. Satellite entities include ECI position/velocity with Y/Z axis
 swap and specified precision.
 
 ```bash
-constellation-generator -i template.json -o output.json
+humeris -i template.json -o output.json
 ```
 
 The format preserves all template entities and adds generated satellites

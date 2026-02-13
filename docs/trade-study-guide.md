@@ -12,7 +12,7 @@ per plane.
 
 ```python
 from datetime import datetime, timedelta, timezone
-from constellation_generator import (
+from humeris import (
     generate_walker_configs, run_walker_trade_study, pareto_front_indices
 )
 
@@ -59,8 +59,8 @@ ground station planning, or mission planning software.
 ### CSV export
 
 ```python
-from constellation_generator import ShellConfig, generate_walker_shell
-from constellation_generator.adapters.csv_exporter import CsvSatelliteExporter
+from humeris import ShellConfig, generate_walker_shell
+from humeris.adapters.csv_exporter import CsvSatelliteExporter
 
 best_shell = ShellConfig(
     altitude_km=550, inclination_deg=53,
@@ -85,7 +85,7 @@ The CSV contains state vectors for each satellite:
 ### GeoJSON export
 
 ```python
-from constellation_generator.adapters.geojson_exporter import GeoJsonExporter
+from humeris.adapters.geojson_exporter import GeoJsonExporter
 
 GeoJsonExporter().export(sats, "optimized_constellation.geojson")
 ```
@@ -104,7 +104,7 @@ Screen your constellation against itself (or other objects) for close
 approaches. Essential for regulatory filings and operational safety.
 
 ```python
-from constellation_generator import (
+from humeris import (
     ShellConfig, generate_walker_shell,
     derive_orbital_state, screen_conjunctions,
 )

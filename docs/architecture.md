@@ -97,7 +97,7 @@ External integrations. Import domain types only.
 2. **Port isolation**: Adapters depend on domain, never the reverse.
 3. **Immutable value objects**: Domain types use frozen dataclasses where appropriate.
 4. **Result types**: No exceptions for control flow. Functions return success/failure values.
-5. **Absolute imports**: Always `from constellation_generator.domain.X import Y`, never relative.
+5. **Absolute imports**: Always `from humeris.domain.X import Y`, never relative.
 
 ## Dependency graph
 

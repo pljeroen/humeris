@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.constellation import ShellConfig, generate_walker_shell
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ def _make_satellite(inclination_deg=53.0, altitude_km=500.0):
 class TestAccessWindow:
 
     def test_frozen(self):
-        from constellation_generator.domain.access_windows import AccessWindow
+        from humeris.domain.access_windows import AccessWindow
 
         window = AccessWindow(
             rise_time=_EPOCH,
@@ -43,7 +43,7 @@ class TestAccessWindow:
             window.max_elevation_deg = 50.0
 
     def test_fields(self):
-        from constellation_generator.domain.access_windows import AccessWindow
+        from humeris.domain.access_windows import AccessWindow
 
         rise = _EPOCH
         set_ = _EPOCH + timedelta(minutes=10)
@@ -63,9 +63,9 @@ class TestComputeAccessWindows:
 
     def test_iss_like_orbit_has_passes(self):
         """ISS-like orbit (51.6° inc) over mid-latitude station: at least 1 pass in 24h."""
-        from constellation_generator.domain.access_windows import compute_access_windows
-        from constellation_generator.domain.observation import GroundStation
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.access_windows import compute_access_windows
+        from humeris.domain.observation import GroundStation
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(inclination_deg=51.6, altitude_km=420)
         station = GroundStation(name='Mid', lat_deg=52.0, lon_deg=4.4, alt_m=0.0)
@@ -79,9 +79,9 @@ class TestComputeAccessWindows:
 
     def test_equatorial_orbit_polar_station_no_passes(self):
         """Equatorial orbit over polar station: no passes above 10°."""
-        from constellation_generator.domain.access_windows import compute_access_windows
-        from constellation_generator.domain.observation import GroundStation
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.access_windows import compute_access_windows
+        from humeris.domain.observation import GroundStation
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(inclination_deg=0.0, altitude_km=500)
         station = GroundStation(name='Pole', lat_deg=89.0, lon_deg=0.0, alt_m=0.0)
@@ -95,9 +95,9 @@ class TestComputeAccessWindows:
 
     def test_windows_chronological(self):
         """Windows must be in chronological order."""
-        from constellation_generator.domain.access_windows import compute_access_windows
-        from constellation_generator.domain.observation import GroundStation
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.access_windows import compute_access_windows
+        from humeris.domain.observation import GroundStation
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(inclination_deg=51.6, altitude_km=420)
         station = GroundStation(name='Mid', lat_deg=52.0, lon_deg=4.4, alt_m=0.0)
@@ -112,9 +112,9 @@ class TestComputeAccessWindows:
 
     def test_max_elevation_above_min(self):
         """Within each window, max_elevation ≥ min_elevation."""
-        from constellation_generator.domain.access_windows import compute_access_windows
-        from constellation_generator.domain.observation import GroundStation
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.access_windows import compute_access_windows
+        from humeris.domain.observation import GroundStation
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(inclination_deg=51.6, altitude_km=420)
         station = GroundStation(name='Mid', lat_deg=52.0, lon_deg=4.4, alt_m=0.0)
@@ -130,9 +130,9 @@ class TestComputeAccessWindows:
 
     def test_higher_min_elevation_fewer_windows(self):
         """Higher min_elevation threshold → fewer or equal windows."""
-        from constellation_generator.domain.access_windows import compute_access_windows
-        from constellation_generator.domain.observation import GroundStation
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.access_windows import compute_access_windows
+        from humeris.domain.observation import GroundStation
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(inclination_deg=51.6, altitude_km=420)
         station = GroundStation(name='Mid', lat_deg=52.0, lon_deg=4.4, alt_m=0.0)
@@ -152,9 +152,9 @@ class TestComputeAccessWindows:
 
     def test_duration_positive(self):
         """Each window has positive duration."""
-        from constellation_generator.domain.access_windows import compute_access_windows
-        from constellation_generator.domain.observation import GroundStation
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.access_windows import compute_access_windows
+        from humeris.domain.observation import GroundStation
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(inclination_deg=51.6, altitude_km=420)
         station = GroundStation(name='Mid', lat_deg=52.0, lon_deg=4.4, alt_m=0.0)
@@ -169,9 +169,9 @@ class TestComputeAccessWindows:
 
     def test_negative_step_raises(self):
         """Negative step should raise ValueError."""
-        from constellation_generator.domain.access_windows import compute_access_windows
-        from constellation_generator.domain.observation import GroundStation
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.access_windows import compute_access_windows
+        from humeris.domain.observation import GroundStation
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite()
         station = GroundStation(name='Test', lat_deg=0.0, lon_deg=0.0)
@@ -184,9 +184,9 @@ class TestComputeAccessWindows:
 
     def test_window_open_at_start(self):
         """If satellite is visible at start, rise_time should equal start."""
-        from constellation_generator.domain.access_windows import compute_access_windows
-        from constellation_generator.domain.observation import GroundStation, compute_observation
-        from constellation_generator.domain.propagation import derive_orbital_state, propagate_ecef_to
+        from humeris.domain.access_windows import compute_access_windows
+        from humeris.domain.observation import GroundStation, compute_observation
+        from humeris.domain.propagation import derive_orbital_state, propagate_ecef_to
 
         # Use equatorial sat over equatorial station — likely visible at t=0
         sat = _make_satellite(inclination_deg=0.0, altitude_km=500)
@@ -212,7 +212,7 @@ class TestComputeAccessWindows:
 class TestAccessWindowsPurity:
 
     def test_access_windows_imports_only_stdlib_and_domain(self):
-        import constellation_generator.domain.access_windows as mod
+        import humeris.domain.access_windows as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -222,10 +222,10 @@ class TestAccessWindowsPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

@@ -14,11 +14,11 @@ import math
 
 import pytest
 
-from constellation_generator.domain.coordinate_frames import (
+from humeris.domain.coordinate_frames import (
     geodetic_to_ecef,
     ecef_to_geodetic,
 )
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # Deterministic parameter grid (lat_deg, lon_deg, alt_m)

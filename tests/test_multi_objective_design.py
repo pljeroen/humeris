@@ -7,10 +7,10 @@ import ast
 import math
 from datetime import datetime, timezone
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.atmosphere import DragConfig
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.atmosphere import DragConfig
 
-from constellation_generator.domain.multi_objective_design import (
+from humeris.domain.multi_objective_design import (
     ParetoPoint,
     ParetoSurface,
     EntropyCollisionEfficiency,
@@ -146,7 +146,7 @@ class TestEntropyCollisionEfficiency:
 
 class TestMultiObjectiveDesignPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.multi_objective_design as mod
+        import humeris.domain.multi_objective_design as mod
         source = ast.parse(open(mod.__file__).read())
         for node in ast.walk(source):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -155,6 +155,6 @@ class TestMultiObjectiveDesignPurity:
                 else:
                     for alias in node.names:
                         top = alias.name.split(".")[0]
-                assert top in {"math", "numpy", "dataclasses", "datetime", "typing", "enum", "constellation_generator", "__future__"}, (
+                assert top in {"math", "numpy", "dataclasses", "datetime", "typing", "enum", "humeris", "__future__"}, (
                     f"Forbidden import: {top}"
                 )

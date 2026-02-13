@@ -11,8 +11,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.conjunction import ConjunctionEvent
-from constellation_generator.domain.hazard_reporting import (
+from humeris.domain.conjunction import ConjunctionEvent
+from humeris.domain.hazard_reporting import (
     HazardHysteresis,
     HazardLevel,
     HazardReport,
@@ -751,7 +751,7 @@ class TestHazardReportingPurity:
 
     def test_module_pure(self):
         """hazard_reporting.py only imports stdlib + numpy + domain."""
-        import constellation_generator.domain.hazard_reporting as mod
+        import humeris.domain.hazard_reporting as mod
 
         allowed = {
             'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum',
@@ -764,10 +764,10 @@ class TestHazardReportingPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

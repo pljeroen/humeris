@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.conjunction_management import (
+from humeris.domain.conjunction_management import (
     ConjunctionAction,
     ConjunctionTriage,
     AvoidanceManeuver,
@@ -18,7 +18,7 @@ from constellation_generator.domain.conjunction_management import (
     compute_avoidance_maneuver,
     run_conjunction_decision_pipeline,
 )
-from constellation_generator.domain.propagation import OrbitalState
+from humeris.domain.propagation import OrbitalState
 
 
 _MU = 3.986004418e14
@@ -90,7 +90,7 @@ class TestDecisionPipeline:
 
 class TestConjunctionManagementPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.conjunction_management as mod
+        import humeris.domain.conjunction_management as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -99,10 +99,10 @@ class TestConjunctionManagementPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

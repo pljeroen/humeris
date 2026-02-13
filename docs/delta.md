@@ -1,4 +1,4 @@
-To provide a formal specification for the "Pro" features and the novel science patterns we've discussed, I have synthesized the technical requirements based on the current architecture of your `constellation-generator`.
+To provide a formal specification for the "Pro" features and the novel science patterns we've discussed, I have synthesized the technical requirements based on the current architecture of your `humeris`.
 
 This specification bridges the gap between your current **Version 1.1.0** (MIT License)  and the proposed **Commercial/Pro Tier**.
 
@@ -115,7 +115,7 @@ The script should perform a **Residual Analysis**. It propagates the same satell
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta, timezone
-from constellation_generator import (
+from humeris import (
     derive_orbital_state, propagate_numerical, TwoBodyGravity, 
     J2Perturbation, J3Perturbation, AtmosphericDragForce, DragConfig
 )

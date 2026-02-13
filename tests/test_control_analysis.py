@@ -6,7 +6,7 @@
 import ast
 import math
 
-from constellation_generator.domain.control_analysis import (
+from humeris.domain.control_analysis import (
     ControllabilityAnalysis,
     compute_cw_controllability,
 )
@@ -78,7 +78,7 @@ class TestControllability:
 
 class TestControlAnalysisPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.control_analysis as mod
+        import humeris.domain.control_analysis as mod
         source = ast.parse(open(mod.__file__).read())
         for node in ast.walk(source):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -87,6 +87,6 @@ class TestControlAnalysisPurity:
                 else:
                     for alias in node.names:
                         top = alias.name.split(".")[0]
-                assert top in {"math", "numpy", "dataclasses", "datetime", "typing", "enum", "constellation_generator", "__future__"}, (
+                assert top in {"math", "numpy", "dataclasses", "datetime", "typing", "enum", "humeris", "__future__"}, (
                     f"Forbidden import: {top}"
                 )

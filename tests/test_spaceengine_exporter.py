@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.constellation import Satellite, ShellConfig, generate_walker_shell
-from constellation_generator.domain.atmosphere import DragConfig
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.constellation import Satellite, ShellConfig, generate_walker_shell
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ class TestScFileStructure:
     """The .sc file must be valid SpaceEngine catalog syntax."""
 
     def test_creates_file(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "constellation.sc")
@@ -51,7 +51,7 @@ class TestScFileStructure:
         assert (tmp_path / "constellation.sc").exists()
 
     def test_returns_satellite_count(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -59,14 +59,14 @@ class TestScFileStructure:
         assert count == 6
 
     def test_empty_list_returns_zero(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         path = str(tmp_path / "empty.sc")
         count = SpaceEngineExporter().export([], path, epoch=EPOCH)
         assert count == 0
 
     def test_file_is_utf8_text(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -85,7 +85,7 @@ class TestObjectDefinition:
     """Each satellite should be a Moon object parented to Earth."""
 
     def test_each_satellite_has_moon_tag(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -97,7 +97,7 @@ class TestObjectDefinition:
         assert moon_count == len(sats)
 
     def test_parent_body_is_earth(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -108,7 +108,7 @@ class TestObjectDefinition:
         assert parent_count == len(sats)
 
     def test_satellite_names_preserved(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -127,7 +127,7 @@ class TestOrbitalElements:
     """Keplerian elements must be correct in SpaceEngine units."""
 
     def test_semimajor_axis_in_au(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -144,7 +144,7 @@ class TestOrbitalElements:
             assert abs(actual - expected_a_au) / expected_a_au < 0.001
 
     def test_inclination_correct(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -157,7 +157,7 @@ class TestOrbitalElements:
             assert abs(float(m) - 53.0) < 0.1
 
     def test_eccentricity_zero_for_circular(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -170,7 +170,7 @@ class TestOrbitalElements:
             assert float(m) == 0.0
 
     def test_ascending_node_matches_raan(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -191,7 +191,7 @@ class TestOrbitalElements:
             assert abs(actual - expected) < 0.01, f"{name}: {actual} != {expected}"
 
     def test_mean_anomaly_matches_true_anomaly(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -211,7 +211,7 @@ class TestOrbitalElements:
             assert abs(actual - expected) < 0.01
 
     def test_ref_plane_is_equator(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -222,7 +222,7 @@ class TestOrbitalElements:
         assert ref_count == len(sats)
 
     def test_period_in_years(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")
@@ -249,7 +249,7 @@ class TestPhysicalProperties:
     """When DragConfig is provided, satellites get mass and radius."""
 
     def test_radius_set_from_drag_config(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
@@ -263,7 +263,7 @@ class TestPhysicalProperties:
             assert float(m) > 0
 
     def test_mass_set_from_drag_config(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
@@ -277,7 +277,7 @@ class TestPhysicalProperties:
             assert float(m) > 0
 
     def test_no_mass_without_drag_config(self, tmp_path):
-        from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sc")

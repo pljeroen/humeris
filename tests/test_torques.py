@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.torques import (
+from humeris.domain.torques import (
     AerodynamicTorqueResult,
     InertiaTensor,
     TorqueResult,
@@ -78,7 +78,7 @@ class TestAerodynamicTorque:
 
     def test_aero_torque_returns_type(self):
         """Return type is AerodynamicTorqueResult."""
-        from constellation_generator.domain.atmosphere import DragConfig
+        from humeris.domain.atmosphere import DragConfig
         pos = (_LEO_R, 0.0, 0.0)
         vel = (0.0, 7600.0, 0.0)
         drag = DragConfig(cd=2.2, area_m2=1.0, mass_kg=100.0)
@@ -88,7 +88,7 @@ class TestAerodynamicTorque:
 
     def test_aero_zero_offset_zero_torque(self):
         """cp_offset=(0,0,0) → zero torque."""
-        from constellation_generator.domain.atmosphere import DragConfig
+        from humeris.domain.atmosphere import DragConfig
         pos = (_LEO_R, 0.0, 0.0)
         vel = (0.0, 7600.0, 0.0)
         drag = DragConfig(cd=2.2, area_m2=1.0, mass_kg=100.0)
@@ -97,7 +97,7 @@ class TestAerodynamicTorque:
 
     def test_aero_nonzero_offset(self):
         """Nonzero CP offset → nonzero torque."""
-        from constellation_generator.domain.atmosphere import DragConfig
+        from humeris.domain.atmosphere import DragConfig
         pos = (_LEO_R, 0.0, 0.0)
         vel = (0.0, 7600.0, 0.0)
         drag = DragConfig(cd=2.2, area_m2=1.0, mass_kg=100.0)
@@ -106,7 +106,7 @@ class TestAerodynamicTorque:
 
     def test_aero_proportional_to_offset(self):
         """Bigger offset → bigger torque."""
-        from constellation_generator.domain.atmosphere import DragConfig
+        from humeris.domain.atmosphere import DragConfig
         pos = (_LEO_R, 0.0, 0.0)
         vel = (0.0, 7600.0, 0.0)
         drag = DragConfig(cd=2.2, area_m2=1.0, mass_kg=100.0)
@@ -116,7 +116,7 @@ class TestAerodynamicTorque:
 
     def test_aero_decreases_with_altitude(self):
         """Higher altitude → less drag → less torque."""
-        from constellation_generator.domain.atmosphere import DragConfig
+        from humeris.domain.atmosphere import DragConfig
         drag = DragConfig(cd=2.2, area_m2=1.0, mass_kg=100.0)
         cp_off = (0.01, 0.0, 0.0)
         pos_low = (_R_EARTH + 300_000.0, 0.0, 0.0)
@@ -132,7 +132,7 @@ class TestTorquesPurity:
     """Domain purity: torques.py must only import stdlib + domain."""
 
     def test_module_pure(self):
-        import constellation_generator.domain.torques as mod
+        import humeris.domain.torques as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -142,10 +142,10 @@ class TestTorquesPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

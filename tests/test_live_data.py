@@ -5,11 +5,11 @@ import math
 
 import pytest
 
-from constellation_generator.domain.omm import parse_omm_record, OrbitalElements
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.omm import parse_omm_record, OrbitalElements
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
-sgp4 = pytest.importorskip("sgp4", reason="sgp4 not installed (pip install constellation-generator[live])")
+sgp4 = pytest.importorskip("sgp4", reason="sgp4 not installed (pip install humeris[live])")
 
 
 SAMPLE_OMM = {
@@ -72,20 +72,20 @@ class TestOMMParsing:
 class TestSGP4Adapter:
 
     def test_produces_satellite(self):
-        from constellation_generator.adapters.celestrak import SGP4Adapter
+        from humeris.adapters.celestrak import SGP4Adapter
         sat = SGP4Adapter().omm_to_satellite(SAMPLE_OMM)
         assert sat.name == "ISS (ZARYA)"
         assert len(sat.position_eci) == 3
         assert len(sat.velocity_eci) == 3
 
     def test_position_plausible(self):
-        from constellation_generator.adapters.celestrak import SGP4Adapter
+        from humeris.adapters.celestrak import SGP4Adapter
         sat = SGP4Adapter().omm_to_satellite(SAMPLE_OMM)
         r_km = math.sqrt(sum(p**2 for p in sat.position_eci)) / 1000
         assert 6500 < r_km < 7100
 
     def test_velocity_plausible(self):
-        from constellation_generator.adapters.celestrak import SGP4Adapter
+        from humeris.adapters.celestrak import SGP4Adapter
         sat = SGP4Adapter().omm_to_satellite(SAMPLE_OMM)
         v_km_s = math.sqrt(sum(v**2 for v in sat.velocity_eci)) / 1000
         assert 7.0 < v_km_s < 8.5
@@ -96,25 +96,25 @@ class TestSGP4Adapter:
 class TestCelesTrakAdapter:
 
     def test_implements_port(self):
-        from constellation_generator.ports.orbital_data import OrbitalDataSource
-        from constellation_generator.adapters.celestrak import CelesTrakAdapter
+        from humeris.ports.orbital_data import OrbitalDataSource
+        from humeris.adapters.celestrak import CelesTrakAdapter
         assert isinstance(CelesTrakAdapter(), OrbitalDataSource)
 
     def test_fetch_group(self):
-        from constellation_generator.adapters.celestrak import CelesTrakAdapter
+        from humeris.adapters.celestrak import CelesTrakAdapter
         records = CelesTrakAdapter().fetch_group("GPS-OPS")
         assert isinstance(records, list)
         assert len(records) > 0
         assert "OBJECT_NAME" in records[0]
 
     def test_fetch_by_name(self):
-        from constellation_generator.adapters.celestrak import CelesTrakAdapter
+        from humeris.adapters.celestrak import CelesTrakAdapter
         records = CelesTrakAdapter().fetch_by_name("ISS (ZARYA)")
         assert len(records) >= 1
         assert records[0]["NORAD_CAT_ID"] == 25544
 
     def test_fetch_to_satellites(self):
-        from constellation_generator.adapters.celestrak import CelesTrakAdapter
+        from humeris.adapters.celestrak import CelesTrakAdapter
         satellites = CelesTrakAdapter().fetch_satellites(group="STATIONS")
         assert len(satellites) > 0
         for sat in satellites[:3]:

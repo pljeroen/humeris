@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.relative_motion import (
+from humeris.domain.relative_motion import (
     CWTrajectory,
     RelativeState,
     compute_relative_state,
@@ -117,7 +117,7 @@ class TestComputeRelativeState:
 
     def test_relative_state_from_close_orbits(self):
         """Two close orbits → small relative distance."""
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
         chief = OrbitalState(
@@ -146,7 +146,7 @@ class TestComputeRelativeState:
 
     def test_relative_state_type(self):
         """Return type is RelativeState."""
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
         state = OrbitalState(
@@ -185,7 +185,7 @@ class TestRelativeMotionPurity:
     """Domain purity: relative_motion.py must only import stdlib + domain."""
 
     def test_module_pure(self):
-        import constellation_generator.domain.relative_motion as mod
+        import humeris.domain.relative_motion as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -195,10 +195,10 @@ class TestRelativeMotionPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

@@ -18,7 +18,7 @@ class TestSchwarzschildForce:
 
     def test_magnitude_at_leo(self):
         """Schwarzschild acceleration at LEO ~3e-9 m/s²."""
-        from constellation_generator.domain.relativistic_forces import SchwarzschildForce
+        from humeris.domain.relativistic_forces import SchwarzschildForce
 
         force = SchwarzschildForce()
         dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -30,7 +30,7 @@ class TestSchwarzschildForce:
 
     def test_direction_circular_purely_radial(self):
         """Schwarzschild is purely radial for circular orbits (r·v=0)."""
-        from constellation_generator.domain.relativistic_forces import SchwarzschildForce
+        from humeris.domain.relativistic_forces import SchwarzschildForce
 
         force = SchwarzschildForce()
         dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -43,7 +43,7 @@ class TestSchwarzschildForce:
 
     def test_direction_eccentric_has_along_track(self):
         """Schwarzschild has along-track component for eccentric orbits (r·v≠0)."""
-        from constellation_generator.domain.relativistic_forces import SchwarzschildForce
+        from humeris.domain.relativistic_forces import SchwarzschildForce
 
         force = SchwarzschildForce()
         dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -56,7 +56,7 @@ class TestSchwarzschildForce:
 
     def test_increases_closer_to_earth(self):
         """Schwarzschild is stronger at lower altitude."""
-        from constellation_generator.domain.relativistic_forces import SchwarzschildForce
+        from humeris.domain.relativistic_forces import SchwarzschildForce
 
         force = SchwarzschildForce()
         dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -68,7 +68,7 @@ class TestSchwarzschildForce:
 
     def test_constants_verification(self):
         """Verify GM_E and c are correct."""
-        from constellation_generator.domain.relativistic_forces import (
+        from humeris.domain.relativistic_forces import (
             _GM_EARTH,
             _C_LIGHT,
         )
@@ -77,7 +77,7 @@ class TestSchwarzschildForce:
 
     def test_force_model_compliance(self):
         """Has the ForceModel interface."""
-        from constellation_generator.domain.relativistic_forces import SchwarzschildForce
+        from humeris.domain.relativistic_forces import SchwarzschildForce
         force = SchwarzschildForce()
         assert hasattr(force, "acceleration")
         dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -90,7 +90,7 @@ class TestLenseThirringForce:
 
     def test_magnitude_at_leo(self):
         """Lense-Thirring ~2e-10 m/s² at equatorial LEO."""
-        from constellation_generator.domain.relativistic_forces import LenseThirringForce
+        from humeris.domain.relativistic_forces import LenseThirringForce
 
         force = LenseThirringForce()
         dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
@@ -99,7 +99,7 @@ class TestLenseThirringForce:
         assert 1e-12 < mag < 1e-8
 
     def test_force_model_compliance(self):
-        from constellation_generator.domain.relativistic_forces import LenseThirringForce
+        from humeris.domain.relativistic_forces import LenseThirringForce
         force = LenseThirringForce()
         result = force.acceleration(
             datetime(2024, 1, 1, tzinfo=timezone.utc),
@@ -113,7 +113,7 @@ class TestDeSitterForce:
 
     def test_magnitude_at_leo(self):
         """de Sitter ~5e-13 m/s² at LEO."""
-        from constellation_generator.domain.relativistic_forces import DeSitterForce
+        from humeris.domain.relativistic_forces import DeSitterForce
 
         force = DeSitterForce()
         dt = datetime(2024, 6, 15, tzinfo=timezone.utc)
@@ -122,7 +122,7 @@ class TestDeSitterForce:
         assert 1e-15 < mag < 1e-10
 
     def test_force_model_compliance(self):
-        from constellation_generator.domain.relativistic_forces import DeSitterForce
+        from humeris.domain.relativistic_forces import DeSitterForce
         force = DeSitterForce()
         result = force.acceleration(
             datetime(2024, 6, 15, tzinfo=timezone.utc),
@@ -136,7 +136,7 @@ class TestCombinedRelativistic:
 
     def test_schwarzschild_dominates(self):
         """Schwarzschild >> Lense-Thirring >> de Sitter."""
-        from constellation_generator.domain.relativistic_forces import (
+        from humeris.domain.relativistic_forces import (
             SchwarzschildForce,
             LenseThirringForce,
             DeSitterForce,
@@ -154,7 +154,7 @@ class TestCombinedRelativistic:
         assert lt > ds or lt > 0  # LT should be measurable
 
     def test_all_finite(self):
-        from constellation_generator.domain.relativistic_forces import (
+        from humeris.domain.relativistic_forces import (
             SchwarzschildForce,
             LenseThirringForce,
             DeSitterForce,
@@ -169,7 +169,7 @@ class TestCombinedRelativistic:
 
 class TestDomainPurity:
     def test_no_external_imports(self):
-        source_path = "src/constellation_generator/domain/relativistic_forces.py"
+        source_path = "src/humeris/domain/relativistic_forces.py"
         with open(source_path) as f:
             tree = ast.parse(f.read())
         allowed = {
@@ -181,10 +181,10 @@ class TestDomainPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     top = alias.name.split(".")[0]
-                    assert top in allowed or top == "constellation_generator", \
+                    assert top in allowed or top == "humeris", \
                         f"Forbidden import: {alias.name}"
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
                     top = node.module.split(".")[0]
-                    assert top in allowed or top == "constellation_generator", \
+                    assert top in allowed or top == "humeris", \
                         f"Forbidden import from: {node.module}"

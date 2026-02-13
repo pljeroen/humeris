@@ -14,7 +14,7 @@ import math
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import (
+from humeris.domain.orbital_mechanics import (
     OrbitalConstants,
     kepler_to_cartesian,
 )

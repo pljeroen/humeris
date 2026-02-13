@@ -13,14 +13,14 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator import (
+from humeris import (
     ShellConfig,
     generate_walker_shell,
     derive_orbital_state,
     CoveragePoint,
     GroundTrackPoint,
 )
-from constellation_generator.adapters.czml_exporter import (
+from humeris.adapters.czml_exporter import (
     constellation_packets,
     snapshot_packets,
     ground_track_packets,
@@ -236,7 +236,7 @@ class TestConstellationPacketsNumerical:
 
     @pytest.fixture
     def numerical_results(self, epoch, orbital_states):
-        from constellation_generator.domain.numerical_propagation import (
+        from humeris.domain.numerical_propagation import (
             TwoBodyGravity,
             propagate_numerical,
         )
@@ -250,7 +250,7 @@ class TestConstellationPacketsNumerical:
 
     @pytest.fixture
     def numerical_packets(self, numerical_results):
-        from constellation_generator.adapters.czml_exporter import constellation_packets_numerical
+        from humeris.adapters.czml_exporter import constellation_packets_numerical
         return constellation_packets_numerical(numerical_results)
 
     def test_document_packet_first(self, numerical_packets):
@@ -290,7 +290,7 @@ class TestConstellationPacketsNumerical:
             assert "path" in pkt
 
     def test_empty_results(self):
-        from constellation_generator.adapters.czml_exporter import constellation_packets_numerical
+        from humeris.adapters.czml_exporter import constellation_packets_numerical
         result = constellation_packets_numerical([])
         assert len(result) == 1
         assert result[0]["id"] == "document"
@@ -305,7 +305,7 @@ class TestConstellationPacketsNumerical:
         assert clock["interval"] == f"{expected_start}/{expected_end}"
 
     def test_custom_sat_names(self, numerical_results):
-        from constellation_generator.adapters.czml_exporter import constellation_packets_numerical
+        from humeris.adapters.czml_exporter import constellation_packets_numerical
         custom = [f"MySat-{i}" for i in range(len(numerical_results))]
         packets = constellation_packets_numerical(numerical_results, sat_names=custom)
         for idx, pkt in enumerate(packets[1:]):
@@ -340,8 +340,8 @@ class TestInputValidation:
 
     def test_sat_names_length_mismatch_raises(self, epoch, orbital_states):
         """sat_names shorter than results must raise ValueError."""
-        from constellation_generator.adapters.czml_exporter import constellation_packets_numerical
-        from constellation_generator.domain.numerical_propagation import (
+        from humeris.adapters.czml_exporter import constellation_packets_numerical
+        from humeris.domain.numerical_propagation import (
             TwoBodyGravity,
             propagate_numerical,
         )
@@ -357,8 +357,8 @@ class TestInputValidation:
 
     def test_empty_steps_raises(self, epoch):
         """NumericalPropagationResult with empty steps must raise ValueError."""
-        from constellation_generator.adapters.czml_exporter import constellation_packets_numerical
-        from constellation_generator.domain.numerical_propagation import NumericalPropagationResult
+        from humeris.adapters.czml_exporter import constellation_packets_numerical
+        from humeris.domain.numerical_propagation import NumericalPropagationResult
         result = NumericalPropagationResult(
             steps=(),
             epoch=epoch,
@@ -576,13 +576,13 @@ class TestCzmlExporterPurity:
     """Adapter purity: czml_exporter may use stdlib json/math/datetime but no other external deps."""
 
     def test_czml_exporter_no_external_deps(self):
-        import constellation_generator.adapters.czml_exporter as mod
+        import humeris.adapters.czml_exporter as mod
 
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
         allowed_stdlib = {"json", "math", "numpy", "datetime"}
-        allowed_internal = {"constellation_generator"}
+        allowed_internal = {"humeris"}
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

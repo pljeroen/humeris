@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator import (
+from humeris import (
     OrbitalConstants,
     OrbitalState,
     ShellConfig,
@@ -56,7 +56,7 @@ def _constellation_states(n_planes=3, sats_per_plane=4) -> list[OrbitalState]:
 class TestComputeCoverageStatistics:
 
     def test_returns_coverage_statistics_type(self):
-        from constellation_generator.domain.constellation_metrics import (
+        from humeris.domain.constellation_metrics import (
             compute_coverage_statistics, CoverageStatistics,
         )
         grid = [
@@ -68,7 +68,7 @@ class TestComputeCoverageStatistics:
         assert isinstance(result, CoverageStatistics)
 
     def test_mean_visible(self):
-        from constellation_generator.domain.constellation_metrics import compute_coverage_statistics
+        from humeris.domain.constellation_metrics import compute_coverage_statistics
         grid = [
             CoveragePoint(lat_deg=0, lon_deg=0, visible_count=2),
             CoveragePoint(lat_deg=0, lon_deg=10, visible_count=4),
@@ -77,7 +77,7 @@ class TestComputeCoverageStatistics:
         assert abs(result.mean_visible - 3.0) < 0.01
 
     def test_max_and_min_visible(self):
-        from constellation_generator.domain.constellation_metrics import compute_coverage_statistics
+        from humeris.domain.constellation_metrics import compute_coverage_statistics
         grid = [
             CoveragePoint(lat_deg=0, lon_deg=0, visible_count=1),
             CoveragePoint(lat_deg=0, lon_deg=10, visible_count=5),
@@ -88,7 +88,7 @@ class TestComputeCoverageStatistics:
         assert result.min_visible == 1
 
     def test_percent_covered(self):
-        from constellation_generator.domain.constellation_metrics import compute_coverage_statistics
+        from humeris.domain.constellation_metrics import compute_coverage_statistics
         grid = [
             CoveragePoint(lat_deg=0, lon_deg=0, visible_count=2),
             CoveragePoint(lat_deg=0, lon_deg=10, visible_count=0),
@@ -99,7 +99,7 @@ class TestComputeCoverageStatistics:
         assert abs(result.percent_covered - 50.0) < 0.01
 
     def test_n_fold_coverage(self):
-        from constellation_generator.domain.constellation_metrics import compute_coverage_statistics
+        from humeris.domain.constellation_metrics import compute_coverage_statistics
         grid = [
             CoveragePoint(lat_deg=0, lon_deg=0, visible_count=3),
             CoveragePoint(lat_deg=0, lon_deg=10, visible_count=1),
@@ -112,13 +112,13 @@ class TestComputeCoverageStatistics:
         assert abs(result.n_fold_coverage[3] - 25.0) < 0.01  # 1 of 4 has ≥3
 
     def test_empty_grid(self):
-        from constellation_generator.domain.constellation_metrics import compute_coverage_statistics
+        from humeris.domain.constellation_metrics import compute_coverage_statistics
         result = compute_coverage_statistics([])
         assert result.mean_visible == 0.0
         assert result.percent_covered == 0.0
 
     def test_std_visible_computed(self):
-        from constellation_generator.domain.constellation_metrics import compute_coverage_statistics
+        from humeris.domain.constellation_metrics import compute_coverage_statistics
         grid = [
             CoveragePoint(lat_deg=0, lon_deg=0, visible_count=2),
             CoveragePoint(lat_deg=0, lon_deg=10, visible_count=4),
@@ -133,37 +133,37 @@ class TestComputeCoverageStatistics:
 class TestComputeRevisitStatistics:
 
     def test_returns_revisit_statistics_type(self):
-        from constellation_generator.domain.constellation_metrics import (
+        from humeris.domain.constellation_metrics import (
             compute_revisit_statistics, RevisitStatistics,
         )
         result = compute_revisit_statistics([100.0, 200.0, 300.0])
         assert isinstance(result, RevisitStatistics)
 
     def test_mean_revisit(self):
-        from constellation_generator.domain.constellation_metrics import compute_revisit_statistics
+        from humeris.domain.constellation_metrics import compute_revisit_statistics
         result = compute_revisit_statistics([100.0, 200.0, 300.0])
         assert abs(result.mean_revisit_s - 200.0) < 0.01
 
     def test_max_revisit(self):
-        from constellation_generator.domain.constellation_metrics import compute_revisit_statistics
+        from humeris.domain.constellation_metrics import compute_revisit_statistics
         result = compute_revisit_statistics([100.0, 200.0, 500.0])
         assert abs(result.max_revisit_s - 500.0) < 0.01
 
     def test_percentile_95(self):
-        from constellation_generator.domain.constellation_metrics import compute_revisit_statistics
+        from humeris.domain.constellation_metrics import compute_revisit_statistics
         data = list(range(1, 101))  # 1 to 100
         result = compute_revisit_statistics([float(x) for x in data])
         # 95th percentile of 1..100 = 95
         assert 94.0 < result.percentile_95_s < 96.0
 
     def test_threshold_compliance(self):
-        from constellation_generator.domain.constellation_metrics import compute_revisit_statistics
+        from humeris.domain.constellation_metrics import compute_revisit_statistics
         result = compute_revisit_statistics([100, 200, 300, 400, 500], threshold_s=350)
         # 3 of 5 are within 350s
         assert abs(result.percent_within_threshold - 60.0) < 0.01
 
     def test_empty_data(self):
-        from constellation_generator.domain.constellation_metrics import compute_revisit_statistics
+        from humeris.domain.constellation_metrics import compute_revisit_statistics
         result = compute_revisit_statistics([])
         assert result.mean_revisit_s == 0.0
         assert result.max_revisit_s == 0.0
@@ -174,7 +174,7 @@ class TestComputeRevisitStatistics:
 class TestComputeEclipseStatistics:
 
     def test_returns_eclipse_statistics_type(self):
-        from constellation_generator.domain.constellation_metrics import (
+        from humeris.domain.constellation_metrics import (
             compute_eclipse_statistics, EclipseStatistics,
         )
         state = _leo_state()
@@ -184,7 +184,7 @@ class TestComputeEclipseStatistics:
         assert isinstance(result, EclipseStatistics)
 
     def test_eclipse_fraction_between_0_and_1(self):
-        from constellation_generator.domain.constellation_metrics import compute_eclipse_statistics
+        from humeris.domain.constellation_metrics import compute_eclipse_statistics
         state = _leo_state()
         result = compute_eclipse_statistics(
             state, EPOCH, timedelta(hours=2), timedelta(seconds=30),
@@ -193,7 +193,7 @@ class TestComputeEclipseStatistics:
 
     def test_num_eclipses_positive_for_leo(self):
         """LEO satellite crosses shadow multiple times in 2 hours."""
-        from constellation_generator.domain.constellation_metrics import compute_eclipse_statistics
+        from humeris.domain.constellation_metrics import compute_eclipse_statistics
         state = _leo_state(altitude_km=550)
         result = compute_eclipse_statistics(
             state, EPOCH, timedelta(hours=3), timedelta(seconds=30),
@@ -201,7 +201,7 @@ class TestComputeEclipseStatistics:
         assert result.num_eclipses >= 1
 
     def test_total_eclipse_consistent(self):
-        from constellation_generator.domain.constellation_metrics import compute_eclipse_statistics
+        from humeris.domain.constellation_metrics import compute_eclipse_statistics
         state = _leo_state()
         result = compute_eclipse_statistics(
             state, EPOCH, timedelta(hours=2), timedelta(seconds=30),
@@ -217,7 +217,7 @@ class TestComputeEclipseStatistics:
 class TestComputeNMinus1Redundancy:
 
     def test_returns_redundancy_result_type(self):
-        from constellation_generator.domain.constellation_metrics import (
+        from humeris.domain.constellation_metrics import (
             compute_n_minus_1_redundancy, RedundancyResult,
         )
         states = _constellation_states(n_planes=2, sats_per_plane=3)
@@ -225,25 +225,25 @@ class TestComputeNMinus1Redundancy:
         assert isinstance(result, RedundancyResult)
 
     def test_baseline_greater_than_degraded(self):
-        from constellation_generator.domain.constellation_metrics import compute_n_minus_1_redundancy
+        from humeris.domain.constellation_metrics import compute_n_minus_1_redundancy
         states = _constellation_states(n_planes=2, sats_per_plane=3)
         result = compute_n_minus_1_redundancy(states, EPOCH)
         assert result.baseline_coverage_pct >= result.worst_degraded_coverage_pct
 
     def test_degradation_nonnegative(self):
-        from constellation_generator.domain.constellation_metrics import compute_n_minus_1_redundancy
+        from humeris.domain.constellation_metrics import compute_n_minus_1_redundancy
         states = _constellation_states(n_planes=2, sats_per_plane=3)
         result = compute_n_minus_1_redundancy(states, EPOCH)
         assert result.degradation_pct >= 0
 
     def test_worst_case_index_valid(self):
-        from constellation_generator.domain.constellation_metrics import compute_n_minus_1_redundancy
+        from humeris.domain.constellation_metrics import compute_n_minus_1_redundancy
         states = _constellation_states(n_planes=2, sats_per_plane=3)
         result = compute_n_minus_1_redundancy(states, EPOCH)
         assert 0 <= result.worst_case_satellite_idx < len(states)
 
     def test_single_satellite(self):
-        from constellation_generator.domain.constellation_metrics import compute_n_minus_1_redundancy
+        from humeris.domain.constellation_metrics import compute_n_minus_1_redundancy
         states = [_leo_state()]
         result = compute_n_minus_1_redundancy(states, EPOCH)
         assert result.worst_degraded_coverage_pct == 0.0
@@ -254,7 +254,7 @@ class TestComputeNMinus1Redundancy:
 class TestComputeConstellationScore:
 
     def test_returns_constellation_score_type(self):
-        from constellation_generator.domain.constellation_metrics import (
+        from humeris.domain.constellation_metrics import (
             compute_constellation_score, ConstellationScore,
         )
         result = compute_constellation_score(
@@ -264,7 +264,7 @@ class TestComputeConstellationScore:
         assert isinstance(result, ConstellationScore)
 
     def test_perfect_scores(self):
-        from constellation_generator.domain.constellation_metrics import compute_constellation_score
+        from humeris.domain.constellation_metrics import compute_constellation_score
         result = compute_constellation_score(
             coverage_pct=100.0, max_revisit_s=1800, target_revisit_s=3600,
             degradation_pct=0.0,
@@ -273,7 +273,7 @@ class TestComputeConstellationScore:
         assert result.overall_score >= 0.9
 
     def test_score_between_0_and_1(self):
-        from constellation_generator.domain.constellation_metrics import compute_constellation_score
+        from humeris.domain.constellation_metrics import compute_constellation_score
         result = compute_constellation_score(
             coverage_pct=50.0, max_revisit_s=7200, target_revisit_s=3600,
             degradation_pct=20.0,
@@ -284,7 +284,7 @@ class TestComputeConstellationScore:
         assert 0.0 <= result.redundancy_score <= 1.0
 
     def test_worse_inputs_lower_score(self):
-        from constellation_generator.domain.constellation_metrics import compute_constellation_score
+        from humeris.domain.constellation_metrics import compute_constellation_score
         good = compute_constellation_score(90.0, 1800, 3600, 5.0)
         bad = compute_constellation_score(50.0, 10800, 3600, 30.0)
         assert good.overall_score > bad.overall_score
@@ -295,7 +295,7 @@ class TestComputeConstellationScore:
 class TestComputeThermalCycling:
 
     def test_returns_thermal_cycling_type(self):
-        from constellation_generator.domain.constellation_metrics import (
+        from humeris.domain.constellation_metrics import (
             compute_thermal_cycling, ThermalCycling,
         )
         state = _leo_state()
@@ -306,7 +306,7 @@ class TestComputeThermalCycling:
 
     def test_cycle_count_for_leo(self):
         """LEO does ~1 eclipse per orbit, ~3 orbits in 3 hours → ~3 cycles."""
-        from constellation_generator.domain.constellation_metrics import compute_thermal_cycling
+        from humeris.domain.constellation_metrics import compute_thermal_cycling
         state = _leo_state(altitude_km=550)
         result = compute_thermal_cycling(
             state, EPOCH, timedelta(hours=5), timedelta(seconds=30),
@@ -315,7 +315,7 @@ class TestComputeThermalCycling:
         assert result.num_cycles >= 1
 
     def test_eclipse_and_sunlit_durations_present(self):
-        from constellation_generator.domain.constellation_metrics import compute_thermal_cycling
+        from humeris.domain.constellation_metrics import compute_thermal_cycling
         state = _leo_state()
         result = compute_thermal_cycling(
             state, EPOCH, timedelta(hours=3), timedelta(seconds=30),
@@ -329,7 +329,7 @@ class TestComputeThermalCycling:
 class TestComputeGroundNetworkMetrics:
 
     def test_returns_ground_network_metrics_type(self):
-        from constellation_generator.domain.constellation_metrics import (
+        from humeris.domain.constellation_metrics import (
             compute_ground_network_metrics, GroundNetworkMetrics,
         )
         stations = [
@@ -343,7 +343,7 @@ class TestComputeGroundNetworkMetrics:
         assert isinstance(result, GroundNetworkMetrics)
 
     def test_more_stations_more_contact(self):
-        from constellation_generator.domain.constellation_metrics import compute_ground_network_metrics
+        from humeris.domain.constellation_metrics import compute_ground_network_metrics
         single = [GroundStation(name="Delft", lat_deg=52.0, lon_deg=4.4)]
         double = [
             GroundStation(name="Delft", lat_deg=52.0, lon_deg=4.4),
@@ -359,7 +359,7 @@ class TestComputeGroundNetworkMetrics:
         assert r2.total_contact_s >= r1.total_contact_s
 
     def test_contact_per_station_dict(self):
-        from constellation_generator.domain.constellation_metrics import compute_ground_network_metrics
+        from humeris.domain.constellation_metrics import compute_ground_network_metrics
         stations = [GroundStation(name="Test", lat_deg=0.0, lon_deg=0.0)]
         states = [_leo_state()]
         result = compute_ground_network_metrics(
@@ -373,7 +373,7 @@ class TestComputeGroundNetworkMetrics:
 class TestComputeDeploymentPhasing:
 
     def test_returns_deployment_phasing_type(self):
-        from constellation_generator.domain.constellation_metrics import (
+        from humeris.domain.constellation_metrics import (
             compute_deployment_phasing, DeploymentPhasing,
         )
         result = compute_deployment_phasing(
@@ -382,33 +382,33 @@ class TestComputeDeploymentPhasing:
         assert isinstance(result, DeploymentPhasing)
 
     def test_total_delta_v_positive(self):
-        from constellation_generator.domain.constellation_metrics import compute_deployment_phasing
+        from humeris.domain.constellation_metrics import compute_deployment_phasing
         result = compute_deployment_phasing(3, 4, R_E + 550_000)
         assert result.total_delta_v_ms >= 0
 
     def test_total_time_positive(self):
-        from constellation_generator.domain.constellation_metrics import compute_deployment_phasing
+        from humeris.domain.constellation_metrics import compute_deployment_phasing
         result = compute_deployment_phasing(3, 4, R_E + 550_000)
         assert result.total_time_s >= 0
 
     def test_per_satellite_count(self):
-        from constellation_generator.domain.constellation_metrics import compute_deployment_phasing
+        from humeris.domain.constellation_metrics import compute_deployment_phasing
         result = compute_deployment_phasing(3, 4, R_E + 550_000)
         # Total sats = 12, first one needs no maneuver → 11 phasing entries
         assert len(result.per_satellite) == 3 * 4
 
     def test_single_plane_minimal_dv(self):
-        from constellation_generator.domain.constellation_metrics import compute_deployment_phasing
+        from humeris.domain.constellation_metrics import compute_deployment_phasing
         result = compute_deployment_phasing(1, 1, R_E + 550_000)
         assert result.total_delta_v_ms == 0.0
 
     def test_zero_orbit_radius_raises(self):
-        from constellation_generator.domain.constellation_metrics import compute_deployment_phasing
+        from humeris.domain.constellation_metrics import compute_deployment_phasing
         with pytest.raises(ValueError, match="orbit_radius_m"):
             compute_deployment_phasing(3, 4, orbit_radius_m=0.0)
 
     def test_negative_orbit_radius_raises(self):
-        from constellation_generator.domain.constellation_metrics import compute_deployment_phasing
+        from humeris.domain.constellation_metrics import compute_deployment_phasing
         with pytest.raises(ValueError, match="orbit_radius_m"):
             compute_deployment_phasing(3, 4, orbit_radius_m=-1_000_000.0)
 
@@ -419,7 +419,7 @@ class TestThermalCyclingEdgeCases:
 
     def test_zero_step_returns_empty(self):
         """Zero step size must not cause infinite loop."""
-        from constellation_generator.domain.constellation_metrics import compute_thermal_cycling
+        from humeris.domain.constellation_metrics import compute_thermal_cycling
         state = _leo_state()
         result = compute_thermal_cycling(
             state, EPOCH, timedelta(hours=1), timedelta(seconds=0),
@@ -429,7 +429,7 @@ class TestThermalCyclingEdgeCases:
         assert result.sunlit_durations_s == ()
 
     def test_negative_step_returns_empty(self):
-        from constellation_generator.domain.constellation_metrics import compute_thermal_cycling
+        from humeris.domain.constellation_metrics import compute_thermal_cycling
         state = _leo_state()
         result = compute_thermal_cycling(
             state, EPOCH, timedelta(hours=1), timedelta(seconds=-10),
@@ -437,7 +437,7 @@ class TestThermalCyclingEdgeCases:
         assert result.num_cycles == 0
 
     def test_zero_duration_returns_empty(self):
-        from constellation_generator.domain.constellation_metrics import compute_thermal_cycling
+        from humeris.domain.constellation_metrics import compute_thermal_cycling
         state = _leo_state()
         result = compute_thermal_cycling(
             state, EPOCH, timedelta(seconds=0), timedelta(seconds=30),
@@ -451,12 +451,12 @@ class TestConstellationMetricsPurity:
 
     def test_no_external_deps(self):
         import ast
-        import constellation_generator.domain.constellation_metrics as mod
+        import humeris.domain.constellation_metrics as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
         allowed_stdlib = {"math", "numpy", "dataclasses", "datetime"}
-        allowed_internal = {"constellation_generator"}
+        allowed_internal = {"humeris"}
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

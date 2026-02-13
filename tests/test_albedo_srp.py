@@ -18,7 +18,7 @@ class TestAlbedoRadiationPressure:
 
     def test_magnitude_at_leo(self):
         """Albedo SRP acceleration ~1e-9 m/s² at LEO."""
-        from constellation_generator.domain.albedo_srp import AlbedoRadiationPressure
+        from humeris.domain.albedo_srp import AlbedoRadiationPressure
 
         force = AlbedoRadiationPressure(cr=1.5, area_m2=10.0, mass_kg=500.0)
         dt = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
@@ -30,7 +30,7 @@ class TestAlbedoRadiationPressure:
 
     def test_subsolar_greater_than_night(self):
         """Albedo pressure should be stronger on the sunlit side."""
-        from constellation_generator.domain.albedo_srp import AlbedoRadiationPressure
+        from humeris.domain.albedo_srp import AlbedoRadiationPressure
 
         force = AlbedoRadiationPressure(cr=1.5, area_m2=10.0, mass_kg=500.0)
         dt = datetime(2024, 6, 21, 12, 0, tzinfo=timezone.utc)
@@ -44,7 +44,7 @@ class TestAlbedoRadiationPressure:
 
     def test_decreases_with_altitude(self):
         """Albedo pressure decreases with distance from Earth."""
-        from constellation_generator.domain.albedo_srp import AlbedoRadiationPressure
+        from humeris.domain.albedo_srp import AlbedoRadiationPressure
 
         force = AlbedoRadiationPressure(cr=1.5, area_m2=10.0, mass_kg=500.0)
         dt = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
@@ -54,7 +54,7 @@ class TestAlbedoRadiationPressure:
 
     def test_ir_component_present(self):
         """Even on the dark side, IR radiation should produce some acceleration."""
-        from constellation_generator.domain.albedo_srp import AlbedoRadiationPressure
+        from humeris.domain.albedo_srp import AlbedoRadiationPressure
 
         force = AlbedoRadiationPressure(cr=1.5, area_m2=10.0, mass_kg=500.0)
         dt = datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
@@ -66,7 +66,7 @@ class TestAlbedoRadiationPressure:
 
     def test_force_model_compliance(self):
         """Has the ForceModel interface."""
-        from constellation_generator.domain.albedo_srp import AlbedoRadiationPressure
+        from humeris.domain.albedo_srp import AlbedoRadiationPressure
 
         force = AlbedoRadiationPressure(cr=1.5, area_m2=10.0, mass_kg=500.0)
         assert hasattr(force, "acceleration")
@@ -79,7 +79,7 @@ class TestAlbedoRadiationPressure:
 
     def test_scales_with_area_to_mass(self):
         """Acceleration scales with area/mass ratio."""
-        from constellation_generator.domain.albedo_srp import AlbedoRadiationPressure
+        from humeris.domain.albedo_srp import AlbedoRadiationPressure
 
         dt = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
         pos = (6778137.0, 0.0, 0.0)
@@ -93,7 +93,7 @@ class TestAlbedoRadiationPressure:
 
 class TestDomainPurity:
     def test_no_external_imports(self):
-        source_path = "src/constellation_generator/domain/albedo_srp.py"
+        source_path = "src/humeris/domain/albedo_srp.py"
         with open(source_path) as f:
             tree = ast.parse(f.read())
         allowed = {
@@ -105,10 +105,10 @@ class TestDomainPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     top = alias.name.split(".")[0]
-                    assert top in allowed or top == "constellation_generator", \
+                    assert top in allowed or top == "humeris", \
                         f"Forbidden import: {alias.name}"
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
                     top = node.module.split(".")[0]
-                    assert top in allowed or top == "constellation_generator", \
+                    assert top in allowed or top == "humeris", \
                         f"Forbidden import from: {node.module}"

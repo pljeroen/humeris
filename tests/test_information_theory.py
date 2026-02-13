@@ -7,9 +7,9 @@ import ast
 import math
 from datetime import datetime, timezone
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.link_budget import LinkConfig
-from constellation_generator.domain.information_theory import (
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.link_budget import LinkConfig
+from humeris.domain.information_theory import (
     EclipseChannelCapacity,
     CoverageSpectrum,
     MarginalSatelliteValue,
@@ -153,7 +153,7 @@ class TestMarginalSatelliteValue:
 
 class TestInformationTheoryPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.information_theory as mod
+        import humeris.domain.information_theory as mod
         source = ast.parse(open(mod.__file__).read())
         for node in ast.walk(source):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -162,6 +162,6 @@ class TestInformationTheoryPurity:
                 else:
                     for alias in node.names:
                         top = alias.name.split(".")[0]
-                assert top in {"math", "dataclasses", "datetime", "typing", "enum", "numpy", "constellation_generator", "__future__"}, (
+                assert top in {"math", "dataclasses", "datetime", "typing", "enum", "numpy", "humeris", "__future__"}, (
                     f"Forbidden import: {top}"
                 )

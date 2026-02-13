@@ -10,11 +10,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import (
+from humeris.domain.orbital_mechanics import (
     OrbitalConstants,
     kepler_to_cartesian,
 )
-from constellation_generator.domain.orbit_determination import (
+from humeris.domain.orbit_determination import (
     ODObservation,
     ODEstimate,
     ODResult,
@@ -213,7 +213,7 @@ class TestODPurity:
 
     def test_od_module_pure(self):
         """orbit_determination.py must only import stdlib modules."""
-        import constellation_generator.domain.orbit_determination as mod
+        import humeris.domain.orbit_determination as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -223,10 +223,10 @@ class TestODPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

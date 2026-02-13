@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import (
+from humeris.domain.orbital_mechanics import (
     OrbitalConstants,
     sso_inclination_deg,
 )
@@ -25,7 +25,7 @@ class TestJ2RAANRate:
 
     def test_prograde_orbit_negative_raan_rate(self):
         """Prograde orbit (i < 90°) → RAAN drifts westward (negative)."""
-        from constellation_generator.domain.orbital_mechanics import j2_raan_rate
+        from humeris.domain.orbital_mechanics import j2_raan_rate
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -34,7 +34,7 @@ class TestJ2RAANRate:
 
     def test_retrograde_orbit_positive_raan_rate(self):
         """Retrograde orbit (i > 90°) → RAAN drifts eastward (positive)."""
-        from constellation_generator.domain.orbital_mechanics import j2_raan_rate
+        from humeris.domain.orbital_mechanics import j2_raan_rate
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -43,7 +43,7 @@ class TestJ2RAANRate:
 
     def test_polar_orbit_zero_raan_rate(self):
         """Polar orbit (i = 90°) → zero RAAN drift."""
-        from constellation_generator.domain.orbital_mechanics import j2_raan_rate
+        from humeris.domain.orbital_mechanics import j2_raan_rate
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -52,7 +52,7 @@ class TestJ2RAANRate:
 
     def test_sso_raan_rate_matches_earth_orbital_rate(self):
         """At SSO inclination, RAAN rate ≈ Earth's orbital angular velocity (~0.9856°/day)."""
-        from constellation_generator.domain.orbital_mechanics import j2_raan_rate
+        from humeris.domain.orbital_mechanics import j2_raan_rate
 
         alt_km = 500.0
         inc_deg = sso_inclination_deg(alt_km)
@@ -70,7 +70,7 @@ class TestJ2ArgPerigeeRate:
 
     def test_critical_inclination_zero_rate(self):
         """At critical inclination (63.4°), argument of perigee rate = 0."""
-        from constellation_generator.domain.orbital_mechanics import j2_arg_perigee_rate
+        from humeris.domain.orbital_mechanics import j2_arg_perigee_rate
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -79,7 +79,7 @@ class TestJ2ArgPerigeeRate:
 
     def test_low_inclination_positive_rate(self):
         """Below critical inclination, argument of perigee advances (positive)."""
-        from constellation_generator.domain.orbital_mechanics import j2_arg_perigee_rate
+        from humeris.domain.orbital_mechanics import j2_arg_perigee_rate
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -88,7 +88,7 @@ class TestJ2ArgPerigeeRate:
 
     def test_high_inclination_negative_rate(self):
         """Above critical inclination, argument of perigee regresses (negative)."""
-        from constellation_generator.domain.orbital_mechanics import j2_arg_perigee_rate
+        from humeris.domain.orbital_mechanics import j2_arg_perigee_rate
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -102,7 +102,7 @@ class TestJ2MeanMotionCorrection:
 
     def test_corrected_exceeds_unperturbed(self):
         """J2-corrected mean motion > unperturbed for typical LEO."""
-        from constellation_generator.domain.orbital_mechanics import j2_mean_motion_correction
+        from humeris.domain.orbital_mechanics import j2_mean_motion_correction
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -111,7 +111,7 @@ class TestJ2MeanMotionCorrection:
 
     def test_correction_returns_float(self):
         """Mean motion correction returns a float."""
-        from constellation_generator.domain.orbital_mechanics import j2_mean_motion_correction
+        from humeris.domain.orbital_mechanics import j2_mean_motion_correction
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -120,7 +120,7 @@ class TestJ2MeanMotionCorrection:
 
     def test_correction_small_relative_to_n(self):
         """J2 correction is small (< 1%) relative to unperturbed mean motion."""
-        from constellation_generator.domain.orbital_mechanics import j2_mean_motion_correction
+        from humeris.domain.orbital_mechanics import j2_mean_motion_correction
 
         a = OrbitalConstants.R_EARTH + 500_000
         n = _mean_motion(a)
@@ -146,7 +146,7 @@ class TestJ2Purity:
 
     def test_orbital_mechanics_still_pure(self):
         """orbital_mechanics.py must only import stdlib modules."""
-        import constellation_generator.domain.orbital_mechanics as mod
+        import humeris.domain.orbital_mechanics as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -156,10 +156,10 @@ class TestJ2Purity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator import (
+from humeris import (
     ShellConfig,
     generate_walker_shell,
     derive_orbital_state,
@@ -22,7 +22,7 @@ from constellation_generator import (
     SensorType,
     SensorConfig,
 )
-from constellation_generator.adapters.czml_visualization import (
+from humeris.adapters.czml_visualization import (
     eclipse_constellation_packets,
     eclipse_snapshot_packets,
     sensor_footprint_packets,
@@ -36,7 +36,7 @@ from constellation_generator.adapters.czml_visualization import (
     coverage_connectivity_packets,
     network_eclipse_packets,
 )
-from constellation_generator.domain.link_budget import LinkConfig
+from humeris.domain.link_budget import LinkConfig
 
 
 EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
@@ -397,7 +397,7 @@ class TestPrecessionConstellationPackets:
 
     def test_includes_j2_effect(self, satellites):
         """J2-propagated positions differ from non-J2 over 7 days."""
-        from constellation_generator.adapters.czml_exporter import constellation_packets
+        from humeris.adapters.czml_exporter import constellation_packets
 
         j2_pkts = precession_constellation_packets(
             satellites, EPOCH, timedelta(days=7), timedelta(hours=1),
@@ -480,7 +480,7 @@ class TestHazardEvolutionPackets:
     """Hazard/survival colored satellites."""
 
     def test_document_packet_present(self, orbital_states):
-        from constellation_generator.domain.statistical_analysis import LifetimeSurvivalCurve
+        from humeris.domain.statistical_analysis import LifetimeSurvivalCurve
         curve = LifetimeSurvivalCurve(
             times=(EPOCH,), altitudes_km=(550.0,),
             survival_fraction=(1.0,), hazard_rate_per_day=(0.001,),
@@ -493,7 +493,7 @@ class TestHazardEvolutionPackets:
         assert pkts[0]["id"] == "document"
 
     def test_satellite_count(self, orbital_states):
-        from constellation_generator.domain.statistical_analysis import LifetimeSurvivalCurve
+        from humeris.domain.statistical_analysis import LifetimeSurvivalCurve
         curve = LifetimeSurvivalCurve(
             times=(EPOCH,), altitudes_km=(550.0,),
             survival_fraction=(1.0,), hazard_rate_per_day=(0.001,),
@@ -506,7 +506,7 @@ class TestHazardEvolutionPackets:
         assert len(pkts) == len(orbital_states) + 1
 
     def test_color_uses_intervals(self, orbital_states):
-        from constellation_generator.domain.statistical_analysis import LifetimeSurvivalCurve
+        from humeris.domain.statistical_analysis import LifetimeSurvivalCurve
         curve = LifetimeSurvivalCurve(
             times=(EPOCH,), altitudes_km=(550.0,),
             survival_fraction=(1.0,), hazard_rate_per_day=(0.001,),
@@ -573,13 +573,13 @@ class TestCzmlVisualizationPurity:
     """Adapter purity: only stdlib + internal imports allowed."""
 
     def test_no_external_deps(self):
-        import constellation_generator.adapters.czml_visualization as mod
+        import humeris.adapters.czml_visualization as mod
 
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
         allowed_stdlib = {"json", "math", "numpy", "datetime"}
-        allowed_internal = {"constellation_generator"}
+        allowed_internal = {"humeris"}
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

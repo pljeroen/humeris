@@ -7,13 +7,13 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.atmosphere import DragConfig
-from constellation_generator.domain.constellation import (
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.constellation import (
     Satellite,
     ShellConfig,
     generate_walker_shell,
 )
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +66,7 @@ class TestFileStructure:
     """The .ssc file must be valid Celestia catalog syntax."""
 
     def test_creates_file(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "constellation.ssc")
@@ -75,7 +75,7 @@ class TestFileStructure:
         assert (tmp_path / "constellation.ssc").exists()
 
     def test_correct_number_of_objects(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -87,7 +87,7 @@ class TestFileStructure:
         assert object_count == len(sats)
 
     def test_names_preserved(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -98,7 +98,7 @@ class TestFileStructure:
             assert f'"{sat.name}"' in content
 
     def test_class_is_spacecraft(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -109,7 +109,7 @@ class TestFileStructure:
         assert class_count == len(sats)
 
     def test_empty_list_creates_empty_file(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         path = str(tmp_path / "empty.ssc")
         CelestiaExporter().export([], path, epoch=EPOCH)
@@ -126,7 +126,7 @@ class TestOrbitalElements:
     """Keplerian elements must be correct in Celestia units."""
 
     def test_semimajor_axis_in_km(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -141,7 +141,7 @@ class TestOrbitalElements:
             assert abs(actual - expected_a_km) / expected_a_km < 0.001
 
     def test_inclination_correct(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -154,7 +154,7 @@ class TestOrbitalElements:
             assert abs(float(m) - 53.0) < 0.1
 
     def test_raan_matches_satellite(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -172,7 +172,7 @@ class TestOrbitalElements:
             assert abs(actual - expected) < 0.01
 
     def test_mean_anomaly_matches_true_anomaly(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -190,7 +190,7 @@ class TestOrbitalElements:
             assert abs(actual - expected) < 0.01
 
     def test_period_in_days(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -208,7 +208,7 @@ class TestOrbitalElements:
             assert abs(actual - expected_days) / expected_days < 0.001
 
     def test_epoch_julian_date(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -226,7 +226,7 @@ class TestOrbitalElements:
             assert abs(actual - expected_jd) < 0.001
 
     def test_eccentricity_zero(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -247,7 +247,7 @@ class TestPhysicalProperties:
     """Physical properties from DragConfig and defaults."""
 
     def test_mass_from_drag_config(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
@@ -261,7 +261,7 @@ class TestPhysicalProperties:
             assert abs(float(m) - 260.0) < 0.01
 
     def test_radius_from_drag_config(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
@@ -277,7 +277,7 @@ class TestPhysicalProperties:
             assert abs(actual - expected_radius_km) / expected_radius_km < 0.01
 
     def test_default_radius_without_drag_config(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -290,7 +290,7 @@ class TestPhysicalProperties:
             assert float(m) == 0.001
 
     def test_no_mass_without_drag_config(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -308,7 +308,7 @@ class TestReturnCount:
     """Export returns the number of satellites exported."""
 
     def test_returns_satellite_count(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ssc")
@@ -316,7 +316,7 @@ class TestReturnCount:
         assert count == 6
 
     def test_empty_list_returns_zero(self, tmp_path):
-        from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+        from humeris.adapters.celestia_exporter import CelestiaExporter
 
         path = str(tmp_path / "empty.ssc")
         count = CelestiaExporter().export([], path, epoch=EPOCH)

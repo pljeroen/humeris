@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.coordinate_frames import (
+from humeris.domain.coordinate_frames import (
     gmst_rad,
     eci_to_ecef,
 )

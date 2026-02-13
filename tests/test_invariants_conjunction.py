@@ -14,7 +14,7 @@ import math
 
 import pytest
 
-from constellation_generator.domain.conjunction import (
+from humeris.domain.conjunction import (
     collision_probability_2d,
     foster_max_collision_probability,
 )

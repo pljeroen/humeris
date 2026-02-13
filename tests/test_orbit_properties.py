@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator import (
+from humeris import (
     OrbitalConstants,
     OrbitalState,
     ShellConfig,
@@ -46,7 +46,7 @@ def _leo_state(altitude_km=550, inclination_deg=53) -> OrbitalState:
 class TestComputeOrbitalVelocity:
 
     def test_returns_orbital_velocity_type(self):
-        from constellation_generator.domain.orbit_properties import (
+        from humeris.domain.orbit_properties import (
             compute_orbital_velocity, OrbitalVelocity,
         )
         state = _leo_state()
@@ -54,21 +54,21 @@ class TestComputeOrbitalVelocity:
         assert isinstance(result, OrbitalVelocity)
 
     def test_circular_velocity_formula(self):
-        from constellation_generator.domain.orbit_properties import compute_orbital_velocity
+        from humeris.domain.orbit_properties import compute_orbital_velocity
         state = _leo_state(altitude_km=550)
         result = compute_orbital_velocity(state)
         expected_v = math.sqrt(MU / state.semi_major_axis_m)
         assert abs(result.circular_velocity_ms - expected_v) < 0.01
 
     def test_orbital_period_kepler_third_law(self):
-        from constellation_generator.domain.orbit_properties import compute_orbital_velocity
+        from humeris.domain.orbit_properties import compute_orbital_velocity
         state = _leo_state(altitude_km=550)
         result = compute_orbital_velocity(state)
         expected_T = 2 * math.pi * math.sqrt(state.semi_major_axis_m**3 / MU)
         assert abs(result.orbital_period_s - expected_T) < 0.01
 
     def test_ground_speed_positive(self):
-        from constellation_generator.domain.orbit_properties import compute_orbital_velocity
+        from humeris.domain.orbit_properties import compute_orbital_velocity
         state = _leo_state()
         result = compute_orbital_velocity(state)
         assert result.ground_speed_kmh > 0
@@ -76,13 +76,13 @@ class TestComputeOrbitalVelocity:
         assert 20000 < result.ground_speed_kmh < 30000
 
     def test_higher_altitude_slower_velocity(self):
-        from constellation_generator.domain.orbit_properties import compute_orbital_velocity
+        from humeris.domain.orbit_properties import compute_orbital_velocity
         low = compute_orbital_velocity(_leo_state(altitude_km=400))
         high = compute_orbital_velocity(_leo_state(altitude_km=800))
         assert low.circular_velocity_ms > high.circular_velocity_ms
 
     def test_higher_altitude_longer_period(self):
-        from constellation_generator.domain.orbit_properties import compute_orbital_velocity
+        from humeris.domain.orbit_properties import compute_orbital_velocity
         low = compute_orbital_velocity(_leo_state(altitude_km=400))
         high = compute_orbital_velocity(_leo_state(altitude_km=800))
         assert high.orbital_period_s > low.orbital_period_s
@@ -93,7 +93,7 @@ class TestComputeOrbitalVelocity:
 class TestComputeEnergyMomentum:
 
     def test_returns_energy_momentum_type(self):
-        from constellation_generator.domain.orbit_properties import (
+        from humeris.domain.orbit_properties import (
             compute_energy_momentum, EnergyMomentum,
         )
         state = _leo_state()
@@ -102,7 +102,7 @@ class TestComputeEnergyMomentum:
         assert isinstance(result, EnergyMomentum)
 
     def test_bound_orbit_negative_energy(self):
-        from constellation_generator.domain.orbit_properties import compute_energy_momentum
+        from humeris.domain.orbit_properties import compute_energy_momentum
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         result = compute_energy_momentum(pos, vel)
@@ -110,7 +110,7 @@ class TestComputeEnergyMomentum:
 
     def test_specific_energy_vis_viva(self):
         """E = -mu / (2*a) for circular orbit."""
-        from constellation_generator.domain.orbit_properties import compute_energy_momentum
+        from humeris.domain.orbit_properties import compute_energy_momentum
         state = _leo_state(altitude_km=550)
         pos, vel = propagate_to(state, EPOCH)
         result = compute_energy_momentum(pos, vel)
@@ -118,7 +118,7 @@ class TestComputeEnergyMomentum:
         assert abs(result.specific_energy_j_kg - expected) / abs(expected) < 1e-6
 
     def test_angular_momentum_positive(self):
-        from constellation_generator.domain.orbit_properties import compute_energy_momentum
+        from humeris.domain.orbit_properties import compute_energy_momentum
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         result = compute_energy_momentum(pos, vel)
@@ -126,7 +126,7 @@ class TestComputeEnergyMomentum:
 
     def test_angular_momentum_formula(self):
         """h = |r x v| for circular orbit = r * v."""
-        from constellation_generator.domain.orbit_properties import compute_energy_momentum
+        from humeris.domain.orbit_properties import compute_energy_momentum
         state = _leo_state(altitude_km=550)
         pos, vel = propagate_to(state, EPOCH)
         result = compute_energy_momentum(pos, vel)
@@ -136,7 +136,7 @@ class TestComputeEnergyMomentum:
         assert abs(result.angular_momentum_m2_s - expected_h) / expected_h < 1e-6
 
     def test_vis_viva_velocity(self):
-        from constellation_generator.domain.orbit_properties import compute_energy_momentum
+        from humeris.domain.orbit_properties import compute_energy_momentum
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         result = compute_energy_momentum(pos, vel)
@@ -144,7 +144,7 @@ class TestComputeEnergyMomentum:
 
     def test_zero_position_raises(self):
         """Zero position vector must raise ValueError."""
-        from constellation_generator.domain.orbit_properties import compute_energy_momentum
+        from humeris.domain.orbit_properties import compute_energy_momentum
         with pytest.raises(ValueError, match="position"):
             compute_energy_momentum((0.0, 0.0, 0.0), (7500.0, 0.0, 0.0))
 
@@ -154,7 +154,7 @@ class TestComputeEnergyMomentum:
 class TestCheckSunSynchronous:
 
     def test_returns_sun_sync_check_type(self):
-        from constellation_generator.domain.orbit_properties import (
+        from humeris.domain.orbit_properties import (
             check_sun_synchronous, SunSyncCheck,
         )
         state = _leo_state()
@@ -163,7 +163,7 @@ class TestCheckSunSynchronous:
 
     def test_sso_orbit_detected(self):
         """An orbit designed to be SSO should verify as SSO."""
-        from constellation_generator.domain.orbit_properties import check_sun_synchronous
+        from humeris.domain.orbit_properties import check_sun_synchronous
         alt_km = 600
         inc_deg = sso_inclination_deg(alt_km)
         shell = ShellConfig(
@@ -178,13 +178,13 @@ class TestCheckSunSynchronous:
 
     def test_non_sso_orbit_detected(self):
         """A 53° inclination LEO is not SSO."""
-        from constellation_generator.domain.orbit_properties import check_sun_synchronous
+        from humeris.domain.orbit_properties import check_sun_synchronous
         state = _leo_state(altitude_km=550, inclination_deg=53)
         result = check_sun_synchronous(state)
         assert not result.is_sun_synchronous
 
     def test_error_computed(self):
-        from constellation_generator.domain.orbit_properties import check_sun_synchronous
+        from humeris.domain.orbit_properties import check_sun_synchronous
         state = _leo_state()
         result = check_sun_synchronous(state)
         assert abs(result.error_deg_day) == abs(
@@ -193,7 +193,7 @@ class TestCheckSunSynchronous:
 
     def test_rates_have_correct_sign(self):
         """SSO requires positive (retrograde) RAAN rate ≈ 0.9856 deg/day."""
-        from constellation_generator.domain.orbit_properties import check_sun_synchronous
+        from humeris.domain.orbit_properties import check_sun_synchronous
         state = _leo_state()
         result = check_sun_synchronous(state)
         # Required rate for SSO is ~0.9856 deg/day
@@ -205,7 +205,7 @@ class TestCheckSunSynchronous:
 class TestComputeRswVelocity:
 
     def test_returns_three_components(self):
-        from constellation_generator.domain.orbit_properties import compute_rsw_velocity
+        from humeris.domain.orbit_properties import compute_rsw_velocity
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         r, s, w = compute_rsw_velocity(pos, vel)
@@ -215,7 +215,7 @@ class TestComputeRswVelocity:
 
     def test_circular_orbit_radial_near_zero(self):
         """For circular orbit, radial velocity component ≈ 0."""
-        from constellation_generator.domain.orbit_properties import compute_rsw_velocity
+        from humeris.domain.orbit_properties import compute_rsw_velocity
         state = _leo_state(altitude_km=550)
         pos, vel = propagate_to(state, EPOCH)
         r, s, w = compute_rsw_velocity(pos, vel)
@@ -223,7 +223,7 @@ class TestComputeRswVelocity:
 
     def test_circular_orbit_along_track_dominant(self):
         """For circular orbit, along-track has most of the velocity."""
-        from constellation_generator.domain.orbit_properties import compute_rsw_velocity
+        from humeris.domain.orbit_properties import compute_rsw_velocity
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         r, s, w = compute_rsw_velocity(pos, vel)
@@ -232,7 +232,7 @@ class TestComputeRswVelocity:
 
     def test_magnitude_preserved(self):
         """RSW magnitude should equal ECI velocity magnitude."""
-        from constellation_generator.domain.orbit_properties import compute_rsw_velocity
+        from humeris.domain.orbit_properties import compute_rsw_velocity
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         r, s, w = compute_rsw_velocity(pos, vel)
@@ -242,7 +242,7 @@ class TestComputeRswVelocity:
 
     def test_zero_position_raises(self):
         """Zero position vector must raise ValueError."""
-        from constellation_generator.domain.orbit_properties import compute_rsw_velocity
+        from humeris.domain.orbit_properties import compute_rsw_velocity
         with pytest.raises(ValueError, match="position"):
             compute_rsw_velocity((0.0, 0.0, 0.0), (7500.0, 0.0, 0.0))
 
@@ -252,28 +252,28 @@ class TestComputeRswVelocity:
 class TestComputeLtan:
 
     def test_returns_float(self):
-        from constellation_generator.domain.orbit_properties import compute_ltan
+        from humeris.domain.orbit_properties import compute_ltan
         state = _leo_state()
         result = compute_ltan(state.raan_rad, EPOCH)
         assert isinstance(result, float)
 
     def test_range_0_to_24(self):
-        from constellation_generator.domain.orbit_properties import compute_ltan
+        from humeris.domain.orbit_properties import compute_ltan
         state = _leo_state()
         result = compute_ltan(state.raan_rad, EPOCH)
         assert 0.0 <= result < 24.0
 
     def test_known_ltan(self):
         """An orbit designed for 10:30 LTAN should report ~10.5 hours."""
-        from constellation_generator.domain.orbit_properties import compute_ltan
-        from constellation_generator.domain.orbit_design import design_sso_orbit
+        from humeris.domain.orbit_properties import compute_ltan
+        from humeris.domain.orbit_design import design_sso_orbit
         design = design_sso_orbit(altitude_km=600, ltan_hours=10.5, epoch=EPOCH)
         raan_rad = math.radians(design.raan_deg)
         result = compute_ltan(raan_rad, EPOCH)
         assert abs(result - 10.5) < 0.1
 
     def test_different_raan_different_ltan(self):
-        from constellation_generator.domain.orbit_properties import compute_ltan
+        from humeris.domain.orbit_properties import compute_ltan
         ltan1 = compute_ltan(0.0, EPOCH)
         ltan2 = compute_ltan(math.pi / 2, EPOCH)
         assert ltan1 != ltan2
@@ -284,14 +284,14 @@ class TestComputeLtan:
 class TestStateVectorToElements:
 
     def test_returns_dict(self):
-        from constellation_generator.domain.orbit_properties import state_vector_to_elements
+        from humeris.domain.orbit_properties import state_vector_to_elements
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         result = state_vector_to_elements(pos, vel)
         assert isinstance(result, dict)
 
     def test_required_keys_present(self):
-        from constellation_generator.domain.orbit_properties import state_vector_to_elements
+        from humeris.domain.orbit_properties import state_vector_to_elements
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         result = state_vector_to_elements(pos, vel)
@@ -300,21 +300,21 @@ class TestStateVectorToElements:
             assert key in result, f"Missing key: {key}"
 
     def test_semi_major_axis_matches(self):
-        from constellation_generator.domain.orbit_properties import state_vector_to_elements
+        from humeris.domain.orbit_properties import state_vector_to_elements
         state = _leo_state(altitude_km=550)
         pos, vel = propagate_to(state, EPOCH)
         result = state_vector_to_elements(pos, vel)
         assert abs(result["semi_major_axis_m"] - state.semi_major_axis_m) / state.semi_major_axis_m < 1e-6
 
     def test_eccentricity_near_zero_for_circular(self):
-        from constellation_generator.domain.orbit_properties import state_vector_to_elements
+        from humeris.domain.orbit_properties import state_vector_to_elements
         state = _leo_state()
         pos, vel = propagate_to(state, EPOCH)
         result = state_vector_to_elements(pos, vel)
         assert result["eccentricity"] < 0.01
 
     def test_inclination_matches(self):
-        from constellation_generator.domain.orbit_properties import state_vector_to_elements
+        from humeris.domain.orbit_properties import state_vector_to_elements
         state = _leo_state(altitude_km=550, inclination_deg=53)
         pos, vel = propagate_to(state, EPOCH)
         result = state_vector_to_elements(pos, vel)
@@ -322,7 +322,7 @@ class TestStateVectorToElements:
 
     def test_roundtrip_consistency(self):
         """Elements → state vector → elements should recover original."""
-        from constellation_generator.domain.orbit_properties import state_vector_to_elements
+        from humeris.domain.orbit_properties import state_vector_to_elements
         a = R_E + 600_000
         pos, vel = kepler_to_cartesian(
             a=a, e=0.001, i_rad=math.radians(53),
@@ -336,7 +336,7 @@ class TestStateVectorToElements:
 
     def test_zero_position_raises(self):
         """Zero position vector must raise ValueError."""
-        from constellation_generator.domain.orbit_properties import state_vector_to_elements
+        from humeris.domain.orbit_properties import state_vector_to_elements
         with pytest.raises(ValueError, match="position"):
             state_vector_to_elements((0.0, 0.0, 0.0), (7500.0, 0.0, 0.0))
 
@@ -346,7 +346,7 @@ class TestStateVectorToElements:
 class TestComputeGroundTrackRepeat:
 
     def test_returns_ground_track_repeat_type(self):
-        from constellation_generator.domain.orbit_properties import (
+        from humeris.domain.orbit_properties import (
             compute_ground_track_repeat, GroundTrackRepeat,
         )
         state = _leo_state()
@@ -355,20 +355,20 @@ class TestComputeGroundTrackRepeat:
 
     def test_revs_per_day_reasonable(self):
         """LEO at 550km does ~15.5 revs/day."""
-        from constellation_generator.domain.orbit_properties import compute_ground_track_repeat
+        from humeris.domain.orbit_properties import compute_ground_track_repeat
         state = _leo_state(altitude_km=550)
         result = compute_ground_track_repeat(state)
         assert 14.5 < result.revs_per_day < 16.5
 
     def test_near_repeat_positive_integers(self):
-        from constellation_generator.domain.orbit_properties import compute_ground_track_repeat
+        from humeris.domain.orbit_properties import compute_ground_track_repeat
         state = _leo_state()
         result = compute_ground_track_repeat(state)
         assert result.near_repeat_revs > 0
         assert result.near_repeat_days > 0
 
     def test_drift_deg_per_day_computed(self):
-        from constellation_generator.domain.orbit_properties import compute_ground_track_repeat
+        from humeris.domain.orbit_properties import compute_ground_track_repeat
         state = _leo_state()
         result = compute_ground_track_repeat(state)
         assert isinstance(result.drift_deg_per_day, float)
@@ -379,7 +379,7 @@ class TestComputeGroundTrackRepeat:
 class TestComputeElementHistory:
 
     def test_returns_element_history_type(self):
-        from constellation_generator.domain.orbit_properties import (
+        from humeris.domain.orbit_properties import (
             compute_element_history, ElementHistory,
         )
         state = _leo_state(altitude_km=550)
@@ -390,7 +390,7 @@ class TestComputeElementHistory:
 
     def test_snapshot_count(self):
         """Number of snapshots = floor(duration/step) + 1."""
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state()
         result = compute_element_history(
             state, EPOCH, duration_s=3600, step_s=600,
@@ -399,7 +399,7 @@ class TestComputeElementHistory:
         assert len(result.snapshots) == 7
 
     def test_first_snapshot_matches_initial(self):
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state(altitude_km=550, inclination_deg=53)
         result = compute_element_history(
             state, EPOCH, duration_s=3600, step_s=600,
@@ -410,7 +410,7 @@ class TestComputeElementHistory:
 
     def test_raan_drifts(self):
         """RAAN changes over hours due to J2."""
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state(altitude_km=550)
         result = compute_element_history(
             state, EPOCH, duration_s=86400, step_s=3600,
@@ -425,7 +425,7 @@ class TestComputeElementHistory:
 
     def test_sma_stable_circular(self):
         """SMA roughly constant for circular orbit (no drag)."""
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state(altitude_km=550)
         result = compute_element_history(
             state, EPOCH, duration_s=7200, step_s=600,
@@ -435,7 +435,7 @@ class TestComputeElementHistory:
 
     def test_eccentricity_near_zero(self):
         """Eccentricity stays small for circular orbit."""
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state(altitude_km=550)
         result = compute_element_history(
             state, EPOCH, duration_s=7200, step_s=600,
@@ -445,7 +445,7 @@ class TestComputeElementHistory:
 
     def test_inclination_stable(self):
         """Inclination roughly constant over short period."""
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state(altitude_km=550, inclination_deg=53)
         result = compute_element_history(
             state, EPOCH, duration_s=7200, step_s=600,
@@ -455,7 +455,7 @@ class TestComputeElementHistory:
 
     def test_true_anomaly_advances(self):
         """True anomaly increases over one orbit."""
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state(altitude_km=550)
         result = compute_element_history(
             state, EPOCH, duration_s=3600, step_s=300,
@@ -465,7 +465,7 @@ class TestComputeElementHistory:
         assert len(set(round(a, 2) for a in anomalies)) > 1
 
     def test_zero_duration_empty(self):
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state()
         result = compute_element_history(
             state, EPOCH, duration_s=0, step_s=600,
@@ -473,7 +473,7 @@ class TestComputeElementHistory:
         assert len(result.snapshots) == 0
 
     def test_zero_step_empty(self):
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state()
         result = compute_element_history(
             state, EPOCH, duration_s=3600, step_s=0,
@@ -481,7 +481,7 @@ class TestComputeElementHistory:
         assert len(result.snapshots) == 0
 
     def test_snapshot_frozen(self):
-        from constellation_generator.domain.orbit_properties import (
+        from humeris.domain.orbit_properties import (
             compute_element_history, ElementSnapshot,
         )
         state = _leo_state()
@@ -494,7 +494,7 @@ class TestComputeElementHistory:
             snap.semi_major_axis_m = 0.0
 
     def test_history_frozen(self):
-        from constellation_generator.domain.orbit_properties import compute_element_history
+        from humeris.domain.orbit_properties import compute_element_history
         state = _leo_state()
         result = compute_element_history(
             state, EPOCH, duration_s=3600, step_s=600,
@@ -509,12 +509,12 @@ class TestOrbitPropertiesPurity:
 
     def test_no_external_deps(self):
         import ast
-        import constellation_generator.domain.orbit_properties as mod
+        import humeris.domain.orbit_properties as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
         allowed_stdlib = {"math", "numpy", "dataclasses", "datetime"}
-        allowed_internal = {"constellation_generator"}
+        allowed_internal = {"humeris"}
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

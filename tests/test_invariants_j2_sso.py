@@ -14,7 +14,7 @@ import math
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import (
+from humeris.domain.orbital_mechanics import (
     OrbitalConstants,
     j2_raan_rate,
     j2_arg_perigee_rate,

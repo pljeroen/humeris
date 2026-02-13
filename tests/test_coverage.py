@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.constellation import ShellConfig, generate_walker_shell
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ _EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _make_states(inclination_deg=53.0, altitude_km=500.0, num_planes=3, sats_per_plane=6):
-    from constellation_generator.domain.propagation import derive_orbital_state
+    from humeris.domain.propagation import derive_orbital_state
 
     shell = ShellConfig(
         altitude_km=altitude_km, inclination_deg=inclination_deg,
@@ -34,14 +34,14 @@ def _make_states(inclination_deg=53.0, altitude_km=500.0, num_planes=3, sats_per
 class TestCoveragePoint:
 
     def test_frozen(self):
-        from constellation_generator.domain.coverage import CoveragePoint
+        from humeris.domain.coverage import CoveragePoint
 
         pt = CoveragePoint(lat_deg=0.0, lon_deg=0.0, visible_count=3)
         with pytest.raises(AttributeError):
             pt.visible_count = 5
 
     def test_fields(self):
-        from constellation_generator.domain.coverage import CoveragePoint
+        from humeris.domain.coverage import CoveragePoint
 
         pt = CoveragePoint(lat_deg=45.0, lon_deg=-90.0, visible_count=2)
         assert pt.lat_deg == 45.0
@@ -55,7 +55,7 @@ class TestComputeCoverageSnapshot:
 
     def test_grid_point_count(self):
         """Grid size matches expected lat/lon dimensions."""
-        from constellation_generator.domain.coverage import compute_coverage_snapshot
+        from humeris.domain.coverage import compute_coverage_snapshot
 
         states = _make_states()
         grid = compute_coverage_snapshot(states, _EPOCH, lat_step_deg=30.0, lon_step_deg=60.0)
@@ -65,8 +65,8 @@ class TestComputeCoverageSnapshot:
 
     def test_single_satellite_partial_coverage(self):
         """Single satellite: some points visible, some not."""
-        from constellation_generator.domain.coverage import compute_coverage_snapshot
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.coverage import compute_coverage_snapshot
+        from humeris.domain.propagation import derive_orbital_state
 
         shell = ShellConfig(
             altitude_km=500, inclination_deg=53,
@@ -85,7 +85,7 @@ class TestComputeCoverageSnapshot:
 
     def test_empty_satellite_list_all_zeros(self):
         """No satellites → all visible_count = 0."""
-        from constellation_generator.domain.coverage import compute_coverage_snapshot
+        from humeris.domain.coverage import compute_coverage_snapshot
 
         grid = compute_coverage_snapshot([], _EPOCH, lat_step_deg=30.0, lon_step_deg=60.0)
         for pt in grid:
@@ -93,8 +93,8 @@ class TestComputeCoverageSnapshot:
 
     def test_higher_altitude_more_coverage(self):
         """Higher altitude satellites have wider footprint → more visible points."""
-        from constellation_generator.domain.coverage import compute_coverage_snapshot
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.coverage import compute_coverage_snapshot
+        from humeris.domain.propagation import derive_orbital_state
 
         shell_low = ShellConfig(
             altitude_km=300, inclination_deg=53,
@@ -122,7 +122,7 @@ class TestComputeCoverageSnapshot:
 
     def test_custom_lat_lon_range(self):
         """Custom range reduces grid size."""
-        from constellation_generator.domain.coverage import compute_coverage_snapshot
+        from humeris.domain.coverage import compute_coverage_snapshot
 
         states = _make_states()
         grid_full = compute_coverage_snapshot(states, _EPOCH, lat_step_deg=30.0, lon_step_deg=60.0)
@@ -135,7 +135,7 @@ class TestComputeCoverageSnapshot:
 
     def test_higher_min_elevation_fewer_visible(self):
         """Higher min_elevation → fewer visible points."""
-        from constellation_generator.domain.coverage import compute_coverage_snapshot
+        from humeris.domain.coverage import compute_coverage_snapshot
 
         states = _make_states()
         grid_low = compute_coverage_snapshot(
@@ -150,7 +150,7 @@ class TestComputeCoverageSnapshot:
 
     def test_visible_count_nonnegative(self):
         """All visible_count values must be >= 0."""
-        from constellation_generator.domain.coverage import compute_coverage_snapshot
+        from humeris.domain.coverage import compute_coverage_snapshot
 
         states = _make_states()
         grid = compute_coverage_snapshot(states, _EPOCH, lat_step_deg=30.0, lon_step_deg=60.0)
@@ -163,7 +163,7 @@ class TestComputeCoverageSnapshot:
 class TestCoveragePurity:
 
     def test_coverage_imports_only_stdlib_and_domain(self):
-        import constellation_generator.domain.coverage as mod
+        import humeris.domain.coverage as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -173,10 +173,10 @@ class TestCoveragePurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

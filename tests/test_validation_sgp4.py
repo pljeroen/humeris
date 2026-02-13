@@ -19,7 +19,7 @@ What we CAN validate:
     3. Orbital properties (period, SMA, velocity) agree between models
     4. The SGP4 adapter produces valid domain objects
 
-Requires: sgp4 package (pip install constellation-generator[live])
+Requires: sgp4 package (pip install humeris[live])
 """
 import math
 import pytest
@@ -31,18 +31,18 @@ try:
 except ImportError:
     HAS_SGP4 = False
 
-from constellation_generator.domain.omm import parse_omm_record
-from constellation_generator.domain.propagation import (
+from humeris.domain.omm import parse_omm_record
+from humeris.domain.propagation import (
     derive_orbital_state,
     propagate_to,
     OrbitalState,
 )
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
-from constellation_generator.domain.orbit_properties import (
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.orbit_properties import (
     compute_energy_momentum,
     state_vector_to_elements,
 )
-from constellation_generator.adapters.celestrak import SGP4Adapter
+from humeris.adapters.celestrak import SGP4Adapter
 
 _MU = OrbitalConstants.MU_EARTH
 _R_E = OrbitalConstants.R_EARTH

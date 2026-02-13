@@ -17,32 +17,32 @@ Sources:
 import math
 from datetime import datetime, timedelta, timezone
 
-from constellation_generator.domain.orbital_mechanics import (
+from humeris.domain.orbital_mechanics import (
     OrbitalConstants,
     kepler_to_cartesian,
     sso_inclination_deg,
     j2_raan_rate,
 )
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.maneuvers import (
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.maneuvers import (
     hohmann_transfer,
     plane_change_dv,
 )
-from constellation_generator.domain.atmosphere import (
+from humeris.domain.atmosphere import (
     atmospheric_density,
     AtmosphereModel,
 )
-from constellation_generator.domain.eclipse import (
+from humeris.domain.eclipse import (
     eclipse_fraction,
     compute_beta_angle,
 )
-from constellation_generator.domain.observation import compute_observation
-from constellation_generator.domain.coordinate_frames import (
+from humeris.domain.observation import compute_observation
+from humeris.domain.coordinate_frames import (
     ecef_to_geodetic,
     eci_to_ecef,
     gmst_rad,
 )
-from constellation_generator.domain.orbit_design import design_sso_orbit
+from humeris.domain.orbit_design import design_sso_orbit
 
 _MU = OrbitalConstants.MU_EARTH      # 3.986004418e14 m³/s²
 _R_E = OrbitalConstants.R_EARTH      # 6_371_000.0 m

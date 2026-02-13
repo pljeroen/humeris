@@ -9,9 +9,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
-from constellation_generator.domain.solar import AU_METERS, sun_position_eci
-from constellation_generator.domain.eclipse import (
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.solar import AU_METERS, sun_position_eci
+from humeris.domain.eclipse import (
     BetaAngleHistory,
     BetaAngleSnapshot,
     EclipseEvent,
@@ -205,11 +205,11 @@ class TestEclipseWindows:
 
     def _make_leo_state(self):
         """Create LEO orbital state for testing."""
-        from constellation_generator.domain.constellation import (
+        from humeris.domain.constellation import (
             ShellConfig,
             generate_walker_shell,
         )
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.propagation import derive_orbital_state
 
         shell = ShellConfig(
             altitude_km=500, inclination_deg=53, num_planes=1,
@@ -249,10 +249,10 @@ class TestEclipseWindows:
 class TestEventDetection:
 
     def _make_leo_state(self):
-        from constellation_generator.domain.constellation import (
+        from humeris.domain.constellation import (
             ShellConfig, generate_walker_shell,
         )
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.propagation import derive_orbital_state
         shell = ShellConfig(
             altitude_km=500, inclination_deg=53, num_planes=1,
             sats_per_plane=1, phase_factor=0, raan_offset_deg=0,
@@ -316,11 +316,11 @@ class TestEclipseFraction:
 
     def _make_leo_state(self):
         """Create LEO orbital state for testing."""
-        from constellation_generator.domain.constellation import (
+        from humeris.domain.constellation import (
             ShellConfig,
             generate_walker_shell,
         )
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.propagation import derive_orbital_state
 
         shell = ShellConfig(
             altitude_km=500, inclination_deg=53, num_planes=1,
@@ -461,7 +461,7 @@ class TestEclipsePurity:
 
     def test_eclipse_module_pure(self):
         """eclipse.py must only import stdlib modules."""
-        import constellation_generator.domain.eclipse as mod
+        import humeris.domain.eclipse as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -471,10 +471,10 @@ class TestEclipsePurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

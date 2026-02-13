@@ -9,8 +9,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
-from constellation_generator.domain.propagation import OrbitalState
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.propagation import OrbitalState
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ class TestPositionCovariance:
 
     def test_frozen(self):
         """PositionCovariance is immutable."""
-        from constellation_generator.domain.conjunction import PositionCovariance
+        from humeris.domain.conjunction import PositionCovariance
 
         cov = PositionCovariance(
             sigma_xx=100.0, sigma_yy=100.0, sigma_zz=100.0,
@@ -51,7 +51,7 @@ class TestPositionCovariance:
 
     def test_fields(self):
         """PositionCovariance has all 6 upper-triangle fields."""
-        from constellation_generator.domain.conjunction import PositionCovariance
+        from humeris.domain.conjunction import PositionCovariance
 
         cov = PositionCovariance(
             sigma_xx=1.0, sigma_yy=2.0, sigma_zz=3.0,
@@ -65,7 +65,7 @@ class TestConjunctionEvent:
 
     def test_frozen(self):
         """ConjunctionEvent is immutable."""
-        from constellation_generator.domain.conjunction import ConjunctionEvent
+        from humeris.domain.conjunction import ConjunctionEvent
 
         evt = ConjunctionEvent(
             sat1_name="A", sat2_name="B", tca=EPOCH,
@@ -83,7 +83,7 @@ class TestScreenConjunctions:
 
     def test_close_offset_detected(self):
         """Two satellites in same plane with small offset are detected."""
-        from constellation_generator.domain.conjunction import screen_conjunctions
+        from humeris.domain.conjunction import screen_conjunctions
 
         s1 = _circular_state(550, 53, raan_deg=0, nu_deg=0)
         s2 = _circular_state(550, 53, raan_deg=0, nu_deg=0.5)
@@ -99,7 +99,7 @@ class TestScreenConjunctions:
 
     def test_well_separated_empty(self):
         """Satellites at very different altitudes → no conjunctions within tight threshold."""
-        from constellation_generator.domain.conjunction import screen_conjunctions
+        from humeris.domain.conjunction import screen_conjunctions
 
         s1 = _circular_state(400, 53, raan_deg=0, nu_deg=0)
         s2 = _circular_state(800, 53, raan_deg=90, nu_deg=90)
@@ -112,7 +112,7 @@ class TestScreenConjunctions:
 
     def test_mismatched_lengths_raises(self):
         """Mismatched state/name lengths raises ValueError."""
-        from constellation_generator.domain.conjunction import screen_conjunctions
+        from humeris.domain.conjunction import screen_conjunctions
 
         s1 = _circular_state(550, 53)
         with pytest.raises(ValueError):
@@ -123,7 +123,7 @@ class TestScreenConjunctions:
 
     def test_negative_step_raises(self):
         """Negative step raises ValueError."""
-        from constellation_generator.domain.conjunction import screen_conjunctions
+        from humeris.domain.conjunction import screen_conjunctions
 
         s1 = _circular_state(550, 53)
         s2 = _circular_state(550, 53, nu_deg=1)
@@ -140,8 +140,8 @@ class TestRefineTca:
 
     def test_refined_distance_less_than_coarse(self):
         """Refined miss distance ≤ coarse distance at guess time."""
-        from constellation_generator.domain.conjunction import refine_tca
-        from constellation_generator.domain.propagation import propagate_to
+        from humeris.domain.conjunction import refine_tca
+        from humeris.domain.propagation import propagate_to
 
         s1 = _circular_state(550, 53, raan_deg=0, nu_deg=0)
         s2 = _circular_state(550, 53, raan_deg=0, nu_deg=0.5)
@@ -156,7 +156,7 @@ class TestRefineTca:
 
     def test_tca_within_search_window(self):
         """Refined TCA is within the search window of guess."""
-        from constellation_generator.domain.conjunction import refine_tca
+        from humeris.domain.conjunction import refine_tca
 
         s1 = _circular_state(550, 53, raan_deg=0, nu_deg=0)
         s2 = _circular_state(550, 53, raan_deg=0, nu_deg=0.5)
@@ -172,13 +172,13 @@ class TestBPlane:
 
     def test_known_geometry(self):
         """B-plane components are finite for non-trivial relative geometry."""
-        from constellation_generator.domain.conjunction import compute_b_plane
+        from humeris.domain.conjunction import compute_b_plane
 
         # Two sats at same altitude, different RAAN → crossing geometry
         s1 = _circular_state(550, 53, raan_deg=0, nu_deg=45)
         s2 = _circular_state(550, 53, raan_deg=1, nu_deg=45)
 
-        from constellation_generator.domain.propagation import propagate_to
+        from humeris.domain.propagation import propagate_to
         t = EPOCH
         p1, v1 = propagate_to(s1, t)
         p2, v2 = propagate_to(s2, t)
@@ -194,7 +194,7 @@ class TestFosterMaxPc:
 
     def test_positive_for_reasonable_inputs(self):
         """Foster max Pc is positive for reasonable miss/covariance."""
-        from constellation_generator.domain.conjunction import foster_max_collision_probability
+        from humeris.domain.conjunction import foster_max_collision_probability
 
         pc = foster_max_collision_probability(
             miss_distance_m=500.0, combined_radius_m=10.0,
@@ -204,7 +204,7 @@ class TestFosterMaxPc:
 
     def test_larger_covariance_smaller_pc(self):
         """Larger covariance → smaller max Pc (more uncertainty spreads risk)."""
-        from constellation_generator.domain.conjunction import foster_max_collision_probability
+        from humeris.domain.conjunction import foster_max_collision_probability
 
         pc_small_cov = foster_max_collision_probability(100.0, 10.0, 1000.0)
         pc_large_cov = foster_max_collision_probability(100.0, 10.0, 100000.0)
@@ -212,7 +212,7 @@ class TestFosterMaxPc:
 
     def test_zero_covariance_returns_zero(self):
         """Zero combined covariance → Pc = 0."""
-        from constellation_generator.domain.conjunction import foster_max_collision_probability
+        from humeris.domain.conjunction import foster_max_collision_probability
 
         assert foster_max_collision_probability(100.0, 10.0, 0.0) == 0.0
 
@@ -223,7 +223,7 @@ class TestCollisionProbability2D:
 
     def test_zero_miss_high_pc(self):
         """Zero miss distance + small sigmas → Pc near 1."""
-        from constellation_generator.domain.conjunction import collision_probability_2d
+        from humeris.domain.conjunction import collision_probability_2d
 
         pc = collision_probability_2d(
             miss_distance_m=0.0, b_radial_m=0.0, b_cross_m=0.0,
@@ -234,7 +234,7 @@ class TestCollisionProbability2D:
 
     def test_large_miss_low_pc(self):
         """Large miss distance → Pc near 0."""
-        from constellation_generator.domain.conjunction import collision_probability_2d
+        from humeris.domain.conjunction import collision_probability_2d
 
         pc = collision_probability_2d(
             miss_distance_m=50000.0, b_radial_m=50000.0, b_cross_m=0.0,
@@ -250,7 +250,7 @@ class TestAssessConjunction:
 
     def test_with_covariance_pc_positive(self):
         """Assessment with covariance produces Pc > 0."""
-        from constellation_generator.domain.conjunction import (
+        from humeris.domain.conjunction import (
             assess_conjunction, PositionCovariance,
         )
 
@@ -269,7 +269,7 @@ class TestAssessConjunction:
 
     def test_without_covariance_pc_zero(self):
         """Assessment without covariance → Pc = 0."""
-        from constellation_generator.domain.conjunction import assess_conjunction
+        from humeris.domain.conjunction import assess_conjunction
 
         s1 = _circular_state(550, 53, raan_deg=0, nu_deg=0)
         s2 = _circular_state(550, 53, raan_deg=0, nu_deg=0.5)
@@ -289,9 +289,9 @@ class TestScreenConjunctionsNumerical:
 
         Each result is for a satellite at 550 km + offset, 53 deg inclination.
         """
-        from constellation_generator import derive_orbital_state, propagate_numerical
-        from constellation_generator.domain.numerical_propagation import TwoBodyGravity
-        from constellation_generator.domain.constellation import (
+        from humeris import derive_orbital_state, propagate_numerical
+        from humeris.domain.numerical_propagation import TwoBodyGravity
+        from humeris.domain.constellation import (
             ShellConfig, generate_walker_shell,
         )
 
@@ -306,30 +306,30 @@ class TestScreenConjunctionsNumerical:
         return results
 
     def test_close_offset_detected(self):
-        from constellation_generator.domain.conjunction import screen_conjunctions_numerical
+        from humeris.domain.conjunction import screen_conjunctions_numerical
         results = self._make_numerical_results([0, 0], [0, 0.5])
         events = screen_conjunctions_numerical(results, ["A", "B"], distance_threshold_m=200_000)
         assert len(events) > 0
 
     def test_well_separated_empty(self):
-        from constellation_generator.domain.conjunction import screen_conjunctions_numerical
+        from humeris.domain.conjunction import screen_conjunctions_numerical
         results = self._make_numerical_results([0, 400], [0, 90])
         events = screen_conjunctions_numerical(results, ["A", "B"], distance_threshold_m=1_000)
         assert len(events) == 0
 
     def test_mismatched_lengths_raises(self):
-        from constellation_generator.domain.conjunction import screen_conjunctions_numerical
+        from humeris.domain.conjunction import screen_conjunctions_numerical
         results = self._make_numerical_results([0], [0])
         with pytest.raises(ValueError):
             screen_conjunctions_numerical(results, ["A", "B"])
 
     def test_empty_results_raises(self):
-        from constellation_generator.domain.conjunction import screen_conjunctions_numerical
+        from humeris.domain.conjunction import screen_conjunctions_numerical
         with pytest.raises(ValueError):
             screen_conjunctions_numerical([], [])
 
     def test_sorted_by_distance(self):
-        from constellation_generator.domain.conjunction import screen_conjunctions_numerical
+        from humeris.domain.conjunction import screen_conjunctions_numerical
         results = self._make_numerical_results([0, 0, 0], [0, 0.3, 0.6])
         events = screen_conjunctions_numerical(
             results, ["A", "B", "C"], distance_threshold_m=500_000,
@@ -339,7 +339,7 @@ class TestScreenConjunctionsNumerical:
             assert dists == sorted(dists)
 
     def test_all_distances_within_threshold(self):
-        from constellation_generator.domain.conjunction import screen_conjunctions_numerical
+        from humeris.domain.conjunction import screen_conjunctions_numerical
         threshold = 200_000.0
         results = self._make_numerical_results([0, 0], [0, 0.5])
         events = screen_conjunctions_numerical(results, ["A", "B"], distance_threshold_m=threshold)
@@ -347,7 +347,7 @@ class TestScreenConjunctionsNumerical:
             assert dist <= threshold
 
     def test_single_satellite_no_conjunctions(self):
-        from constellation_generator.domain.conjunction import screen_conjunctions_numerical
+        from humeris.domain.conjunction import screen_conjunctions_numerical
         results = self._make_numerical_results([0], [0])
         events = screen_conjunctions_numerical(results, ["A"])
         assert len(events) == 0
@@ -357,7 +357,7 @@ class TestConjunctionPurity:
 
     def test_conjunction_module_pure(self):
         """conjunction.py must only import stdlib modules."""
-        import constellation_generator.domain.conjunction as mod
+        import humeris.domain.conjunction as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -367,10 +367,10 @@ class TestConjunctionPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

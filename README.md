@@ -1,4 +1,4 @@
-# Constellation Generator
+# Humeris
 
 [![Version](https://img.shields.io/badge/version-1.22.0-blue.svg)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](pyproject.toml)
@@ -7,7 +7,7 @@
 
 Generate Walker constellation satellite shells and fetch live orbital data for orbit simulation tools.
 
-![Constellation Generator interactive viewer](docs/interface.png)
+![Humeris interactive viewer](docs/interface.png)
 
 > **Disclaimer**: This library provides computational models for educational,
 > research, and engineering analysis purposes. It is **not certified** for
@@ -38,26 +38,26 @@ pip install ".[dev]"
 
 ```bash
 # Default: 3 Walker shells + SSO band → 7200 satellites
-constellation-generator -i simulation_old.json -o simulation.json
+humeris -i simulation_old.json -o simulation.json
 
 # Custom base ID
-constellation-generator -i sim_old.json -o sim.json --base-id 200
+humeris -i sim_old.json -o sim.json --base-id 200
 ```
 
 ### Live data from CelesTrak
 
 ```bash
 # Real GPS constellation (32 satellites)
-constellation-generator -i sim.json -o out.json --live-group GPS-OPS
+humeris -i sim.json -o out.json --live-group GPS-OPS
 
 # All Starlink satellites (~6000+) with concurrent SGP4 propagation
-constellation-generator -i sim.json -o out.json --live-group STARLINK --concurrent
+humeris -i sim.json -o out.json --live-group STARLINK --concurrent
 
 # Search by name
-constellation-generator -i sim.json -o out.json --live-name "ISS (ZARYA)"
+humeris -i sim.json -o out.json --live-name "ISS (ZARYA)"
 
 # By NORAD catalog number
-constellation-generator -i sim.json -o out.json --live-catnr 25544
+humeris -i sim.json -o out.json --live-catnr 25544
 ```
 
 #### Available CelesTrak groups
@@ -73,13 +73,13 @@ the simulation JSON:
 
 ```bash
 # CSV export
-constellation-generator -i sim.json -o out.json --export-csv satellites.csv
+humeris -i sim.json -o out.json --export-csv satellites.csv
 
 # GeoJSON export
-constellation-generator -i sim.json -o out.json --export-geojson satellites.geojson
+humeris -i sim.json -o out.json --export-geojson satellites.geojson
 
 # Both at once
-constellation-generator -i sim.json -o out.json --export-csv sats.csv --export-geojson sats.geojson
+humeris -i sim.json -o out.json --export-csv sats.csv --export-geojson sats.geojson
 ```
 
 CSV columns: `name`, `lat_deg`, `lon_deg`, `alt_km`, `epoch`, `plane_index`,
@@ -93,7 +93,7 @@ follow the GeoJSON spec: `[longitude, latitude, altitude_km]`.
 #### Walker shell generation
 
 ```python
-from constellation_generator import ShellConfig, generate_walker_shell
+from humeris import ShellConfig, generate_walker_shell
 
 shell = ShellConfig(
     altitude_km=550, inclination_deg=53,
@@ -107,7 +107,7 @@ satellites = generate_walker_shell(shell)
 #### Live data from CelesTrak
 
 ```python
-from constellation_generator.adapters.celestrak import CelesTrakAdapter
+from humeris.adapters.celestrak import CelesTrakAdapter
 
 celestrak = CelesTrakAdapter()
 gps_sats = celestrak.fetch_satellites(group="GPS-OPS")
@@ -121,7 +121,7 @@ SGP4 propagation is the bottleneck when fetching large groups (not HTTP).
 using `ThreadPoolExecutor`:
 
 ```python
-from constellation_generator.adapters.concurrent_celestrak import ConcurrentCelesTrakAdapter
+from humeris.adapters.concurrent_celestrak import ConcurrentCelesTrakAdapter
 
 concurrent = ConcurrentCelesTrakAdapter(max_workers=16)
 starlink = concurrent.fetch_satellites(group="STARLINK")
@@ -135,7 +135,7 @@ method on the WGS84 ellipsoid:
 
 ```python
 from datetime import datetime, timezone
-from constellation_generator import gmst_rad, eci_to_ecef, ecef_to_geodetic
+from humeris import gmst_rad, eci_to_ecef, ecef_to_geodetic
 
 sat = gps_sats[0]
 gmst = gmst_rad(sat.epoch)
@@ -153,7 +153,7 @@ the adapter layer provides SGP4-based propagation.
 
 ```python
 from datetime import datetime, timedelta, timezone
-from constellation_generator import compute_ground_track, generate_walker_shell, ShellConfig
+from humeris import compute_ground_track, generate_walker_shell, ShellConfig
 
 shell = ShellConfig(
     altitude_km=500, inclination_deg=53,
@@ -176,7 +176,7 @@ Compute azimuth, elevation, and slant range from a ground station to a
 satellite:
 
 ```python
-from constellation_generator import (
+from humeris import (
     GroundStation, derive_orbital_state, propagate_ecef_to, compute_observation,
     generate_walker_shell, ShellConfig,
 )
@@ -199,7 +199,7 @@ print(f"Az={obs.azimuth_deg:.1f}°, El={obs.elevation_deg:.1f}°, Range={obs.sla
 Predict satellite visibility windows (rise/set times) from a ground station:
 
 ```python
-from constellation_generator import (
+from humeris import (
     GroundStation, derive_orbital_state, compute_access_windows,
     generate_walker_shell, ShellConfig,
 )
@@ -223,7 +223,7 @@ Compute a grid-based coverage snapshot showing how many satellites are
 visible from each point:
 
 ```python
-from constellation_generator import (
+from humeris import (
     derive_orbital_state, compute_coverage_snapshot,
     generate_walker_shell, ShellConfig,
 )
@@ -246,7 +246,7 @@ Compute time-domain coverage FoMs (mean/max revisit, coverage fraction,
 mean response time) over an analysis window:
 
 ```python
-from constellation_generator import (
+from humeris import (
     derive_orbital_state, compute_revisit,
     generate_walker_shell, ShellConfig,
 )
@@ -272,7 +272,7 @@ print(f"Mean response time: {result.mean_response_time_s/60:.0f} min")
 Sweep Walker constellation parameters and compare coverage metrics:
 
 ```python
-from constellation_generator import (
+from humeris import (
     generate_walker_configs, run_walker_trade_study, pareto_front_indices,
 )
 from datetime import datetime, timedelta, timezone
@@ -306,7 +306,7 @@ Model atmospheric density, compute orbit lifetime under drag decay,
 and predict altitude at future times:
 
 ```python
-from constellation_generator import (
+from humeris import (
     DragConfig, atmospheric_density, compute_orbit_lifetime,
     compute_altitude_at_time, OrbitalConstants,
 )
@@ -332,7 +332,7 @@ Compute annual delta-V for drag compensation and plane maintenance,
 total propellant budget, and operational lifetime:
 
 ```python
-from constellation_generator import (
+from humeris import (
     StationKeepingConfig, compute_station_keeping_budget, DragConfig,
 )
 
@@ -359,7 +359,7 @@ B-plane geometry and collision probability.
 > (e.g., from 18th Space Defense Squadron) and validated covariance realism.
 
 ```python
-from constellation_generator import (
+from humeris import (
     screen_conjunctions, assess_conjunction, PositionCovariance,
     generate_walker_shell, ShellConfig, derive_orbital_state,
 )
@@ -386,7 +386,7 @@ if events:
 Compute Sun position in ECI coordinates at any epoch:
 
 ```python
-from constellation_generator import sun_position_eci, solar_declination_rad
+from humeris import sun_position_eci, solar_declination_rad
 from datetime import datetime, timezone
 import math
 
@@ -401,7 +401,7 @@ print(f"Distance: {sun.distance_m/1.496e11:.4f} AU")
 Determine shadow conditions, beta angle, and eclipse windows:
 
 ```python
-from constellation_generator import (
+from humeris import (
     eclipse_fraction, compute_beta_angle, compute_eclipse_windows,
     derive_orbital_state, generate_walker_shell, ShellConfig,
 )
@@ -429,7 +429,7 @@ print(f"Eclipse events in 3h: {len(windows)}")
 Plan Hohmann, bi-elliptic, plane change, and phasing maneuvers:
 
 ```python
-from constellation_generator import (
+from humeris import (
     hohmann_transfer, bielliptic_transfer, plane_change_dv,
     add_propellant_estimate, OrbitalConstants,
 )
@@ -458,7 +458,7 @@ Estimate orbit decay timelines against FCC 5-year / ESA 25-year guidelines:
 > assessment requires mission-specific analysis with validated tools.
 
 ```python
-from constellation_generator import (
+from humeris import (
     DragConfig, assess_deorbit_compliance, DeorbitRegulation,
 )
 from datetime import datetime, timezone
@@ -478,7 +478,7 @@ if result.maneuver_required:
 Design sun-synchronous, frozen, and repeat ground track orbits:
 
 ```python
-from constellation_generator import (
+from humeris import (
     design_sso_orbit, design_frozen_orbit, design_repeat_ground_track,
 )
 from datetime import datetime, timezone
@@ -501,7 +501,7 @@ Numerical orbit propagation (RK4) with composable perturbation forces:
 
 ```python
 from datetime import datetime, timedelta, timezone
-from constellation_generator import (
+from humeris import (
     ShellConfig, generate_walker_shell, derive_orbital_state,
     TwoBodyGravity, J2Perturbation, J3Perturbation,
     AtmosphericDragForce, SolarRadiationPressureForce,
@@ -540,7 +540,7 @@ result_srp = propagate_numerical(
 Select between atmosphere density tables:
 
 ```python
-from constellation_generator import atmospheric_density, AtmosphereModel
+from humeris import atmospheric_density, AtmosphereModel
 
 rho_high = atmospheric_density(500, AtmosphereModel.HIGH_ACTIVITY)
 rho_vallado = atmospheric_density(500, AtmosphereModel.VALLADO_4TH)
@@ -553,8 +553,8 @@ Generate CZML for animated 3D visualization in CesiumJS:
 
 ```python
 from datetime import datetime, timedelta, timezone
-from constellation_generator import ShellConfig, generate_walker_shell, derive_orbital_state
-from constellation_generator.adapters.czml_exporter import (
+from humeris import ShellConfig, generate_walker_shell, derive_orbital_state
+from humeris.adapters.czml_exporter import (
     constellation_packets, ground_track_packets, coverage_packets, write_czml,
 )
 
@@ -569,13 +569,13 @@ packets = constellation_packets(states, epoch, timedelta(hours=2), timedelta(sec
 write_czml(packets, "constellation.czml")
 
 # Ground track polyline
-from constellation_generator import compute_ground_track
+from humeris import compute_ground_track
 track = compute_ground_track(sats[0], epoch, timedelta(minutes=90), timedelta(minutes=1))
 gt_packets = ground_track_packets(track)
 write_czml(gt_packets, "ground_track.czml")
 
 # Coverage heatmap
-from constellation_generator import compute_coverage_snapshot
+from humeris import compute_coverage_snapshot
 grid = compute_coverage_snapshot(states, epoch, lat_step_deg=5, lon_step_deg=5)
 cov_packets = coverage_packets(grid, lat_step_deg=5, lon_step_deg=5)
 write_czml(cov_packets, "coverage.czml")
@@ -654,8 +654,8 @@ O(n²) analyses cap satellite count to prevent browser lockup:
 #### Export formats (programmatic)
 
 ```python
-from constellation_generator.adapters.csv_exporter import CsvSatelliteExporter
-from constellation_generator.adapters.geojson_exporter import GeoJsonSatelliteExporter
+from humeris.adapters.csv_exporter import CsvSatelliteExporter
+from humeris.adapters.geojson_exporter import GeoJsonSatelliteExporter
 
 # CSV
 CsvSatelliteExporter().export(sats, "satellites.csv")
@@ -669,7 +669,7 @@ GeoJsonSatelliteExporter().export(sats, "satellites.geojson")
 Combine synthetic and live satellites, then serialise for simulation:
 
 ```python
-from constellation_generator import build_satellite_entity
+from humeris import build_satellite_entity
 
 template = {"Name": "Sat", "Id": 0}
 all_sats = satellites + gps_sats
@@ -691,7 +691,7 @@ entities = [
 ## Architecture
 
 ```
-src/constellation_generator/
+src/humeris/
 ├── domain/                        # Pure logic — only stdlib (71 modules)
 │   ├── orbital_mechanics.py       # Kepler → Cartesian, SSO inclination, J2/J3
 │   ├── constellation.py           # Walker shells, SSO bands, ShellConfig, Satellite

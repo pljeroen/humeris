@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.radiation import (
+from humeris.domain.radiation import (
     OrbitRadiationSummary,
     RadiationEnvironment,
     compute_l_shell,
@@ -90,7 +90,7 @@ class TestOrbitRadiationSummary:
 
     def test_orbit_summary_returns_type(self):
         """Return type is OrbitRadiationSummary."""
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         mu = 3.986004418e14
         a = _R_EARTH_KM * 1000.0 + 500_000.0
@@ -107,7 +107,7 @@ class TestOrbitRadiationSummary:
 
     def test_orbit_summary_annual_dose_positive(self):
         """Annual dose > 0 for LEO orbit."""
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         mu = 3.986004418e14
         a = _R_EARTH_KM * 1000.0 + 500_000.0
@@ -124,7 +124,7 @@ class TestOrbitRadiationSummary:
 
     def test_higher_inclination_more_saa(self):
         """Higher inclination orbit → more SAA exposure."""
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         mu = 3.986004418e14
         a = _R_EARTH_KM * 1000.0 + 500_000.0
@@ -152,7 +152,7 @@ class TestRadiationPurity:
     """Domain purity: radiation.py must only import stdlib + domain."""
 
     def test_module_pure(self):
-        import constellation_generator.domain.radiation as mod
+        import humeris.domain.radiation as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -162,10 +162,10 @@ class TestRadiationPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

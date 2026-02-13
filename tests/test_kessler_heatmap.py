@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.kessler_heatmap import (
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.kessler_heatmap import (
     KesslerCell,
     KesslerHeatMap,
     KesslerPersistence,
@@ -683,7 +683,7 @@ class TestKesslerHeatmapPurity:
 
     def test_module_pure(self):
         """kessler_heatmap.py only imports stdlib + numpy + domain."""
-        import constellation_generator.domain.kessler_heatmap as mod
+        import humeris.domain.kessler_heatmap as mod
 
         allowed = {
             'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum',
@@ -696,10 +696,10 @@ class TestKesslerHeatmapPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

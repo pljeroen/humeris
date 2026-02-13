@@ -28,8 +28,8 @@ files (`version.ini`, `info.json`, `ui-state.json`).
 ### Basic export
 
 ```python
-from constellation_generator import ShellConfig, generate_walker_shell
-from constellation_generator.adapters.ubox_exporter import UboxExporter
+from humeris import ShellConfig, generate_walker_shell
+from humeris.adapters.ubox_exporter import UboxExporter
 from datetime import datetime, timezone
 
 shell = ShellConfig(
@@ -57,7 +57,7 @@ increase the **Particle Scale** in View settings, or export with a larger
 ### With physical properties
 
 ```python
-from constellation_generator.domain.atmosphere import DragConfig
+from humeris.domain.atmosphere import DragConfig
 
 drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
 UboxExporter(drag_config=drag).export(sats, "constellation.ubox", epoch=epoch)
@@ -78,7 +78,7 @@ directory.
 ### Basic export
 
 ```python
-from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
+from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
 
 SpaceEngineExporter().export(sats, "constellation.sc", epoch=epoch)
 ```
@@ -126,7 +126,7 @@ altitudes.
 ### Basic export
 
 ```python
-from constellation_generator.adapters.ksp_exporter import KspExporter
+from humeris.adapters.ksp_exporter import KspExporter
 
 KspExporter().export(sats, "constellation.sfs", epoch=epoch)
 ```
@@ -171,7 +171,7 @@ simulator. Custom objects are added via `.ssc` catalog files.
 ### Basic export
 
 ```python
-from constellation_generator.adapters.celestia_exporter import CelestiaExporter
+from humeris.adapters.celestia_exporter import CelestiaExporter
 
 CelestiaExporter().export(sats, "constellation.ssc", epoch=epoch)
 ```
@@ -210,7 +210,7 @@ visualization. Each satellite gets a position marker and a full orbit path.
 ### Basic export
 
 ```python
-from constellation_generator.adapters.kml_exporter import KmlExporter
+from humeris.adapters.kml_exporter import KmlExporter
 
 KmlExporter().export(sats, "constellation.kml", epoch=epoch)
 ```
@@ -248,7 +248,7 @@ visualization when run inside Blender.
 ### Basic export
 
 ```python
-from constellation_generator.adapters.blender_exporter import BlenderExporter
+from humeris.adapters.blender_exporter import BlenderExporter
 
 BlenderExporter().export(sats, "constellation.py", epoch=epoch)
 ```
@@ -293,7 +293,7 @@ and any other TLE-consuming software.
 ### Basic export
 
 ```python
-from constellation_generator.adapters.stellarium_exporter import StellariumExporter
+from humeris.adapters.stellarium_exporter import StellariumExporter
 
 StellariumExporter().export(sats, "constellation.tle", epoch=epoch)
 ```
@@ -346,14 +346,14 @@ All exporters accept any `list[Satellite]`. Combine synthetic and live
 data, or filter by analysis results:
 
 ```python
-from constellation_generator import generate_walker_shell, ShellConfig
-from constellation_generator.adapters.celestrak import CelesTrakAdapter
-from constellation_generator.adapters.ubox_exporter import UboxExporter
-from constellation_generator.adapters.spaceengine_exporter import SpaceEngineExporter
-from constellation_generator.adapters.ksp_exporter import KspExporter
-from constellation_generator.adapters.kml_exporter import KmlExporter
-from constellation_generator.adapters.blender_exporter import BlenderExporter
-from constellation_generator.adapters.stellarium_exporter import StellariumExporter
+from humeris import generate_walker_shell, ShellConfig
+from humeris.adapters.celestrak import CelesTrakAdapter
+from humeris.adapters.ubox_exporter import UboxExporter
+from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
+from humeris.adapters.ksp_exporter import KspExporter
+from humeris.adapters.kml_exporter import KmlExporter
+from humeris.adapters.blender_exporter import BlenderExporter
+from humeris.adapters.stellarium_exporter import StellariumExporter
 
 # Generate constellation
 shell = ShellConfig(altitude_km=550, inclination_deg=53, num_planes=6,

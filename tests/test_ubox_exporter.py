@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.atmosphere import DragConfig
-from constellation_generator.domain.constellation import (
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.constellation import (
     Satellite,
     ShellConfig,
     generate_walker_shell,
@@ -46,7 +46,7 @@ class TestUboxFileStructure:
     """The .ubox file must be a ZIP containing simulation.json + metadata."""
 
     def test_creates_valid_zip(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -56,7 +56,7 @@ class TestUboxFileStructure:
         assert zipfile.is_zipfile(path)
 
     def test_zip_contains_simulation_json(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -67,7 +67,7 @@ class TestUboxFileStructure:
             assert "simulation.json" in names
 
     def test_zip_contains_version_ini(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -77,7 +77,7 @@ class TestUboxFileStructure:
             assert "version.ini" in zf.namelist()
 
     def test_zip_contains_info_json(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -89,7 +89,7 @@ class TestUboxFileStructure:
             assert "Name" in info
 
     def test_zip_contains_ui_state_json(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -99,7 +99,7 @@ class TestUboxFileStructure:
             assert "ui-state.json" in zf.namelist()
 
     def test_simulation_json_parses_valid(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -118,7 +118,7 @@ class TestEarthEntity:
     """The simulation must include Earth as the central body."""
 
     def test_earth_entity_present(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -129,7 +129,7 @@ class TestEarthEntity:
         assert len(earth) == 1
 
     def test_earth_is_body_type(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -140,7 +140,7 @@ class TestEarthEntity:
         assert earth["$type"] == "Body"
 
     def test_earth_has_id_3(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -151,7 +151,7 @@ class TestEarthEntity:
         assert earth["Id"] == 3
 
     def test_earth_has_no_parent(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -162,7 +162,7 @@ class TestEarthEntity:
         assert earth["Parent"] == -1
 
     def test_earth_has_celestial_component(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -174,7 +174,7 @@ class TestEarthEntity:
         assert "Celestial" in types
 
     def test_earth_has_appearance_component(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -194,7 +194,7 @@ class TestSatelliteEntities:
     """Each satellite should be exported with ECI state vectors."""
 
     def test_correct_number_of_satellite_entities(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -205,7 +205,7 @@ class TestSatelliteEntities:
         assert len(sat_entities) == len(sats)
 
     def test_satellite_names_preserved(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -217,7 +217,7 @@ class TestSatelliteEntities:
         assert names == expected
 
     def test_satellites_reference_earth_as_parent(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -229,7 +229,7 @@ class TestSatelliteEntities:
                 assert entity["Parent"] == 3
 
     def test_satellites_have_relative_to_1(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -241,7 +241,7 @@ class TestSatelliteEntities:
                 assert entity["RelativeTo"] == 1
 
     def test_satellite_flags_146(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -253,7 +253,7 @@ class TestSatelliteEntities:
                 assert entity["Flags"] == 146
 
     def test_position_is_semicolon_separated(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -269,7 +269,7 @@ class TestSatelliteEntities:
                     float(p)  # must parse as float
 
     def test_velocity_is_semicolon_separated(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -285,8 +285,8 @@ class TestSatelliteEntities:
                     float(p)
 
     def test_position_magnitude_is_orbital_radius(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
-        from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+        from humeris.adapters.ubox_exporter import UboxExporter
+        from humeris.domain.orbital_mechanics import OrbitalConstants
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -301,7 +301,7 @@ class TestSatelliteEntities:
                 assert abs(r - expected_r) / expected_r < 0.001
 
     def test_unique_entity_ids(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -312,7 +312,7 @@ class TestSatelliteEntities:
         assert len(ids) == len(set(ids))
 
     def test_satellite_has_particle_component(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -333,7 +333,7 @@ class TestSettings:
     """Simulation settings should include the epoch and camera targeting Earth."""
 
     def test_date_setting_present(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -343,7 +343,7 @@ class TestSettings:
         assert "Date" in sim
 
     def test_date_contains_epoch(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -353,7 +353,7 @@ class TestSettings:
         assert "2026-03-20" in sim["Date"]
 
     def test_camera_targets_earth(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -363,7 +363,7 @@ class TestSettings:
         assert sim["Settings"]["CameraTargetId"] == 3
 
     def test_custom_name(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -381,7 +381,7 @@ class TestPhysicalProperties:
     """When DragConfig is provided, satellites get mass and radius."""
 
     def test_mass_set_from_drag_config(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
@@ -395,7 +395,7 @@ class TestPhysicalProperties:
                 assert entity["PhysicsMass"] == 260.0
 
     def test_radius_derived_from_area(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
@@ -409,7 +409,7 @@ class TestPhysicalProperties:
                 assert abs(entity["Radius"] - expected_radius) < 0.001
 
     def test_default_mass_without_drag_config(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -429,7 +429,7 @@ class TestReturnCount:
     """Export returns the number of satellites exported."""
 
     def test_returns_satellite_count(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.ubox")
@@ -437,7 +437,7 @@ class TestReturnCount:
         assert count == 6
 
     def test_empty_list_returns_zero(self, tmp_path):
-        from constellation_generator.adapters.ubox_exporter import UboxExporter
+        from humeris.adapters.ubox_exporter import UboxExporter
 
         path = str(tmp_path / "empty.ubox")
         count = UboxExporter().export([], path, epoch=EPOCH)

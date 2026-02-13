@@ -11,13 +11,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator import OrbitalConstants, kepler_to_cartesian
-from constellation_generator.domain.gravity_field import (
+from humeris import OrbitalConstants, kepler_to_cartesian
+from humeris.domain.gravity_field import (
     GravityFieldModel,
     CunninghamGravity,
     load_gravity_field,
 )
-from constellation_generator.domain.numerical_propagation import (
+from humeris.domain.numerical_propagation import (
     ForceModel,
     TwoBodyGravity,
     SphericalHarmonicGravity,
@@ -252,7 +252,7 @@ class TestCunninghamIntegration:
 
     def test_propagate_numerical_with_cunningham(self, epoch):
         """propagate_numerical() completes with CunninghamGravity."""
-        from constellation_generator import (
+        from humeris import (
             ShellConfig,
             generate_walker_shell,
             derive_orbital_state,
@@ -286,7 +286,7 @@ class TestCunninghamIntegration:
 
     def test_energy_bounded_one_orbit(self, epoch):
         """Specific energy stays bounded over one orbit (TwoBody + Cunningham)."""
-        from constellation_generator import (
+        from humeris import (
             ShellConfig,
             generate_walker_shell,
             derive_orbital_state,
@@ -348,13 +348,13 @@ class TestDomainPurity:
 
     def test_gravity_field_domain_purity(self):
         """gravity_field.py must only import from stdlib and domain."""
-        import constellation_generator.domain.gravity_field as mod
+        import humeris.domain.gravity_field as mod
 
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
         allowed_top = {"math", "numpy", "dataclasses", "typing", "datetime", "json", "pathlib"}
-        allowed_internal_prefix = "constellation_generator"
+        allowed_internal_prefix = "humeris"
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

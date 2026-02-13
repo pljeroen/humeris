@@ -12,13 +12,13 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.constellation import (
+from humeris.domain.constellation import (
     ShellConfig,
     generate_walker_shell,
 )
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
-from constellation_generator.ports.export import SatelliteExporter
-from constellation_generator.adapters.blender_exporter import BlenderExporter
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.ports.export import SatelliteExporter
+from humeris.adapters.blender_exporter import BlenderExporter
 
 
 EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)

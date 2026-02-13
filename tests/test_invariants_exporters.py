@@ -17,14 +17,14 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator import (
+from humeris import (
     ShellConfig,
     generate_walker_shell,
     derive_orbital_state,
     GroundTrackPoint,
     CoveragePoint,
 )
-from constellation_generator.adapters.czml_exporter import (
+from humeris.adapters.czml_exporter import (
     constellation_packets,
     ground_track_packets,
     coverage_packets,

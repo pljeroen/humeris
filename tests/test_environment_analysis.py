@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.environment_analysis import (
+from humeris.domain.environment_analysis import (
     ThermalMonth,
     SeasonalThermalProfile,
     DoseSnapshot,
@@ -26,9 +26,9 @@ from constellation_generator.domain.environment_analysis import (
     compute_eclipse_free_windows,
     compute_worst_case_torque_timing,
 )
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.atmosphere import DragConfig
-from constellation_generator.domain.torques import InertiaTensor
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.torques import InertiaTensor
 
 
 _MU = 3.986004418e14
@@ -146,7 +146,7 @@ class TestTorqueTiming:
 
 class TestEnvironmentAnalysisPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.environment_analysis as mod
+        import humeris.domain.environment_analysis as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -155,10 +155,10 @@ class TestEnvironmentAnalysisPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

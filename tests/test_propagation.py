@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.constellation import ShellConfig, generate_walker_shell
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.constellation import ShellConfig, generate_walker_shell
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ _EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 class TestOrbitalState:
 
     def test_frozen(self):
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         state = OrbitalState(
             semi_major_axis_m=7_000_000.0,
@@ -47,7 +47,7 @@ class TestOrbitalState:
             state.semi_major_axis_m = 8_000_000.0
 
     def test_j2_defaults_zero(self):
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         state = OrbitalState(
             semi_major_axis_m=7_000_000.0,
@@ -64,7 +64,7 @@ class TestOrbitalState:
         assert state.j2_mean_motion_correction == 0.0
 
     def test_fields(self):
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         state = OrbitalState(
             semi_major_axis_m=6_871_000.0,
@@ -90,7 +90,7 @@ class TestDeriveOrbitalState:
 
     def test_circular_orbit_semi_major_axis(self):
         """a = |pos| for circular orbit."""
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(altitude_km=500)
         state = derive_orbital_state(sat, _EPOCH)
@@ -99,7 +99,7 @@ class TestDeriveOrbitalState:
 
     def test_mean_motion(self):
         """n = sqrt(mu/a^3)."""
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(altitude_km=500)
         state = derive_orbital_state(sat, _EPOCH)
@@ -109,7 +109,7 @@ class TestDeriveOrbitalState:
 
     def test_inclination(self):
         """Inclination matches satellite orbit."""
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(inclination_deg=53)
         state = derive_orbital_state(sat, _EPOCH)
@@ -117,7 +117,7 @@ class TestDeriveOrbitalState:
 
     def test_j2_off_by_default(self):
         """Without include_j2, J2 rates are zero."""
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite()
         state = derive_orbital_state(sat, _EPOCH)
@@ -127,7 +127,7 @@ class TestDeriveOrbitalState:
 
     def test_j2_on_produces_nonzero_rates(self):
         """With include_j2=True, J2 rates are nonzero."""
-        from constellation_generator.domain.propagation import derive_orbital_state
+        from humeris.domain.propagation import derive_orbital_state
 
         sat = _make_satellite(inclination_deg=53)
         state = derive_orbital_state(sat, _EPOCH, include_j2=True)
@@ -142,7 +142,7 @@ class TestPropagateTo:
 
     def test_zero_dt_matches_initial(self):
         """At dt=0, propagated position ≈ initial kepler_to_cartesian output."""
-        from constellation_generator.domain.propagation import derive_orbital_state, propagate_to
+        from humeris.domain.propagation import derive_orbital_state, propagate_to
 
         sat = _make_satellite(altitude_km=500)
         state = derive_orbital_state(sat, _EPOCH)
@@ -153,7 +153,7 @@ class TestPropagateTo:
 
     def test_one_period_returns_near_start(self):
         """After one orbital period, position returns near initial."""
-        from constellation_generator.domain.propagation import derive_orbital_state, propagate_to
+        from humeris.domain.propagation import derive_orbital_state, propagate_to
 
         sat = _make_satellite(altitude_km=500)
         state = derive_orbital_state(sat, _EPOCH)
@@ -166,7 +166,7 @@ class TestPropagateTo:
 
     def test_radius_preserved_circular(self):
         """For circular orbit, radius stays constant over time."""
-        from constellation_generator.domain.propagation import derive_orbital_state, propagate_to
+        from humeris.domain.propagation import derive_orbital_state, propagate_to
 
         sat = _make_satellite(altitude_km=500)
         state = derive_orbital_state(sat, _EPOCH)
@@ -182,7 +182,7 @@ class TestPropagateTo:
 class TestPropagateECEFTo:
 
     def test_returns_tuple(self):
-        from constellation_generator.domain.propagation import derive_orbital_state, propagate_ecef_to
+        from humeris.domain.propagation import derive_orbital_state, propagate_ecef_to
 
         sat = _make_satellite()
         state = derive_orbital_state(sat, _EPOCH)
@@ -191,7 +191,7 @@ class TestPropagateECEFTo:
         assert len(result) == 3
 
     def test_plausible_radius(self):
-        from constellation_generator.domain.propagation import derive_orbital_state, propagate_ecef_to
+        from humeris.domain.propagation import derive_orbital_state, propagate_ecef_to
 
         sat = _make_satellite(altitude_km=500)
         state = derive_orbital_state(sat, _EPOCH)
@@ -207,7 +207,7 @@ class TestGroundTrackCompat:
 
     def test_default_no_j2_same_output(self):
         """include_j2=False (default) produces same output as before."""
-        from constellation_generator.domain.ground_track import compute_ground_track
+        from humeris.domain.ground_track import compute_ground_track
 
         sat = _make_satellite()
         start = _EPOCH
@@ -218,7 +218,7 @@ class TestGroundTrackCompat:
 
     def test_j2_differs_over_long_duration(self):
         """With J2, ground track differs from without over 24 hours."""
-        from constellation_generator.domain.ground_track import compute_ground_track
+        from humeris.domain.ground_track import compute_ground_track
 
         sat = _make_satellite()
         start = _EPOCH
@@ -242,7 +242,7 @@ class TestGroundTrackCompat:
 class TestPropagationPurity:
 
     def test_propagation_imports_only_stdlib_and_domain(self):
-        import constellation_generator.domain.propagation as mod
+        import humeris.domain.propagation as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -252,10 +252,10 @@ class TestPropagationPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

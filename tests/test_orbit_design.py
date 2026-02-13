@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
-from constellation_generator.domain.orbit_design import (
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.orbit_design import (
     FrozenOrbitDesign,
     RepeatGroundTrackDesign,
     SSODesign,
@@ -79,7 +79,7 @@ class TestDesignSSO:
 
     def test_500km_inclination(self):
         """SSO at 500km → inclination ≈ 97.4° (matches sso_inclination_deg)."""
-        from constellation_generator.domain.orbital_mechanics import sso_inclination_deg
+        from humeris.domain.orbital_mechanics import sso_inclination_deg
 
         epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
         sso = design_sso_orbit(500, 10.5, epoch)
@@ -102,7 +102,7 @@ class TestDesignSSO:
         """LTAN 6:00 (dawn-dusk) → RAAN ≈ sun_RA - 90°."""
         epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
         sso = design_sso_orbit(500, 6.0, epoch)
-        from constellation_generator.domain.solar import sun_position_eci
+        from humeris.domain.solar import sun_position_eci
         sun = sun_position_eci(epoch)
         expected_raan = (math.degrees(sun.right_ascension_rad) - 90.0) % 360
         # Allow ~5° tolerance due to simplified algorithm
@@ -165,7 +165,7 @@ class TestOrbitDesignPurity:
 
     def test_orbit_design_module_pure(self):
         """orbit_design.py must only import stdlib modules."""
-        import constellation_generator.domain.orbit_design as mod
+        import humeris.domain.orbit_design as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -175,10 +175,10 @@ class TestOrbitDesignPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

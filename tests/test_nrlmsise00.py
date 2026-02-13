@@ -24,7 +24,7 @@ class TestReferenceDensities:
     """Verify total mass density at standard altitudes for moderate solar activity."""
 
     def _evaluate(self, altitude_km: float) -> "AtmosphereState":
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -86,7 +86,7 @@ class TestReferenceDensities:
 
     def test_species_sum_matches_total(self):
         """Sum of species mass densities should approximate total density."""
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -135,7 +135,7 @@ class TestTemperature:
     """Verify temperature profile behavior."""
 
     def _evaluate(self, altitude_km: float, f107: float = 150.0) -> "AtmosphereState":
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -188,7 +188,7 @@ class TestSolarActivity:
     """Verify F10.7 dependency on density and temperature."""
 
     def _evaluate(self, f107_daily: float, f107_avg: float) -> "AtmosphereState":
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -238,7 +238,7 @@ class TestLatitudeDependence:
     """Verify latitude effects on density."""
 
     def _evaluate(self, lat_deg: float) -> "AtmosphereState":
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -284,7 +284,7 @@ class TestDayNightVariation:
     """Verify diurnal density variation."""
 
     def _evaluate(self, ut_seconds: float, lon_deg: float) -> "AtmosphereState":
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -332,7 +332,7 @@ class TestMagneticActivity:
     """Verify Ap geomagnetic index effects."""
 
     def _evaluate(self, ap: float, altitude_km: float = 400.0) -> "AtmosphereState":
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -385,7 +385,7 @@ class TestAltitudeBoundaries:
     """Verify behavior at altitude edges."""
 
     def _evaluate(self, altitude_km: float) -> "AtmosphereState":
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -439,13 +439,13 @@ class TestSpaceWeatherLoading:
     """Verify historical space weather data loading and lookup."""
 
     def test_load_historical_data(self):
-        from constellation_generator.domain.nrlmsise00 import SpaceWeatherHistory
+        from humeris.domain.nrlmsise00 import SpaceWeatherHistory
         history = SpaceWeatherHistory()
         # Should load successfully
         assert history is not None
 
     def test_lookup_by_date(self):
-        from constellation_generator.domain.nrlmsise00 import SpaceWeatherHistory
+        from humeris.domain.nrlmsise00 import SpaceWeatherHistory
         history = SpaceWeatherHistory()
         sw = history.lookup(datetime(2001, 7, 1, tzinfo=timezone.utc))
         # Near solar max of cycle 23
@@ -455,7 +455,7 @@ class TestSpaceWeatherLoading:
 
     def test_interpolation_between_dates(self):
         """Lookup between data points should interpolate."""
-        from constellation_generator.domain.nrlmsise00 import SpaceWeatherHistory
+        from humeris.domain.nrlmsise00 import SpaceWeatherHistory
         history = SpaceWeatherHistory()
         # Query between two data points (data is at 10-day intervals)
         sw = history.lookup(datetime(2010, 6, 15, tzinfo=timezone.utc))
@@ -471,13 +471,13 @@ class TestDragForceProtocol:
     """Verify NRLMSISE00DragForce conforms to ForceModel protocol."""
 
     def test_has_acceleration_method(self):
-        from constellation_generator.domain.nrlmsise00 import NRLMSISE00DragForce
+        from humeris.domain.nrlmsise00 import NRLMSISE00DragForce
         force = NRLMSISE00DragForce(cd=2.2, area_m2=10.0, mass_kg=500.0)
         assert hasattr(force, "acceleration")
         assert callable(force.acceleration)
 
     def test_returns_tuple_of_three_floats(self):
-        from constellation_generator.domain.nrlmsise00 import NRLMSISE00DragForce
+        from humeris.domain.nrlmsise00 import NRLMSISE00DragForce
         force = NRLMSISE00DragForce(cd=2.2, area_m2=10.0, mass_kg=500.0)
         epoch = datetime(2020, 6, 21, 12, 0, 0, tzinfo=timezone.utc)
         # LEO position at ~400 km altitude
@@ -500,8 +500,8 @@ class TestComparisonWithExponential:
 
     def test_moderate_activity_same_order(self):
         """At 400 km moderate activity, NRLMSISE and exponential agree within OoM."""
-        from constellation_generator.domain.atmosphere import atmospheric_density
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.atmosphere import atmospheric_density
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -523,8 +523,8 @@ class TestComparisonWithExponential:
 
     def test_extreme_solar_diverge(self):
         """At extreme solar activity, models should diverge significantly."""
-        from constellation_generator.domain.atmosphere import atmospheric_density
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.atmosphere import atmospheric_density
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -564,8 +564,8 @@ class TestComparisonWithExponential:
 
     def test_both_positive_at_600km(self):
         """Both models return positive density at 600 km."""
-        from constellation_generator.domain.atmosphere import atmospheric_density
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.atmosphere import atmospheric_density
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -593,7 +593,7 @@ class TestPerformance:
     """Verify single evaluation completes within performance budget."""
 
     def test_single_evaluation_under_200us(self):
-        from constellation_generator.domain.nrlmsise00 import (
+        from humeris.domain.nrlmsise00 import (
             NRLMSISE00Model,
             SpaceWeather,
         )
@@ -635,7 +635,7 @@ class TestDefaultSpaceWeather:
     """Verify model works without explicit space weather input."""
 
     def test_without_space_weather_uses_defaults(self):
-        from constellation_generator.domain.nrlmsise00 import NRLMSISE00Model
+        from humeris.domain.nrlmsise00 import NRLMSISE00Model
         model = NRLMSISE00Model()
         state = model.evaluate(
             altitude_km=400.0,
@@ -648,7 +648,7 @@ class TestDefaultSpaceWeather:
         assert state.total_density_kg_m3 > 0
 
     def test_default_results_reasonable(self):
-        from constellation_generator.domain.nrlmsise00 import NRLMSISE00Model
+        from humeris.domain.nrlmsise00 import NRLMSISE00Model
         model = NRLMSISE00Model()
         state = model.evaluate(
             altitude_km=400.0,
@@ -675,7 +675,7 @@ class TestDomainPurity:
         module_path = (
             pathlib.Path(__file__).parent.parent
             / "src"
-            / "constellation_generator"
+            / "humeris"
             / "domain"
             / "nrlmsise00.py"
         )
@@ -683,7 +683,7 @@ class TestDomainPurity:
         tree = ast.parse(source)
 
         allowed_prefixes = (
-            "constellation_generator",
+            "humeris",
             "math", "numpy",
             "dataclasses",
             "typing",

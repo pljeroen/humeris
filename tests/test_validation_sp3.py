@@ -23,14 +23,14 @@ GPS constellation geometry.
 import math
 from datetime import datetime, timedelta, timezone
 
-from constellation_generator.domain.sp3_parser import (
+from humeris.domain.sp3_parser import (
     parse_sp3,
     filter_satellite,
     SP3Ephemeris,
     SP3EphemerisPoint,
 )
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
-from constellation_generator.domain.orbit_properties import (
+from humeris.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.orbit_properties import (
     compute_energy_momentum,
     state_vector_to_elements,
 )

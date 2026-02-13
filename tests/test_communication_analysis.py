@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.communication_analysis import (
+from humeris.domain.communication_analysis import (
     DegradedLink,
     EclipseDegradedTopology,
     PassDataPoint,
@@ -22,10 +22,10 @@ from constellation_generator.domain.communication_analysis import (
     predict_isl_distances,
     compute_network_capacity_timeline,
 )
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.observation import GroundStation
-from constellation_generator.domain.link_budget import LinkConfig
-from constellation_generator.domain.access_windows import AccessWindow
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.observation import GroundStation
+from humeris.domain.link_budget import LinkConfig
+from humeris.domain.access_windows import AccessWindow
 
 
 _MU = 3.986004418e14
@@ -143,7 +143,7 @@ class TestNetworkCapacityTimeline:
 
 class TestCommunicationAnalysisPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.communication_analysis as mod
+        import humeris.domain.communication_analysis as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -152,10 +152,10 @@ class TestCommunicationAnalysisPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

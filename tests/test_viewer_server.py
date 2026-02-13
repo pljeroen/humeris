@@ -20,11 +20,11 @@ from unittest.mock import patch
 
 import pytest
 
-from constellation_generator.domain.constellation import (
+from humeris.domain.constellation import (
     ShellConfig,
     generate_walker_shell,
 )
-from constellation_generator.domain.propagation import derive_orbital_state
+from humeris.domain.propagation import derive_orbital_state
 
 
 EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
@@ -50,7 +50,7 @@ class TestLayerState:
     """Tests for LayerState dataclass."""
 
     def test_layer_state_creation(self):
-        from constellation_generator.adapters.viewer_server import LayerState
+        from humeris.adapters.viewer_server import LayerState
         layer = LayerState(
             layer_id="walker-1",
             name="Constellation:Walker-550",
@@ -73,7 +73,7 @@ class TestLayerState:
         assert len(layer.czml) == 1
 
     def test_layer_state_defaults(self):
-        from constellation_generator.adapters.viewer_server import LayerState
+        from humeris.adapters.viewer_server import LayerState
         layer = LayerState(
             layer_id="test",
             name="Test",
@@ -93,7 +93,7 @@ class TestLayerManager:
     """Tests for layer management functions."""
 
     def test_add_layer(self):
-        from constellation_generator.adapters.viewer_server import (
+        from humeris.adapters.viewer_server import (
             LayerManager,
             LayerState,
         )
@@ -111,7 +111,7 @@ class TestLayerManager:
 
     def test_add_layer_auto_mode_animated_small(self):
         """<=100 sats default to animated mode."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states(n_planes=2, n_sats=2)  # 4 sats
         layer_id = mgr.add_layer(
@@ -125,7 +125,7 @@ class TestLayerManager:
 
     def test_add_layer_auto_mode_snapshot_large(self):
         """>100 sats default to snapshot mode."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states(n_planes=6, n_sats=20)  # 120 sats
         layer_id = mgr.add_layer(
@@ -139,7 +139,7 @@ class TestLayerManager:
 
     def test_add_layer_explicit_mode(self):
         """Explicit mode overrides auto-detection."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -154,7 +154,7 @@ class TestLayerManager:
 
     def test_add_layer_generates_czml(self):
         """Adding a layer generates CZML packets."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -169,7 +169,7 @@ class TestLayerManager:
         assert czml[0]["id"] == "document"
 
     def test_remove_layer(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -181,13 +181,13 @@ class TestLayerManager:
         assert layer_id not in mgr.layers
 
     def test_remove_nonexistent_layer_raises(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         with pytest.raises(KeyError):
             mgr.remove_layer("nonexistent")
 
     def test_update_layer_visibility(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -199,7 +199,7 @@ class TestLayerManager:
 
     def test_update_layer_mode_regenerates_czml(self):
         """Switching mode regenerates CZML."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -218,14 +218,14 @@ class TestLayerManager:
         assert new_czml != old_czml
 
     def test_update_nonexistent_layer_raises(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         with pytest.raises(KeyError):
             mgr.update_layer("nonexistent", visible=False)
 
     def test_get_state_returns_all_layers_metadata(self):
         """get_state() returns layer metadata without CZML data."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         mgr.add_layer(
@@ -249,7 +249,7 @@ class TestLayerManager:
             assert "czml" not in layer_info
 
     def test_get_czml_for_layer(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -262,14 +262,14 @@ class TestLayerManager:
         assert czml[0]["id"] == "document"
 
     def test_get_czml_nonexistent_raises(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         with pytest.raises(KeyError):
             mgr.get_czml("nonexistent")
 
     def test_unique_layer_ids(self):
         """Each add_layer call produces a unique ID."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         ids = set()
@@ -291,7 +291,7 @@ class TestCzmlDispatch:
     """Tests for CZML generation dispatch based on layer type and mode."""
 
     def test_walker_snapshot_dispatch(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -311,7 +311,7 @@ class TestCzmlDispatch:
         assert "position" in sat_packet
 
     def test_walker_animated_dispatch(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -329,7 +329,7 @@ class TestCzmlDispatch:
         assert "position" in sat_packet
 
     def test_eclipse_snapshot_dispatch(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -345,7 +345,7 @@ class TestCzmlDispatch:
         assert czml[0]["id"] == "document"
 
     def test_eclipse_animated_dispatch(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -361,7 +361,7 @@ class TestCzmlDispatch:
         assert czml[0]["id"] == "document"
 
     def test_coverage_dispatch(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -377,7 +377,7 @@ class TestCzmlDispatch:
         assert czml[0]["id"] == "document"
 
     def test_ground_track_dispatch(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -393,7 +393,7 @@ class TestCzmlDispatch:
         assert czml[0]["id"] == "document"
 
     def test_ground_station_layer(self):
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_ground_station(
@@ -409,7 +409,7 @@ class TestCzmlDispatch:
 
     def test_sensor_dispatch(self):
         """Sensor footprint layer generates CZML with entity packets."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -422,7 +422,7 @@ class TestCzmlDispatch:
 
     def test_isl_dispatch(self):
         """ISL topology layer generates CZML with entity packets."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -435,7 +435,7 @@ class TestCzmlDispatch:
 
     def test_fragility_dispatch(self):
         """Fragility layer generates CZML with entity packets."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -448,7 +448,7 @@ class TestCzmlDispatch:
 
     def test_hazard_dispatch(self):
         """Hazard evolution layer generates CZML with entity packets."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -461,7 +461,7 @@ class TestCzmlDispatch:
 
     def test_network_eclipse_dispatch(self):
         """Network eclipse layer generates CZML with entity packets."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -474,7 +474,7 @@ class TestCzmlDispatch:
 
     def test_coverage_connectivity_dispatch(self):
         """Coverage connectivity layer generates CZML (doc + possible entities)."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -487,7 +487,7 @@ class TestCzmlDispatch:
 
     def test_precession_dispatch(self):
         """Precession layer generates CZML with entity packets."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -500,7 +500,7 @@ class TestCzmlDispatch:
 
     def test_conjunction_dispatch(self):
         """Conjunction replay layer generates CZML with entity packets."""
-        from constellation_generator.adapters.viewer_server import LayerManager
+        from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
         states = _make_states()
         layer_id = mgr.add_layer(
@@ -519,7 +519,7 @@ class TestCzmlDispatch:
 
 def _start_server(port):
     """Start viewer server on given port, return (server, thread)."""
-    from constellation_generator.adapters.viewer_server import (
+    from humeris.adapters.viewer_server import (
         create_viewer_server,
         LayerManager,
     )
@@ -777,7 +777,7 @@ class TestViewerServerPurity:
     """Adapter purity: only stdlib + internal imports allowed."""
 
     def test_no_external_deps(self):
-        import constellation_generator.adapters.viewer_server as mod
+        import humeris.adapters.viewer_server as mod
 
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
@@ -786,7 +786,7 @@ class TestViewerServerPurity:
             "json", "http", "threading", "datetime", "dataclasses",
             "uuid", "urllib", "functools", "math", "numpy", "logging", "typing",
         }
-        allowed_internal = {"constellation_generator"}
+        allowed_internal = {"humeris"}
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

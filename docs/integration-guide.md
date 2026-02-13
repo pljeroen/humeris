@@ -9,7 +9,7 @@ CelesTrak's GP API and converts them to `Satellite` domain objects via SGP4
 propagation.
 
 ```python
-from constellation_generator.adapters.celestrak import CelesTrakAdapter
+from humeris.adapters.celestrak import CelesTrakAdapter
 
 celestrak = CelesTrakAdapter()
 
@@ -38,7 +38,7 @@ For large groups (Starlink = 6000+ sats), SGP4 propagation is the bottleneck.
 `ConcurrentCelesTrakAdapter` parallelizes propagation across threads:
 
 ```python
-from constellation_generator.adapters.concurrent_celestrak import ConcurrentCelesTrakAdapter
+from humeris.adapters.concurrent_celestrak import ConcurrentCelesTrakAdapter
 
 concurrent = ConcurrentCelesTrakAdapter(max_workers=16)
 starlink = concurrent.fetch_satellites(group="STARLINK")
@@ -82,7 +82,7 @@ may yield different TLEs if the upstream data has been updated.
 
 ```python
 import json
-from constellation_generator.adapters.celestrak import CelesTrakAdapter, SGP4Adapter
+from humeris.adapters.celestrak import CelesTrakAdapter, SGP4Adapter
 
 # Save raw OMM data for reproducibility
 celestrak = CelesTrakAdapter()
@@ -104,8 +104,8 @@ satellites = [sgp4.omm_to_satellite(r) for r in saved_records]
 Generate a self-contained HTML file with embedded CesiumJS and CZML data:
 
 ```python
-from constellation_generator.adapters.cesium_viewer import write_cesium_html
-from constellation_generator.adapters.czml_exporter import constellation_packets
+from humeris.adapters.cesium_viewer import write_cesium_html
+from humeris.adapters.czml_exporter import constellation_packets
 
 packets = constellation_packets(states, epoch, duration, step)
 write_cesium_html(packets, "viewer.html", title="My Constellation")
@@ -116,7 +116,7 @@ The HTML file includes CesiumJS loaded from CDN. Open directly in a browser.
 ### Multiple layers
 
 ```python
-from constellation_generator.adapters.czml_visualization import (
+from humeris.adapters.czml_visualization import (
     eclipse_snapshot_packets,
     ground_station_packets,
 )
@@ -136,7 +136,7 @@ write_cesium_html(
 For terrain and imagery, provide a Cesium Ion access token:
 
 ```python
-from constellation_generator.adapters.cesium_viewer import generate_interactive_html
+from humeris.adapters.cesium_viewer import generate_interactive_html
 
 html = generate_interactive_html(
     title="Viewer",
@@ -159,8 +159,8 @@ To connect a custom orbital data provider, implement the `OrbitalDataSource`
 port:
 
 ```python
-from constellation_generator.ports.orbital_data import OrbitalDataSource
-from constellation_generator.domain.constellation import Satellite
+from humeris.ports.orbital_data import OrbitalDataSource
+from humeris.domain.constellation import Satellite
 
 class MyDataSource(OrbitalDataSource):
     def fetch_group(self, group_name):
@@ -175,7 +175,7 @@ class MyDataSource(OrbitalDataSource):
 
     def fetch_satellites(self, group=None, name=None, catnr=None):
         # Convert OMM records to Satellite domain objects
-        from constellation_generator.domain.omm import parse_omm_record
+        from humeris.domain.omm import parse_omm_record
         records = self.fetch_group(group) if group else []
         return [parse_omm_record(r) for r in records]
 ```
@@ -185,7 +185,7 @@ class MyDataSource(OrbitalDataSource):
 To add a custom export format:
 
 ```python
-from constellation_generator.ports.export import SatelliteExporter
+from humeris.ports.export import SatelliteExporter
 
 class MyExporter(SatelliteExporter):
     def export(self, satellites, path, epoch=None):
@@ -203,10 +203,10 @@ class MyExporter(SatelliteExporter):
 Use domain modules directly without adapters:
 
 ```python
-from constellation_generator.domain.propagation import (
+from humeris.domain.propagation import (
     OrbitalState, derive_orbital_state, propagate_to,
 )
-from constellation_generator.domain.coordinate_frames import (
+from humeris.domain.coordinate_frames import (
     gmst_rad, eci_to_ecef, ecef_to_geodetic,
 )
 
@@ -227,7 +227,7 @@ lat, lon, alt = ecef_to_geodetic(pos_ecef)
 Parse IGS SP3 files for validation against precise orbits:
 
 ```python
-from constellation_generator.domain.sp3_parser import parse_sp3
+from humeris.domain.sp3_parser import parse_sp3
 
 with open("igs_final.sp3") as f:
     ephemeris = parse_sp3(f.read())
@@ -241,7 +241,7 @@ for point in ephemeris.points[:5]:
 ### Embedding in your application
 
 ```python
-from constellation_generator.adapters.viewer_server import (
+from humeris.adapters.viewer_server import (
     LayerManager, create_viewer_server,
 )
 

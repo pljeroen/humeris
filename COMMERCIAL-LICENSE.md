@@ -1,10 +1,10 @@
-# Commercial License — Constellation Generator
+# Commercial License — Humeris
 
 ## 1. Covered files
 
 The following files are **not** covered by the MIT License:
 
-**Domain modules** (`src/constellation_generator/domain/`):
+**Domain modules** (`src/humeris/domain/`):
 
 - `adaptive_integration.py` — Dormand-Prince RK4(5) adaptive integrator
 - `atmosphere.py` — Exponential density model, drag acceleration
@@ -66,7 +66,7 @@ The following files are **not** covered by the MIT License:
 - `albedo_srp.py` — Earth albedo + infrared radiation pressure
 - `trade_study.py` — Parametric Walker trade studies, Pareto front
 
-**Adapters** (`src/constellation_generator/adapters/`):
+**Adapters** (`src/humeris/adapters/`):
 
 - `cesium_viewer.py` — Self-contained HTML viewer with layer selector
 - `czml_exporter.py` — CZML packets for CesiumJS visualization
@@ -95,7 +95,7 @@ The following files are **not** covered by the MIT License:
   `test_maintenance_planning.py`, `test_maneuvers.py`,
   `test_mission_analysis.py`, `test_mission_economics.py`,
   `test_multi_objective_design.py`, `test_nrlmsise00.py`, `test_numerical_propagation.py`,
-  `test_operational_prediction.py`, `test_orbit_design.py`,
+  `test_operational_prediction.py`, `test_solar_aware_eol.py`, `test_orbit_design.py`,
   `test_earth_orientation.py`,
   `test_precession_nutation.py`, `test_time_systems.py`,
   `test_planetary_ephemeris.py`,

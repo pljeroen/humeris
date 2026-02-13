@@ -6,9 +6,9 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-sgp4 = pytest.importorskip("sgp4", reason="sgp4 not installed (pip install constellation-generator[live])")
+sgp4 = pytest.importorskip("sgp4", reason="sgp4 not installed (pip install humeris[live])")
 
-from constellation_generator.domain.constellation import Satellite
+from humeris.domain.constellation import Satellite
 
 
 # Use the SAMPLE_OMM from test_live_data for consistency
@@ -42,8 +42,8 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_implements_orbital_data_source(self):
         """Must implement OrbitalDataSource port."""
-        from constellation_generator.ports.orbital_data import OrbitalDataSource
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.ports.orbital_data import OrbitalDataSource
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         adapter = ConcurrentCelesTrakAdapter()
@@ -51,7 +51,7 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_configurable_max_workers(self):
         """max_workers parameter is accepted and stored."""
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         adapter = ConcurrentCelesTrakAdapter(max_workers=8)
@@ -59,7 +59,7 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_default_max_workers(self):
         """Default max_workers is sensible (> 1)."""
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         adapter = ConcurrentCelesTrakAdapter()
@@ -67,7 +67,7 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_fetch_satellites_returns_satellite_list(self):
         """fetch_satellites returns list of Satellite domain objects."""
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         adapter = ConcurrentCelesTrakAdapter()
@@ -81,8 +81,8 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_concurrent_results_match_sync(self):
         """Concurrent adapter produces same satellites as sync adapter."""
-        from constellation_generator.adapters.celestrak import CelesTrakAdapter
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.celestrak import CelesTrakAdapter
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         sync_adapter = CelesTrakAdapter()
@@ -107,7 +107,7 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_graceful_sgp4_failure(self):
         """Records that fail SGP4 are skipped, others still returned."""
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         bad_record = dict(SAMPLE_OMM_RECORDS[0])
@@ -123,7 +123,7 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_single_http_request_per_call(self):
         """Only 1 HTTP request per fetch_satellites call (concurrency = SGP4 only)."""
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         adapter = ConcurrentCelesTrakAdapter()
@@ -135,7 +135,7 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_fetch_group_delegates_correctly(self):
         """fetch_group returns raw OMM records (same as sync)."""
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         adapter = ConcurrentCelesTrakAdapter()
@@ -145,7 +145,7 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_fetch_by_name_delegates(self):
         """fetch_by_name returns raw OMM records."""
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         adapter = ConcurrentCelesTrakAdapter()
@@ -155,7 +155,7 @@ class TestConcurrentCelesTrakAdapter:
 
     def test_fetch_by_catnr_delegates(self):
         """fetch_by_catnr returns raw OMM records."""
-        from constellation_generator.adapters.concurrent_celestrak import (
+        from humeris.adapters.concurrent_celestrak import (
             ConcurrentCelesTrakAdapter,
         )
         adapter = ConcurrentCelesTrakAdapter()
@@ -170,14 +170,14 @@ class TestSGP4AdapterEpoch:
 
     def test_satellite_has_epoch_from_omm(self):
         """SGP4Adapter populates Satellite.epoch from OMM record."""
-        from constellation_generator.adapters.celestrak import SGP4Adapter
+        from humeris.adapters.celestrak import SGP4Adapter
         sat = SGP4Adapter().omm_to_satellite(SAMPLE_OMM_RECORDS[0])
         assert sat.epoch is not None
 
     def test_satellite_epoch_matches_omm_epoch(self):
         """Satellite.epoch matches the OMM EPOCH field."""
         from datetime import datetime
-        from constellation_generator.adapters.celestrak import SGP4Adapter
+        from humeris.adapters.celestrak import SGP4Adapter
         sat = SGP4Adapter().omm_to_satellite(SAMPLE_OMM_RECORDS[0])
         expected = datetime.fromisoformat(SAMPLE_OMM_RECORDS[0]["EPOCH"])
         assert sat.epoch == expected

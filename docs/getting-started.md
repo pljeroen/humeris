@@ -24,7 +24,7 @@ pip install ".[dev]"
 ### Generate a Walker shell
 
 ```python
-from constellation_generator import ShellConfig, generate_walker_shell
+from humeris import ShellConfig, generate_walker_shell
 
 shell = ShellConfig(
     altitude_km=550, inclination_deg=53,
@@ -39,7 +39,7 @@ print(f"Generated {len(satellites)} satellites")
 ### Fetch live data
 
 ```python
-from constellation_generator.adapters.celestrak import CelesTrakAdapter
+from humeris.adapters.celestrak import CelesTrakAdapter
 
 celestrak = CelesTrakAdapter()
 gps = celestrak.fetch_satellites(group="GPS-OPS")
@@ -66,16 +66,16 @@ pytest tests/test_live_data.py  # live CelesTrak (requires network)
 
 ```bash
 # Default Walker shells → simulation JSON
-constellation-generator -i template.json -o output.json
+humeris -i template.json -o output.json
 
 # Live GPS constellation
-constellation-generator -i sim.json -o out.json --live-group GPS-OPS
+humeris -i sim.json -o out.json --live-group GPS-OPS
 
 # Starlink with concurrent SGP4 propagation
-constellation-generator -i sim.json -o out.json --live-group STARLINK --concurrent
+humeris -i sim.json -o out.json --live-group STARLINK --concurrent
 
 # Export to CSV and GeoJSON
-constellation-generator -i sim.json -o out.json --export-csv sats.csv --export-geojson sats.geojson
+humeris -i sim.json -o out.json --export-csv sats.csv --export-geojson sats.geojson
 ```
 
 ## Next steps

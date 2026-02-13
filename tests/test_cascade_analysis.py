@@ -7,11 +7,11 @@ import ast
 import math
 from datetime import datetime, timezone
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.link_budget import LinkConfig
-from constellation_generator.domain.atmosphere import DragConfig
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.link_budget import LinkConfig
+from humeris.domain.atmosphere import DragConfig
 
-from constellation_generator.domain.cascade_analysis import (
+from humeris.domain.cascade_analysis import (
     CascadeIndicator,
     compute_cascade_indicator,
 )
@@ -98,7 +98,7 @@ class TestCascadeIndicator:
 
 class TestCascadeAnalysisPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.cascade_analysis as mod
+        import humeris.domain.cascade_analysis as mod
         source = ast.parse(open(mod.__file__).read())
         for node in ast.walk(source):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -107,6 +107,6 @@ class TestCascadeAnalysisPurity:
                 else:
                     for alias in node.names:
                         top = alias.name.split(".")[0]
-                assert top in {"math", "numpy", "dataclasses", "datetime", "typing", "enum", "constellation_generator", "__future__"}, (
+                assert top in {"math", "numpy", "dataclasses", "datetime", "typing", "enum", "humeris", "__future__"}, (
                     f"Forbidden import: {top}"
                 )

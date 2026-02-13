@@ -7,10 +7,10 @@ import ast
 import math
 from datetime import datetime, timezone
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.atmosphere import DragConfig
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.atmosphere import DragConfig
 
-from constellation_generator.domain.decay_analysis import (
+from humeris.domain.decay_analysis import (
     ExponentialProcess,
     ExponentialScaleMap,
     compute_exponential_scale_map,
@@ -90,10 +90,10 @@ class TestComputeExponentialScaleMap:
 
 class TestDecayAnalysisPurity:
     def test_no_external_deps(self):
-        import constellation_generator.domain.decay_analysis as mod
+        import humeris.domain.decay_analysis as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
-        allowed = {"math", "numpy", "dataclasses", "datetime", "constellation_generator"}
+        allowed = {"math", "numpy", "dataclasses", "datetime", "humeris"}
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:

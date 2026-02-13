@@ -168,8 +168,8 @@ Internal params (prefixed with `_`) can override default configs:
 
 ```python
 from datetime import datetime, timezone
-from constellation_generator import ShellConfig, generate_walker_shell, derive_orbital_state
-from constellation_generator.adapters.viewer_server import LayerManager, create_viewer_server
+from humeris import ShellConfig, generate_walker_shell, derive_orbital_state
+from humeris.adapters.viewer_server import LayerManager, create_viewer_server
 
 epoch = datetime.now(tz=timezone.utc)
 

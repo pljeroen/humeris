@@ -15,13 +15,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator import (
+from humeris import (
     OrbitalConstants,
     ShellConfig,
     generate_walker_shell,
     derive_orbital_state,
 )
-from constellation_generator.domain.numerical_propagation import (
+from humeris.domain.numerical_propagation import (
     TwoBodyGravity,
     propagate_numerical,
 )

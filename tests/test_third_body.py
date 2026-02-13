@@ -9,13 +9,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.third_body import (
+from humeris.domain.third_body import (
     LunarThirdBodyForce,
     MoonPosition,
     SolarThirdBodyForce,
     moon_position_eci,
 )
-from constellation_generator.domain.numerical_propagation import ForceModel
+from humeris.domain.numerical_propagation import ForceModel
 
 
 _R_EARTH = 6_371_000.0
@@ -136,11 +136,11 @@ class TestThirdBodyComparison:
 
     def test_numerical_propagation_with_third_body(self):
         """Third-body forces integrate with numerical propagator without error."""
-        from constellation_generator.domain.numerical_propagation import (
+        from humeris.domain.numerical_propagation import (
             TwoBodyGravity,
             propagate_numerical,
         )
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
         mu = 3.986004418e14
@@ -161,11 +161,11 @@ class TestThirdBodyComparison:
 
     def test_energy_changes_with_third_body(self):
         """Specific energy not conserved with third-body perturbation."""
-        from constellation_generator.domain.numerical_propagation import (
+        from humeris.domain.numerical_propagation import (
             TwoBodyGravity,
             propagate_numerical,
         )
-        from constellation_generator.domain.propagation import OrbitalState
+        from humeris.domain.propagation import OrbitalState
 
         epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
         mu = 3.986004418e14
@@ -208,7 +208,7 @@ class TestThirdBodyPurity:
     """Domain purity: third_body.py must only import stdlib + domain."""
 
     def test_module_pure(self):
-        import constellation_generator.domain.third_body as mod
+        import humeris.domain.third_body as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -218,10 +218,10 @@ class TestThirdBodyPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

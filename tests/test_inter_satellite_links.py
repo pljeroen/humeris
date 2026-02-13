@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator import (
+from humeris import (
     OrbitalConstants,
     OrbitalState,
     ShellConfig,
@@ -54,7 +54,7 @@ class TestIsEarthBlocked:
 
     def test_clear_link_same_side(self):
         """Two sats on the same side of Earth → not blocked."""
-        from constellation_generator.domain.inter_satellite_links import is_earth_blocked
+        from humeris.domain.inter_satellite_links import is_earth_blocked
         # Both at ~R_E + 550km, near each other in ECI
         r = R_E + 550_000
         pos_a = (r, 0.0, 0.0)
@@ -63,7 +63,7 @@ class TestIsEarthBlocked:
 
     def test_blocked_link_opposite_sides(self):
         """Sats on opposite sides of Earth → blocked."""
-        from constellation_generator.domain.inter_satellite_links import is_earth_blocked
+        from humeris.domain.inter_satellite_links import is_earth_blocked
         r = R_E + 550_000
         pos_a = (r, 0.0, 0.0)
         pos_b = (-r, 0.0, 0.0)
@@ -71,7 +71,7 @@ class TestIsEarthBlocked:
 
     def test_grazing_link(self):
         """Link just grazing Earth limb → correct classification."""
-        from constellation_generator.domain.inter_satellite_links import is_earth_blocked
+        from humeris.domain.inter_satellite_links import is_earth_blocked
         r = R_E + 550_000
         # Place sats 90° apart — line crosses near Earth surface
         pos_a = (r, 0.0, 0.0)
@@ -82,7 +82,7 @@ class TestIsEarthBlocked:
 
     def test_same_position_not_blocked(self):
         """Degenerate: same point → not blocked."""
-        from constellation_generator.domain.inter_satellite_links import is_earth_blocked
+        from humeris.domain.inter_satellite_links import is_earth_blocked
         r = R_E + 550_000
         pos = (r, 0.0, 0.0)
         assert not is_earth_blocked(pos, pos)
@@ -93,7 +93,7 @@ class TestIsEarthBlocked:
 class TestComputeIslLink:
 
     def test_link_returns_type(self):
-        from constellation_generator.domain.inter_satellite_links import (
+        from humeris.domain.inter_satellite_links import (
             compute_isl_link, ISLLink,
         )
         r = R_E + 550_000
@@ -103,7 +103,7 @@ class TestComputeIslLink:
         assert isinstance(link, ISLLink)
 
     def test_link_distance_correct(self):
-        from constellation_generator.domain.inter_satellite_links import compute_isl_link
+        from humeris.domain.inter_satellite_links import compute_isl_link
         r = R_E + 550_000
         pos_a = (r, 0.0, 0.0)
         pos_b = (r + 1000.0, 0.0, 0.0)
@@ -111,7 +111,7 @@ class TestComputeIslLink:
         assert abs(link.distance_m - 1000.0) < 0.01
 
     def test_link_blocked_flag(self):
-        from constellation_generator.domain.inter_satellite_links import compute_isl_link
+        from humeris.domain.inter_satellite_links import compute_isl_link
         r = R_E + 550_000
         pos_a = (r, 0.0, 0.0)
         pos_b = (-r, 0.0, 0.0)
@@ -124,7 +124,7 @@ class TestComputeIslLink:
 class TestComputeIslTopology:
 
     def test_topology_returns_type(self):
-        from constellation_generator.domain.inter_satellite_links import (
+        from humeris.domain.inter_satellite_links import (
             compute_isl_topology, ISLTopology,
         )
         states = _multi_sat_states(num_planes=2, sats_per_plane=2)
@@ -133,7 +133,7 @@ class TestComputeIslTopology:
 
     def test_topology_link_count(self):
         """N satellites → N*(N-1)/2 total pairs evaluated."""
-        from constellation_generator.domain.inter_satellite_links import compute_isl_topology
+        from humeris.domain.inter_satellite_links import compute_isl_topology
         states = _multi_sat_states(num_planes=2, sats_per_plane=2)
         n = len(states)
         result = compute_isl_topology(states, EPOCH, max_range_km=50000)
@@ -142,7 +142,7 @@ class TestComputeIslTopology:
 
     def test_topology_max_range_filter(self):
         """Links beyond max_range excluded from active count."""
-        from constellation_generator.domain.inter_satellite_links import compute_isl_topology
+        from humeris.domain.inter_satellite_links import compute_isl_topology
         states = _multi_sat_states(num_planes=3, sats_per_plane=4)
         # Very short range → most links filtered
         short = compute_isl_topology(states, EPOCH, max_range_km=100)
@@ -151,13 +151,13 @@ class TestComputeIslTopology:
         assert short.num_active_links <= long.num_active_links
 
     def test_topology_empty_states(self):
-        from constellation_generator.domain.inter_satellite_links import compute_isl_topology
+        from humeris.domain.inter_satellite_links import compute_isl_topology
         result = compute_isl_topology([], EPOCH, max_range_km=5000)
         assert result.num_active_links == 0
         assert result.num_satellites == 0
 
     def test_topology_single_sat(self):
-        from constellation_generator.domain.inter_satellite_links import compute_isl_topology
+        from humeris.domain.inter_satellite_links import compute_isl_topology
         states = [_leo_state()]
         result = compute_isl_topology(states, EPOCH, max_range_km=5000)
         assert result.num_active_links == 0
@@ -165,7 +165,7 @@ class TestComputeIslTopology:
 
     def test_topology_statistics(self):
         """Mean/max distance values correct for active links."""
-        from constellation_generator.domain.inter_satellite_links import compute_isl_topology
+        from humeris.domain.inter_satellite_links import compute_isl_topology
         states = _multi_sat_states(num_planes=3, sats_per_plane=4)
         result = compute_isl_topology(states, EPOCH, max_range_km=10000)
         if result.num_active_links > 0:
@@ -177,7 +177,7 @@ class TestComputeIslTopology:
 
     def test_topology_active_excludes_blocked(self):
         """Blocked links not counted in active count."""
-        from constellation_generator.domain.inter_satellite_links import compute_isl_topology
+        from humeris.domain.inter_satellite_links import compute_isl_topology
         states = _multi_sat_states(num_planes=3, sats_per_plane=4)
         result = compute_isl_topology(states, EPOCH, max_range_km=50000)
         blocked_count = sum(1 for link in result.links if link.is_blocked)
@@ -199,12 +199,12 @@ class TestISLModulePurity:
     def test_isl_module_pure(self):
         """Only stdlib + domain imports."""
         import ast
-        import constellation_generator.domain.inter_satellite_links as mod
+        import humeris.domain.inter_satellite_links as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
 
         allowed_stdlib = {"math", "numpy", "dataclasses", "datetime"}
-        allowed_internal = {"constellation_generator"}
+        allowed_internal = {"humeris"}
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

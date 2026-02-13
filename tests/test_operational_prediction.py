@@ -7,11 +7,11 @@ import ast
 import math
 from datetime import datetime, timezone, timedelta
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.atmosphere import DragConfig
-from constellation_generator.domain.observation import GroundStation
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.observation import GroundStation
 
-from constellation_generator.domain.operational_prediction import (
+from humeris.domain.operational_prediction import (
     EndOfLifePrediction,
     ManeuverContactWindow,
     ManeuverContactFeasibility,
@@ -40,15 +40,15 @@ def _drag():
 
 
 def _make_survival_curve():
-    from constellation_generator.domain.lifetime import compute_orbit_lifetime
-    from constellation_generator.domain.statistical_analysis import compute_lifetime_survival_curve
+    from humeris.domain.lifetime import compute_orbit_lifetime
+    from humeris.domain.statistical_analysis import compute_lifetime_survival_curve
     state = _state()
     lt = compute_orbit_lifetime(state.semi_major_axis_m, state.eccentricity, _drag(), _EPOCH)
     return compute_lifetime_survival_curve(lt)
 
 
 def _make_availability():
-    from constellation_generator.domain.statistical_analysis import compute_mission_availability
+    from humeris.domain.statistical_analysis import compute_mission_availability
     return compute_mission_availability(
         _state(), _drag(), _EPOCH,
         isp_s=220.0, dry_mass_kg=400.0, propellant_budget_kg=50.0,
@@ -57,8 +57,8 @@ def _make_availability():
 
 
 def _make_propellant_profile():
-    from constellation_generator.domain.lifetime import compute_orbit_lifetime
-    from constellation_generator.domain.mission_analysis import compute_propellant_profile
+    from humeris.domain.lifetime import compute_orbit_lifetime
+    from humeris.domain.mission_analysis import compute_propellant_profile
     state = _state()
     lt = compute_orbit_lifetime(state.semi_major_axis_m, state.eccentricity, _drag(), _EPOCH)
     return compute_propellant_profile(
@@ -96,7 +96,7 @@ class TestComputeEndOfLifeMode:
 
 class TestComputeManeuverContactFeasibility:
     def test_returns_type(self):
-        from constellation_generator.domain.maintenance_planning import compute_maintenance_schedule
+        from humeris.domain.maintenance_planning import compute_maintenance_schedule
         state = _state()
         schedule = compute_maintenance_schedule(state, _drag(), _EPOCH)
         stations = [GroundStation(name="Test", lat_deg=52.0, lon_deg=4.0)]
@@ -106,7 +106,7 @@ class TestComputeManeuverContactFeasibility:
         assert isinstance(result, ManeuverContactFeasibility)
 
     def test_feasibility_fraction_bounded(self):
-        from constellation_generator.domain.maintenance_planning import compute_maintenance_schedule
+        from humeris.domain.maintenance_planning import compute_maintenance_schedule
         state = _state()
         schedule = compute_maintenance_schedule(state, _drag(), _EPOCH)
         stations = [GroundStation(name="Test", lat_deg=52.0, lon_deg=4.0)]
@@ -116,7 +116,7 @@ class TestComputeManeuverContactFeasibility:
         assert 0.0 <= result.feasibility_fraction <= 1.0
 
     def test_counts_consistent(self):
-        from constellation_generator.domain.maintenance_planning import compute_maintenance_schedule
+        from humeris.domain.maintenance_planning import compute_maintenance_schedule
         state = _state()
         schedule = compute_maintenance_schedule(state, _drag(), _EPOCH)
         stations = [GroundStation(name="Test", lat_deg=52.0, lon_deg=4.0)]
@@ -126,7 +126,7 @@ class TestComputeManeuverContactFeasibility:
         assert result.feasible_count + result.infeasible_count == len(result.windows)
 
     def test_window_has_burn_info(self):
-        from constellation_generator.domain.maintenance_planning import compute_maintenance_schedule
+        from humeris.domain.maintenance_planning import compute_maintenance_schedule
         state = _state()
         schedule = compute_maintenance_schedule(state, _drag(), _EPOCH)
         stations = [GroundStation(name="Test", lat_deg=52.0, lon_deg=4.0)]
@@ -141,10 +141,10 @@ class TestComputeManeuverContactFeasibility:
 
 class TestOperationalPredictionPurity:
     def test_no_external_deps(self):
-        import constellation_generator.domain.operational_prediction as mod
+        import humeris.domain.operational_prediction as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
-        allowed = {"math", "numpy", "dataclasses", "datetime", "constellation_generator"}
+        allowed = {"math", "numpy", "dataclasses", "datetime", "humeris"}
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:

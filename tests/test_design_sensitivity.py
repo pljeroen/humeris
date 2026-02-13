@@ -7,11 +7,11 @@ import ast
 import math
 from datetime import datetime, timezone, timedelta
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.atmosphere import DragConfig
-from constellation_generator.domain.link_budget import LinkConfig
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.link_budget import LinkConfig
 
-from constellation_generator.domain.design_sensitivity import (
+from humeris.domain.design_sensitivity import (
     SpectralFragility,
     CoverageConnectivityPoint,
     CoverageConnectivityCrossover,
@@ -171,10 +171,10 @@ class TestComputeAltitudeSensitivity:
 
 class TestDesignSensitivityPurity:
     def test_no_external_deps(self):
-        import constellation_generator.domain.design_sensitivity as mod
+        import humeris.domain.design_sensitivity as mod
         with open(mod.__file__) as f:
             tree = ast.parse(f.read())
-        allowed = {"math", "numpy", "dataclasses", "datetime", "constellation_generator"}
+        allowed = {"math", "numpy", "dataclasses", "datetime", "humeris"}
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:

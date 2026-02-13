@@ -13,20 +13,20 @@ class TestClenshawEvaluation:
     """Clenshaw recurrence for known polynomials."""
 
     def test_constant_polynomial(self):
-        from constellation_generator.domain.planetary_ephemeris import chebyshev_evaluate
+        from humeris.domain.planetary_ephemeris import chebyshev_evaluate
         # T0(x) = 1, so coeffs [5.0] = 5.0 everywhere
         assert abs(chebyshev_evaluate((5.0,), 0.0) - 5.0) < 1e-10
         assert abs(chebyshev_evaluate((5.0,), 0.5) - 5.0) < 1e-10
 
     def test_linear_polynomial(self):
-        from constellation_generator.domain.planetary_ephemeris import chebyshev_evaluate
+        from humeris.domain.planetary_ephemeris import chebyshev_evaluate
         # coeffs [a0, a1]: a0*T0(x) + a1*T1(x) = a0 + a1*x
         assert abs(chebyshev_evaluate((3.0, 2.0), 0.0) - 3.0) < 1e-10
         assert abs(chebyshev_evaluate((3.0, 2.0), 1.0) - 5.0) < 1e-10
         assert abs(chebyshev_evaluate((3.0, 2.0), -1.0) - 1.0) < 1e-10
 
     def test_quadratic_polynomial(self):
-        from constellation_generator.domain.planetary_ephemeris import chebyshev_evaluate
+        from humeris.domain.planetary_ephemeris import chebyshev_evaluate
         # coeffs [a0, a1, a2]: T2(x) = 2x²-1
         # [1, 0, 1] → T0 + T2 = 1 + (2x²-1) = 2x²
         assert abs(chebyshev_evaluate((1.0, 0.0, 1.0), 0.0) - 0.0) < 1e-10
@@ -39,11 +39,11 @@ class TestSunPosition:
 
     def test_sun_at_j2000(self):
         """Sun geocentric position at J2000.0 — should be ~1 AU from Earth."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         t = AstroTime(tdb_j2000=0.0)
@@ -56,11 +56,11 @@ class TestSunPosition:
 
     def test_sun_at_summer_solstice_2020(self):
         """Sun at 2020 summer solstice — declination ~23.4°."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         # 2020-06-20 21:44 UTC
@@ -77,11 +77,11 @@ class TestSunPosition:
 
     def test_sun_distance_varies(self):
         """Earth-Sun distance varies ~3.3% over a year (perihelion/aphelion)."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         distances = []
@@ -99,11 +99,11 @@ class TestMoonPosition:
 
     def test_moon_at_j2000(self):
         """Moon geocentric distance at J2000.0 — ~384,400 km."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         t = AstroTime(tdb_j2000=0.0)
@@ -115,11 +115,11 @@ class TestMoonPosition:
 
     def test_moon_distance_varies(self):
         """Moon distance varies significantly (eccentric orbit)."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         distances = []
@@ -136,11 +136,11 @@ class TestMoonPosition:
 
     def test_moon_orbital_period(self):
         """Moon returns to approximately same position after ~27.3 days."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         t0 = AstroTime.from_utc(datetime(2020, 1, 1, tzinfo=timezone.utc))
@@ -161,11 +161,11 @@ class TestVelocity:
 
     def test_sun_velocity_magnitude(self):
         """Sun apparent velocity ~30 km/s (Earth's orbital velocity)."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_velocity,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         t = AstroTime.from_utc(datetime(2020, 6, 15, tzinfo=timezone.utc))
@@ -176,12 +176,12 @@ class TestVelocity:
 
     def test_velocity_vs_finite_difference(self):
         """Analytical derivative should match finite difference."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
             evaluate_velocity,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         t = AstroTime.from_utc(datetime(2020, 3, 15, tzinfo=timezone.utc))
@@ -199,11 +199,11 @@ class TestVelocity:
 
     def test_moon_velocity_magnitude(self):
         """Moon orbital velocity ~1 km/s."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_velocity,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         t = AstroTime.from_utc(datetime(2020, 1, 15, tzinfo=timezone.utc))
@@ -217,11 +217,11 @@ class TestGranuleBoundary:
 
     def test_sun_continuous_at_boundary(self):
         """Position should be continuous across granule boundaries."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         sun = eph["sun"]
@@ -240,11 +240,11 @@ class TestGranuleBoundary:
         assert diff < 100_000  # Less than 100 km discontinuity
 
     def test_moon_continuous_at_boundary(self):
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         moon = eph["moon"]
@@ -265,11 +265,11 @@ class TestOutOfRange:
     """Behavior outside ephemeris range."""
 
     def test_before_range_raises(self):
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         # Way before 2000
@@ -278,11 +278,11 @@ class TestOutOfRange:
             evaluate_position(eph["sun"], t)
 
     def test_after_range_raises(self):
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         # After 2050
@@ -295,12 +295,12 @@ class TestBackwardCompat:
     """Meeus ephemeris still works without Chebyshev."""
 
     def test_meeus_moon_still_available(self):
-        from constellation_generator.domain.third_body import moon_position_eci
+        from humeris.domain.third_body import moon_position_eci
         result = moon_position_eci(datetime(2020, 1, 1, tzinfo=timezone.utc))
         assert hasattr(result, "position_eci_m")
 
     def test_third_body_force_without_ephemeris(self):
-        from constellation_generator.domain.third_body import (
+        from humeris.domain.third_body import (
             SolarThirdBodyForce,
             LunarThirdBodyForce,
         )
@@ -321,14 +321,14 @@ class TestThirdBodyJPLvsMeeus:
 
     def test_sun_direction_agreement(self):
         """Sun direction should roughly agree between Meeus and Chebyshev."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.solar import (
+        from humeris.domain.solar import (
             sun_position_eci,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         dt = datetime(2020, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         t = AstroTime.from_utc(dt)
@@ -351,11 +351,11 @@ class TestThirdBodyJPLvsMeeus:
 
     def test_moon_distance_improvement(self):
         """Chebyshev Moon should be closer to truth than Meeus (less than 0.5° error)."""
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         # Just verify it produces reasonable values at multiple epochs
@@ -370,13 +370,13 @@ class TestEphemerisLoading:
     """Loading and caching of ephemeris data."""
 
     def test_load_returns_dict(self):
-        from constellation_generator.domain.planetary_ephemeris import load_ephemeris
+        from humeris.domain.planetary_ephemeris import load_ephemeris
         eph = load_ephemeris()
         assert "sun" in eph
         assert "moon" in eph
 
     def test_gm_values(self):
-        from constellation_generator.domain.planetary_ephemeris import load_ephemeris
+        from humeris.domain.planetary_ephemeris import load_ephemeris
         eph = load_ephemeris()
         assert abs(eph["sun"]["gm"] - 1.32712440041e20) < 1e15
         assert abs(eph["moon"]["gm"] - 4.9028e12) < 1e9
@@ -387,11 +387,11 @@ class TestPerformance:
 
     def test_evaluation_fast(self):
         import time
-        from constellation_generator.domain.planetary_ephemeris import (
+        from humeris.domain.planetary_ephemeris import (
             load_ephemeris,
             evaluate_position,
         )
-        from constellation_generator.domain.time_systems import AstroTime
+        from humeris.domain.time_systems import AstroTime
 
         eph = load_ephemeris()
         t = AstroTime.from_utc(datetime(2020, 1, 1, tzinfo=timezone.utc))
@@ -410,7 +410,7 @@ class TestDomainPurity:
     """Verify planetary_ephemeris.py has zero external dependencies."""
 
     def test_no_external_imports(self):
-        source_path = "src/constellation_generator/domain/planetary_ephemeris.py"
+        source_path = "src/humeris/domain/planetary_ephemeris.py"
         with open(source_path) as f:
             tree = ast.parse(f.read())
         allowed = {
@@ -422,10 +422,10 @@ class TestDomainPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     top = alias.name.split(".")[0]
-                    assert top in allowed or top == "constellation_generator", \
+                    assert top in allowed or top == "humeris", \
                         f"Forbidden import: {alias.name}"
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
                     top = node.module.split(".")[0]
-                    assert top in allowed or top == "constellation_generator", \
+                    assert top in allowed or top == "humeris", \
                         f"Forbidden import from: {node.module}"

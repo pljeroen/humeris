@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from constellation_generator.domain.atmosphere import DragConfig
-from constellation_generator.domain.constellation import (
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.constellation import (
     Satellite,
     ShellConfig,
     generate_walker_shell,
@@ -92,7 +92,7 @@ class TestKspFileStructure:
     """The export file must contain valid ConfigNode VESSEL blocks."""
 
     def test_creates_file(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -101,7 +101,7 @@ class TestKspFileStructure:
         assert (tmp_path / "test.sfs").exists()
 
     def test_contains_header_comment(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -111,7 +111,7 @@ class TestKspFileStructure:
         assert "persistent.sfs" in text
 
     def test_correct_vessel_count(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -122,7 +122,7 @@ class TestKspFileStructure:
         assert len(vessels) == len(sats)
 
     def test_vessel_has_orbit_block(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -134,7 +134,7 @@ class TestKspFileStructure:
             assert "ORBIT" in v
 
     def test_vessel_has_part_block(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -155,7 +155,7 @@ class TestSatelliteProperties:
     """Satellite names and orbital elements must be correct."""
 
     def test_names_preserved(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -168,7 +168,7 @@ class TestSatelliteProperties:
         assert names == expected
 
     def test_orbit_references_kerbin(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -180,7 +180,7 @@ class TestSatelliteProperties:
             assert _extract_orbit_field(v, "REF") == "1"
 
     def test_inclination_preserved(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -193,7 +193,7 @@ class TestSatelliteProperties:
             assert abs(inc - 53.0) < 0.1
 
     def test_raan_matches_satellite(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -207,7 +207,7 @@ class TestSatelliteProperties:
             assert abs(lan - expected) < 0.01
 
     def test_mean_anomaly_in_radians(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -221,7 +221,7 @@ class TestSatelliteProperties:
             assert abs(mna - expected) < 0.001
 
     def test_unique_pids(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -233,7 +233,7 @@ class TestSatelliteProperties:
         assert len(pids) == len(vessels)
 
     def test_type_is_probe(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -253,8 +253,8 @@ class TestKerbinScaling:
     """Orbital elements should be scaled from Earth to Kerbin."""
 
     def test_sma_scaled_to_kerbin(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
-        from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+        from humeris.adapters.ksp_exporter import KspExporter
+        from humeris.domain.orbital_mechanics import OrbitalConstants
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -272,8 +272,8 @@ class TestKerbinScaling:
             assert sma >= 680_000.0  # R_kerbin + 80km minimum
 
     def test_no_scaling_when_disabled(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
-        from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+        from humeris.adapters.ksp_exporter import KspExporter
+        from humeris.domain.orbital_mechanics import OrbitalConstants
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -288,7 +288,7 @@ class TestKerbinScaling:
             assert abs(sma - expected_sma) / expected_sma < 0.001
 
     def test_low_orbit_clamped_above_atmosphere(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         # 550 km LEO scales to ~52 km Kerbin altitude (below 70 km atmo)
         sats = _make_satellites()
@@ -303,7 +303,7 @@ class TestKerbinScaling:
             assert alt >= 80_000.0
 
     def test_high_orbit_not_clamped(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         high_shell = ShellConfig(
             altitude_km=20180, inclination_deg=55, num_planes=2,
@@ -314,7 +314,7 @@ class TestKerbinScaling:
         path = str(tmp_path / "test.sfs")
         KspExporter(scale_to_kerbin=True).export(sats, path, epoch=EPOCH)
 
-        from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+        from humeris.domain.orbital_mechanics import OrbitalConstants
         r_earth = OrbitalConstants.R_EARTH + 20_180_000.0
         scale = 600_000.0 / OrbitalConstants.R_EARTH
         expected_sma = r_earth * scale
@@ -334,7 +334,7 @@ class TestPhysicalProperties:
     """When DragConfig is provided, satellite mass is set in metric tons."""
 
     def test_mass_from_drag_config(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         drag = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
@@ -346,7 +346,7 @@ class TestPhysicalProperties:
         assert "0.260000" in text
 
     def test_default_mass_without_drag_config(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -364,7 +364,7 @@ class TestReturnCount:
     """Export returns the number of satellites exported."""
 
     def test_returns_satellite_count(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         sats = _make_satellites()
         path = str(tmp_path / "test.sfs")
@@ -372,7 +372,7 @@ class TestReturnCount:
         assert count == 6
 
     def test_empty_list_returns_zero(self, tmp_path):
-        from constellation_generator.adapters.ksp_exporter import KspExporter
+        from humeris.adapters.ksp_exporter import KspExporter
 
         path = str(tmp_path / "empty.sfs")
         count = KspExporter().export([], path, epoch=EPOCH)

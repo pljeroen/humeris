@@ -9,7 +9,7 @@ Usage:
 """
 from datetime import datetime, timedelta, timezone
 
-from constellation_generator import (
+from humeris import (
     ShellConfig,
     derive_orbital_state,
     generate_walker_configs,
@@ -18,7 +18,7 @@ from constellation_generator import (
     run_walker_trade_study,
     screen_conjunctions,
 )
-from constellation_generator.adapters.csv_exporter import CsvSatelliteExporter
+from humeris.adapters.csv_exporter import CsvSatelliteExporter
 
 
 def main():

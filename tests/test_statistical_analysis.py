@@ -7,10 +7,10 @@ import ast
 import math
 from datetime import datetime, timezone
 
-from constellation_generator.domain.propagation import OrbitalState
-from constellation_generator.domain.atmosphere import DragConfig
-from constellation_generator.domain.lifetime import OrbitLifetimeResult, DecayPoint, compute_orbit_lifetime
-from constellation_generator.domain.statistical_analysis import (
+from humeris.domain.propagation import OrbitalState
+from humeris.domain.atmosphere import DragConfig
+from humeris.domain.lifetime import OrbitLifetimeResult, DecayPoint, compute_orbit_lifetime
+from humeris.domain.statistical_analysis import (
     CollisionProbabilityAnalytical,
     LifetimeSurvivalCurve,
     MissionAvailabilityProfile,
@@ -206,7 +206,7 @@ class TestRadiationEclipseCorrelation:
 
 class TestStatisticalAnalysisPurity:
     def test_module_pure(self):
-        import constellation_generator.domain.statistical_analysis as mod
+        import humeris.domain.statistical_analysis as mod
         source = ast.parse(open(mod.__file__).read())
         for node in ast.walk(source):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -215,6 +215,6 @@ class TestStatisticalAnalysisPurity:
                 else:
                     for alias in node.names:
                         top = alias.name.split(".")[0]
-                assert top in {"math", "numpy", "dataclasses", "datetime", "typing", "enum", "constellation_generator", "__future__"}, (
+                assert top in {"math", "numpy", "dataclasses", "datetime", "typing", "enum", "humeris", "__future__"}, (
                     f"Forbidden import: {top}"
                 )

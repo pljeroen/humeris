@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.orbital_mechanics import OrbitalConstants
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ _EPOCH = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
 class TestWalkerConfig:
 
     def test_frozen(self):
-        from constellation_generator.domain.trade_study import WalkerConfig
+        from humeris.domain.trade_study import WalkerConfig
 
         wc = WalkerConfig(
             altitude_km=500.0, inclination_deg=53.0,
@@ -32,7 +32,7 @@ class TestWalkerConfig:
             wc.altitude_km = 600.0
 
     def test_fields(self):
-        from constellation_generator.domain.trade_study import WalkerConfig
+        from humeris.domain.trade_study import WalkerConfig
 
         wc = WalkerConfig(
             altitude_km=550.0, inclination_deg=97.5,
@@ -50,8 +50,8 @@ class TestWalkerConfig:
 class TestTradePoint:
 
     def test_frozen(self):
-        from constellation_generator.domain.trade_study import WalkerConfig, TradePoint
-        from constellation_generator.domain.revisit import CoverageResult
+        from humeris.domain.trade_study import WalkerConfig, TradePoint
+        from humeris.domain.revisit import CoverageResult
 
         wc = WalkerConfig(
             altitude_km=500.0, inclination_deg=53.0,
@@ -69,8 +69,8 @@ class TestTradePoint:
             tp.total_satellites = 10
 
     def test_fields(self):
-        from constellation_generator.domain.trade_study import WalkerConfig, TradePoint
-        from constellation_generator.domain.revisit import CoverageResult
+        from humeris.domain.trade_study import WalkerConfig, TradePoint
+        from humeris.domain.revisit import CoverageResult
 
         wc = WalkerConfig(
             altitude_km=500.0, inclination_deg=53.0,
@@ -93,7 +93,7 @@ class TestTradePoint:
 class TestTradeStudyResult:
 
     def test_frozen(self):
-        from constellation_generator.domain.trade_study import TradeStudyResult
+        from humeris.domain.trade_study import TradeStudyResult
 
         tsr = TradeStudyResult(
             points=(), analysis_duration_s=3600.0, min_elevation_deg=10.0,
@@ -102,7 +102,7 @@ class TestTradeStudyResult:
             tsr.analysis_duration_s = 0.0
 
     def test_fields(self):
-        from constellation_generator.domain.trade_study import TradeStudyResult
+        from humeris.domain.trade_study import TradeStudyResult
 
         tsr = TradeStudyResult(
             points=(), analysis_duration_s=7200.0, min_elevation_deg=5.0,
@@ -117,7 +117,7 @@ class TestTradeStudyResult:
 class TestGenerateWalkerConfigs:
 
     def test_single_values_one_config(self):
-        from constellation_generator.domain.trade_study import generate_walker_configs
+        from humeris.domain.trade_study import generate_walker_configs
 
         configs = generate_walker_configs(
             altitude_range=(500.0,),
@@ -131,7 +131,7 @@ class TestGenerateWalkerConfigs:
 
     def test_cartesian_product(self):
         """2 altitudes × 2 inclinations = 4 configs."""
-        from constellation_generator.domain.trade_study import generate_walker_configs
+        from humeris.domain.trade_study import generate_walker_configs
 
         configs = generate_walker_configs(
             altitude_range=(500.0, 600.0),
@@ -142,7 +142,7 @@ class TestGenerateWalkerConfigs:
         assert len(configs) == 4
 
     def test_validates_altitude_positive(self):
-        from constellation_generator.domain.trade_study import generate_walker_configs
+        from humeris.domain.trade_study import generate_walker_configs
 
         with pytest.raises(ValueError):
             generate_walker_configs(
@@ -153,7 +153,7 @@ class TestGenerateWalkerConfigs:
             )
 
     def test_validates_planes_positive(self):
-        from constellation_generator.domain.trade_study import generate_walker_configs
+        from humeris.domain.trade_study import generate_walker_configs
 
         with pytest.raises(ValueError):
             generate_walker_configs(
@@ -164,7 +164,7 @@ class TestGenerateWalkerConfigs:
             )
 
     def test_phase_factor_none_defaults_zero(self):
-        from constellation_generator.domain.trade_study import generate_walker_configs
+        from humeris.domain.trade_study import generate_walker_configs
 
         configs = generate_walker_configs(
             altitude_range=(500.0,),
@@ -176,7 +176,7 @@ class TestGenerateWalkerConfigs:
         assert all(c.phase_factor == 0 for c in configs)
 
     def test_phase_factor_range_included(self):
-        from constellation_generator.domain.trade_study import generate_walker_configs
+        from humeris.domain.trade_study import generate_walker_configs
 
         configs = generate_walker_configs(
             altitude_range=(500.0,),
@@ -195,7 +195,7 @@ class TestGenerateWalkerConfigs:
 class TestRunWalkerTradeStudy:
 
     def test_single_config_one_trade_point(self):
-        from constellation_generator.domain.trade_study import (
+        from humeris.domain.trade_study import (
             WalkerConfig, run_walker_trade_study,
         )
 
@@ -213,7 +213,7 @@ class TestRunWalkerTradeStudy:
         assert result.points[0].config == config
 
     def test_two_configs_two_trade_points(self):
-        from constellation_generator.domain.trade_study import (
+        from humeris.domain.trade_study import (
             WalkerConfig, run_walker_trade_study,
         )
 
@@ -243,28 +243,28 @@ class TestParetoFrontIndices:
 
     def test_one_dominates_other(self):
         """Point (2, 2) dominates (3, 3) → only index 0 returned."""
-        from constellation_generator.domain.trade_study import pareto_front_indices
+        from humeris.domain.trade_study import pareto_front_indices
 
         front = pareto_front_indices([2.0, 3.0], [2.0, 3.0])
         assert front == [0]
 
     def test_two_non_dominated(self):
         """(2, 4) and (4, 2) are non-dominated → both returned."""
-        from constellation_generator.domain.trade_study import pareto_front_indices
+        from humeris.domain.trade_study import pareto_front_indices
 
         front = pareto_front_indices([2.0, 4.0], [4.0, 2.0])
         assert sorted(front) == [0, 1]
 
     def test_identical_points_one_returned(self):
         """Identical points: neither dominates the other → both are non-dominated."""
-        from constellation_generator.domain.trade_study import pareto_front_indices
+        from humeris.domain.trade_study import pareto_front_indices
 
         front = pareto_front_indices([2.0, 2.0], [3.0, 3.0])
         # Both are non-dominated (neither strictly dominates the other)
         assert len(front) == 2
 
     def test_empty_input(self):
-        from constellation_generator.domain.trade_study import pareto_front_indices
+        from humeris.domain.trade_study import pareto_front_indices
 
         front = pareto_front_indices([], [])
         assert front == []
@@ -275,7 +275,7 @@ class TestParetoFrontIndices:
 class TestTradeStudyPurity:
 
     def test_trade_study_imports_only_stdlib_and_domain(self):
-        import constellation_generator.domain.trade_study as mod
+        import humeris.domain.trade_study as mod
 
         allowed = {'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum', '__future__', 'datetime'}
         with open(mod.__file__) as f:
@@ -285,10 +285,10 @@ class TestTradeStudyPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"

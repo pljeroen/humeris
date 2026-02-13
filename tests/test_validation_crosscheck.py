@@ -22,38 +22,38 @@ Scenarios:
 import math
 from datetime import datetime, timedelta, timezone
 
-from constellation_generator.domain.orbital_mechanics import (
+from humeris.domain.orbital_mechanics import (
     OrbitalConstants,
     kepler_to_cartesian,
     j2_raan_rate,
     sso_inclination_deg,
 )
-from constellation_generator.domain.propagation import (
+from humeris.domain.propagation import (
     OrbitalState,
     propagate_to,
 )
-from constellation_generator.domain.eclipse import (
+from humeris.domain.eclipse import (
     eclipse_fraction,
     compute_eclipse_windows,
     compute_beta_angle,
 )
-from constellation_generator.domain.observation import (
+from humeris.domain.observation import (
     compute_observation,
     GroundStation,
 )
-from constellation_generator.domain.access_windows import compute_access_windows
-from constellation_generator.domain.coordinate_frames import (
+from humeris.domain.access_windows import compute_access_windows
+from humeris.domain.coordinate_frames import (
     ecef_to_geodetic,
     eci_to_ecef,
     geodetic_to_ecef,
     gmst_rad,
 )
-from constellation_generator.domain.orbit_properties import (
+from humeris.domain.orbit_properties import (
     compute_orbital_velocity,
     compute_energy_momentum,
     state_vector_to_elements,
 )
-from constellation_generator.domain.orbit_design import design_sso_orbit
+from humeris.domain.orbit_design import design_sso_orbit
 
 _MU = OrbitalConstants.MU_EARTH
 _R_E = OrbitalConstants.R_EARTH

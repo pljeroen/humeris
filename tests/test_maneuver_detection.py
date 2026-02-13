@@ -9,11 +9,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from constellation_generator.domain.orbit_determination import (
+from humeris.domain.orbit_determination import (
     ODEstimate,
     ODResult,
 )
-from constellation_generator.domain.maneuver_detection import (
+from humeris.domain.maneuver_detection import (
     ManeuverEvent,
     ManeuverDetectionResult,
     detect_maneuvers_cusum,
@@ -600,7 +600,7 @@ class TestManeuverDetectionPurity:
 
     def test_module_pure(self):
         """maneuver_detection.py only imports stdlib + numpy + domain."""
-        import constellation_generator.domain.maneuver_detection as mod
+        import humeris.domain.maneuver_detection as mod
 
         allowed = {
             'math', 'numpy', 'dataclasses', 'typing', 'abc', 'enum',
@@ -613,10 +613,10 @@ class TestManeuverDetectionPurity:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     root = alias.name.split('.')[0]
-                    if root not in allowed and not root.startswith('constellation_generator'):
+                    if root not in allowed and not root.startswith('humeris'):
                         assert False, f"Disallowed import '{alias.name}'"
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     root = node.module.split('.')[0]
-                    if root not in allowed and root != 'constellation_generator':
+                    if root not in allowed and root != 'humeris':
                         assert False, f"Disallowed import from '{node.module}'"
