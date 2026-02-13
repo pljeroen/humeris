@@ -14,12 +14,14 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Callable
 
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
 from constellation_generator.domain.solar import sun_position_eci
 from constellation_generator.domain.propagation import OrbitalState, propagate_to
 
 _R_EARTH = OrbitalConstants.R_EARTH
+_R_SUN = 6.957e8  # metres — solar radius
 
 # Eclipse beta-angle threshold: orbits with |beta| below this experience eclipses
 _ECLIPSE_BETA_THRESHOLD_DEG = 70.0
@@ -47,12 +49,13 @@ def is_eclipsed(
 ) -> EclipseType:
     """Determine if satellite is in Earth's shadow.
 
-    Cylindrical shadow model:
+    Conical shadow model with penumbra:
     1. Compute vector from satellite to Sun
     2. If satellite is on the sunlit side (dot product > 0), NONE
     3. Project satellite onto Earth-Sun line
-    4. Compute perpendicular distance
-    5. If perpendicular distance < R_Earth → UMBRA
+    4. Compute perpendicular distance from shadow axis
+    5. Compute umbra and penumbra cone radii at satellite's axial distance
+    6. Classify as UMBRA, PENUMBRA, or NONE
 
     Args:
         sat_position_eci: Satellite ECI position (m).
@@ -78,7 +81,6 @@ def is_eclipsed(
         return EclipseType.NONE
 
     # Satellite is behind Earth relative to Sun.
-    # Project satellite position onto Earth-Sun line (unit direction from Earth to Sun).
     sun_dist = math.sqrt(ux**2 + uy**2 + uz**2)
     if sun_dist == 0:
         return EclipseType.NONE
@@ -87,7 +89,7 @@ def is_eclipsed(
     sun_hat_y = uy / sun_dist
     sun_hat_z = uz / sun_dist
 
-    # Projection of satellite onto Sun direction
+    # Projection of satellite onto Sun direction (negative = behind Earth)
     proj = sx * sun_hat_x + sy * sun_hat_y + sz * sun_hat_z
 
     # Perpendicular distance from Earth-Sun line
@@ -96,8 +98,20 @@ def is_eclipsed(
     perp_z = sz - proj * sun_hat_z
     perp_dist = math.sqrt(perp_x**2 + perp_y**2 + perp_z**2)
 
-    if perp_dist < r_earth:
+    # Distance from Earth center along shadow axis (positive = behind Earth)
+    d_along = -proj
+
+    # Cone radii at satellite's axial distance behind Earth
+    # From similar triangles (Montenbruck & Gill):
+    #   umbra: R_e - d * (R_sun - R_e) / D
+    #   penumbra: R_e + d * (R_sun + R_e) / D
+    umbra_radius = r_earth - d_along * (_R_SUN - r_earth) / sun_dist
+    penumbra_radius = r_earth + d_along * (_R_SUN + r_earth) / sun_dist
+
+    if perp_dist < umbra_radius:
         return EclipseType.UMBRA
+    if perp_dist < penumbra_radius:
+        return EclipseType.PENUMBRA
 
     return EclipseType.NONE
 
@@ -134,6 +148,38 @@ def compute_beta_angle(
     return math.degrees(math.asin(sin_beta))
 
 
+def _bisect_event(
+    f: "Callable[[float], float]",
+    t_a: float,
+    t_b: float,
+    tol_s: float = 1e-3,
+    max_iter: int = 50,
+) -> float:
+    """Find root of f(t) between t_a and t_b via bisection.
+
+    Assumes f(t_a) and f(t_b) have opposite signs.
+
+    Args:
+        f: Function f(t) -> float (sign change indicates event).
+        t_a: Left bound (seconds since reference).
+        t_b: Right bound (seconds since reference).
+        tol_s: Tolerance in seconds.
+        max_iter: Maximum bisection iterations.
+
+    Returns:
+        Approximate root time (seconds since reference).
+    """
+    for _ in range(max_iter):
+        t_mid = (t_a + t_b) / 2.0
+        if f(t_mid) * f(t_a) < 0:
+            t_b = t_mid
+        else:
+            t_a = t_mid
+        if abs(t_b - t_a) < tol_s:
+            break
+    return (t_a + t_b) / 2.0
+
+
 def compute_eclipse_windows(
     state: OrbitalState,
     start: datetime,
@@ -142,8 +188,10 @@ def compute_eclipse_windows(
 ) -> list[EclipseEvent]:
     """Compute eclipse entry/exit times over a time window.
 
-    Time-sweep pattern: propagate satellite, compute Sun position,
-    check is_eclipsed, track state transitions.
+    Time-sweep pattern with bisection refinement at transitions:
+    1. Propagate satellite, compute Sun position, check is_eclipsed
+    2. When a transition is detected, refine with bisection to ~1ms accuracy
+    3. Track state transitions and record EclipseEvent
 
     Args:
         state: Satellite orbital state.
@@ -158,27 +206,40 @@ def compute_eclipse_windows(
     duration_seconds = duration.total_seconds()
     windows: list[EclipseEvent] = []
 
+    def eclipse_indicator(elapsed_s: float) -> float:
+        """Returns +1 if eclipsed, -1 if not."""
+        t = start + timedelta(seconds=elapsed_s)
+        pos_eci, _ = propagate_to(state, t)
+        sun = sun_position_eci(t)
+        sat_pos = (pos_eci[0], pos_eci[1], pos_eci[2])
+        if is_eclipsed(sat_pos, sun.position_eci_m) != EclipseType.NONE:
+            return 1.0
+        return -1.0
+
     in_eclipse = False
-    entry_time = start
+    entry_elapsed = 0.0
     elapsed = 0.0
+    prev_indicator = eclipse_indicator(0.0)
 
     while elapsed <= duration_seconds + 1e-9:
-        current_time = start + timedelta(seconds=elapsed)
-        pos_eci, _ = propagate_to(state, current_time)
-        sun = sun_position_eci(current_time)
+        current_indicator = eclipse_indicator(elapsed)
 
-        sat_pos = (pos_eci[0], pos_eci[1], pos_eci[2])
-        eclipse_type = is_eclipsed(sat_pos, sun.position_eci_m)
-        is_dark = eclipse_type != EclipseType.NONE
-
-        if is_dark and not in_eclipse:
-            entry_time = current_time
+        if current_indicator > 0 and not in_eclipse:
+            # Eclipse entry — refine
+            prev_elapsed = max(0.0, elapsed - step_seconds)
+            refined = _bisect_event(eclipse_indicator, prev_elapsed, elapsed)
+            entry_elapsed = refined
             in_eclipse = True
-        elif not is_dark and in_eclipse:
-            dur = (current_time - entry_time).total_seconds()
+        elif current_indicator < 0 and in_eclipse:
+            # Eclipse exit — refine
+            prev_elapsed = elapsed - step_seconds
+            refined = _bisect_event(eclipse_indicator, prev_elapsed, elapsed)
+            entry_time = start + timedelta(seconds=entry_elapsed)
+            exit_time = start + timedelta(seconds=refined)
+            dur = refined - entry_elapsed
             windows.append(EclipseEvent(
                 entry_time=entry_time,
-                exit_time=current_time,
+                exit_time=exit_time,
                 eclipse_type=EclipseType.UMBRA,
                 duration_seconds=dur,
             ))
@@ -188,9 +249,9 @@ def compute_eclipse_windows(
 
     if in_eclipse:
         exit_time = start + timedelta(seconds=duration_seconds)
-        dur = (exit_time - entry_time).total_seconds()
+        dur = duration_seconds - entry_elapsed
         windows.append(EclipseEvent(
-            entry_time=entry_time,
+            entry_time=start + timedelta(seconds=entry_elapsed),
             exit_time=exit_time,
             eclipse_type=EclipseType.UMBRA,
             duration_seconds=dur,

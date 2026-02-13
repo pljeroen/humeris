@@ -10,12 +10,17 @@ import pytest
 
 from constellation_generator.domain.orbital_mechanics import OrbitalConstants
 from constellation_generator.domain.maneuvers import (
+    FiniteBurnConfig,
+    FiniteBurnResult,
     ManeuverBurn,
     TransferPlan,
     add_propellant_estimate,
     bielliptic_transfer,
     combined_plane_and_altitude,
+    compute_finite_burn,
+    finite_burn_loss,
     hohmann_transfer,
+    low_thrust_spiral,
     phasing_maneuver,
     plane_change_dv,
 )
@@ -201,6 +206,97 @@ class TestPropellantEstimate:
         plan_with_prop = add_propellant_estimate(plan, 300.0, 500.0)
         assert plan_with_prop.total_delta_v_ms == plan.total_delta_v_ms
         assert plan_with_prop.burns == plan.burns
+
+
+# ── Finite burn ─────────────────────────────────────────────────
+
+class TestFiniteBurnDataclasses:
+
+    def test_finite_burn_config_frozen(self):
+        cfg = FiniteBurnConfig(thrust_n=1000.0, isp_s=300.0, initial_mass_kg=500.0)
+        with pytest.raises(AttributeError):
+            cfg.thrust_n = 0.0
+
+    def test_finite_burn_result_frozen(self):
+        r = FiniteBurnResult(delta_v_ms=100.0, burn_duration_s=10.0,
+                             propellant_mass_kg=5.0, final_mass_kg=495.0,
+                             thrust_arc_deg=1.0)
+        with pytest.raises(AttributeError):
+            r.delta_v_ms = 0.0
+
+
+class TestFiniteBurn:
+
+    def test_impulsive_limit(self):
+        """Very high thrust → burn_duration ≈ 0."""
+        cfg = FiniteBurnConfig(thrust_n=1e8, isp_s=300.0, initial_mass_kg=500.0)
+        result = compute_finite_burn(100.0, cfg)
+        assert result.burn_duration_s < 0.1
+
+    def test_mass_conservation(self):
+        """initial = final + propellant."""
+        cfg = FiniteBurnConfig(thrust_n=5000.0, isp_s=300.0, initial_mass_kg=500.0)
+        result = compute_finite_burn(200.0, cfg)
+        assert abs(cfg.initial_mass_kg - result.final_mass_kg - result.propellant_mass_kg) < 1e-10
+
+    def test_tsiolkovsky_consistency(self):
+        """dv = Isp * g0 * ln(m0/mf)."""
+        cfg = FiniteBurnConfig(thrust_n=5000.0, isp_s=300.0, initial_mass_kg=500.0)
+        dv_target = 200.0
+        result = compute_finite_burn(dv_target, cfg)
+        g0 = 9.80665
+        dv_check = cfg.isp_s * g0 * math.log(cfg.initial_mass_kg / result.final_mass_kg)
+        assert abs(dv_check - dv_target) < 1e-8
+
+    def test_burn_arc_bounded(self):
+        """Burn arc < 360° for reasonable thrust levels."""
+        cfg = FiniteBurnConfig(thrust_n=5000.0, isp_s=300.0, initial_mass_kg=500.0)
+        result = compute_finite_burn(200.0, cfg)
+        assert 0 < result.thrust_arc_deg < 360
+
+    def test_zero_thrust_raises(self):
+        with pytest.raises(ValueError, match="thrust_n"):
+            compute_finite_burn(100.0, FiniteBurnConfig(
+                thrust_n=0.0, isp_s=300.0, initial_mass_kg=500.0))
+
+    def test_negative_isp_raises(self):
+        with pytest.raises(ValueError, match="isp_s"):
+            compute_finite_burn(100.0, FiniteBurnConfig(
+                thrust_n=1000.0, isp_s=-1.0, initial_mass_kg=500.0))
+
+
+class TestFiniteBurnLoss:
+
+    def test_loss_positive(self):
+        """Finite burn effective dv < impulsive dv."""
+        effective = finite_burn_loss(100.0, 60.0, 7500.0)
+        assert effective < 100.0
+        assert effective > 0
+
+    def test_zero_duration_no_loss(self):
+        """Zero burn duration → no loss (impulsive limit)."""
+        effective = finite_burn_loss(100.0, 0.0, 7500.0)
+        assert abs(effective - 100.0) < 1e-10
+
+
+class TestLowThrustSpiral:
+
+    def test_spiral_dv_exceeds_hohmann(self):
+        """Low-thrust spiral dv > Hohmann dv (less efficient)."""
+        cfg = FiniteBurnConfig(thrust_n=0.5, isp_s=3000.0, initial_mass_kg=500.0)
+        spiral = low_thrust_spiral(R_LEO, R_GEO, cfg)
+        hohmann = hohmann_transfer(R_LEO, R_GEO)
+        assert spiral.delta_v_ms > hohmann.total_delta_v_ms
+
+    def test_spiral_mass_conservation(self):
+        cfg = FiniteBurnConfig(thrust_n=0.5, isp_s=3000.0, initial_mass_kg=500.0)
+        result = low_thrust_spiral(R_LEO, R_GEO, cfg)
+        assert abs(cfg.initial_mass_kg - result.final_mass_kg - result.propellant_mass_kg) < 1e-10
+
+    def test_invalid_radius_raises(self):
+        cfg = FiniteBurnConfig(thrust_n=0.5, isp_s=3000.0, initial_mass_kg=500.0)
+        with pytest.raises(ValueError):
+            low_thrust_spiral(0.0, R_GEO, cfg)
 
 
 # ── Domain purity ─────────────────────────────────────────────────

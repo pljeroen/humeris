@@ -139,6 +139,204 @@ class J3Perturbation:
         return (ax, ay, az)
 
 
+# --- EGM96/JGM-3 spherical harmonic coefficients to degree 8 ---
+# Format: _CS_COEFFS[(n, m)] = (C_nm, S_nm)
+# n=degree, m=order. C_n0 = -J_n (zonal harmonics), S_n0 = 0.
+_CS_COEFFS: dict[tuple[int, int], tuple[float, float]] = {
+    (2, 0): (-1.08263e-3, 0.0),           # -J2
+    (2, 1): (-2.414e-10, 1.543e-9),
+    (2, 2): (1.5745e-6, -9.0386e-7),
+    (3, 0): (2.53241e-6, 0.0),            # -J3 (note sign: C30 = -J3)
+    (3, 1): (2.1928e-6, 2.6801e-7),
+    (3, 2): (3.0900e-7, -2.1140e-7),
+    (3, 3): (1.0055e-7, 1.9720e-7),
+    (4, 0): (1.6199e-6, 0.0),             # -J4
+    (4, 1): (-5.0872e-7, -4.4945e-7),
+    (4, 2): (7.8412e-8, 1.4817e-7),
+    (4, 3): (5.9215e-8, -1.2010e-8),
+    (4, 4): (-3.9824e-9, 6.5253e-9),
+    (5, 0): (2.2772e-7, 0.0),
+    (5, 1): (-5.3195e-8, -9.4997e-8),
+    (5, 2): (1.0559e-7, -6.5314e-8),
+    (5, 3): (-1.4926e-8, -3.2323e-9),
+    (5, 4): (6.8629e-10, -7.1622e-10),
+    (5, 5): (3.5274e-10, -5.5373e-10),
+    (6, 0): (-5.3964e-7, 0.0),
+    (6, 1): (-5.9835e-8, 2.1476e-8),
+    (6, 2): (6.5256e-9, 3.2827e-8),
+    (6, 3): (1.0061e-8, 7.5855e-10),
+    (6, 4): (-1.5780e-9, -2.3854e-9),
+    (6, 5): (-3.3044e-11, -5.0586e-10),
+    (6, 6): (7.8972e-12, -3.1534e-11),
+    (7, 0): (3.5136e-7, 0.0),
+    (7, 1): (9.2024e-8, 1.2233e-7),
+    (7, 2): (4.2963e-8, 1.1847e-8),
+    (7, 3): (-2.3283e-9, -1.0209e-8),
+    (7, 4): (-4.3310e-10, 2.5795e-10),
+    (7, 5): (-2.3503e-10, 1.2345e-10),
+    (7, 6): (1.7920e-12, -4.5648e-11),
+    (7, 7): (-1.4490e-12, 6.5210e-12),
+    (8, 0): (2.0251e-7, 0.0),
+    (8, 1): (2.4563e-8, 5.7461e-8),
+    (8, 2): (8.2823e-9, 1.6586e-8),
+    (8, 3): (-1.9278e-9, -1.2560e-9),
+    (8, 4): (-1.9279e-10, 2.3451e-10),
+    (8, 5): (-3.0600e-11, -2.2555e-11),
+    (8, 6): (4.6040e-12, -5.1100e-12),
+    (8, 7): (-1.6310e-13, 7.0560e-13),
+    (8, 8): (-2.1880e-14, 1.9640e-14),
+}
+
+
+def _gmst_rad(epoch: datetime) -> float:
+    """Greenwich Mean Sidereal Time in radians.
+
+    IAU formula: GMST(°) = 280.46061837 + 360.98564736629 * (JD - 2451545.0)
+    """
+    from constellation_generator.domain.coordinate_frames import gmst_rad as _gmst
+    return _gmst(epoch)
+
+
+class SphericalHarmonicGravity:
+    """Spherical harmonic gravity acceleration to degree/order N (max 8).
+
+    Implements the Montenbruck & Gill Ch. 3.2 algorithm:
+    1. Rotate ECI to ECEF using GMST
+    2. Compute associated Legendre polynomials via recursion
+    3. Sum gravity acceleration in ECEF
+    4. Rotate back to ECI
+    """
+
+    def __init__(self, max_degree: int = 8) -> None:
+        if max_degree < 2 or max_degree > 8:
+            raise ValueError(f"max_degree must be 2-8, got {max_degree}")
+        self._max_degree = max_degree
+
+    def _legendre(self, n_max: int, sin_lat: float) -> list[list[float]]:
+        """Compute normalized associated Legendre polynomials P_nm(sin_lat).
+
+        Uses standard recursion (Montenbruck & Gill Eq. 3.12-3.14).
+        Returns P[n][m] for n=0..n_max, m=0..n.
+        """
+        cos_lat = math.sqrt(max(0.0, 1.0 - sin_lat * sin_lat))
+
+        p: list[list[float]] = [[0.0] * (i + 1) for i in range(n_max + 1)]
+        p[0][0] = 1.0
+        if n_max >= 1:
+            p[1][0] = sin_lat * math.sqrt(3.0)
+            p[1][1] = cos_lat * math.sqrt(3.0)
+
+        for n in range(2, n_max + 1):
+            for m in range(n + 1):
+                if m == n:
+                    p[n][m] = cos_lat * math.sqrt((2.0 * n + 1.0) / (2.0 * n)) * p[n - 1][n - 1]
+                elif m == n - 1:
+                    p[n][m] = sin_lat * math.sqrt(2.0 * n + 1.0) * p[n - 1][m]
+                else:
+                    a = math.sqrt((2.0 * n + 1.0) * (2.0 * n - 1.0) / ((n - m) * (n + m)))
+                    b = math.sqrt((2.0 * n + 1.0) * (n + m - 1.0) * (n - m - 1.0)
+                                  / ((2.0 * n - 3.0) * (n - m) * (n + m)))
+                    p[n][m] = a * sin_lat * p[n - 1][m] - b * p[n - 2][m]
+
+        return p
+
+    def acceleration(
+        self,
+        epoch: datetime,
+        position: tuple[float, float, float],
+        velocity: tuple[float, float, float],
+    ) -> tuple[float, float, float]:
+        """Compute gravitational acceleration from spherical harmonics."""
+        x_eci, y_eci, z_eci = position
+        r = math.sqrt(x_eci**2 + y_eci**2 + z_eci**2)
+        if r < 1e-3:
+            return (0.0, 0.0, 0.0)
+
+        # Rotate ECI to ECEF
+        gmst = _gmst_rad(epoch)
+        cos_g = math.cos(gmst)
+        sin_g = math.sin(gmst)
+        x_ecef = cos_g * x_eci + sin_g * y_eci
+        y_ecef = -sin_g * x_eci + cos_g * y_eci
+        z_ecef = z_eci
+
+        # Spherical coordinates
+        r_xy = math.sqrt(x_ecef**2 + y_ecef**2)
+        sin_lat = z_ecef / r
+        cos_lat = r_xy / r
+        if r_xy > 1e-10:
+            lon = math.atan2(y_ecef, x_ecef)
+        else:
+            lon = 0.0
+
+        # Legendre polynomials
+        p = self._legendre(self._max_degree, sin_lat)
+
+        mu = OrbitalConstants.MU_EARTH
+        re = OrbitalConstants.R_EARTH_EQUATORIAL
+
+        # Acceleration components in local (r, lat, lon) frame
+        ar = -mu / (r * r)  # Central term
+        alat = 0.0
+        alon = 0.0
+
+        re_r = re / r
+        re_r_power = re_r * re_r  # Start at (Re/r)^2
+
+        for n in range(2, self._max_degree + 1):
+            re_r_power *= re_r  # (Re/r)^(n+1) incrementally
+
+            for m in range(n + 1):
+                cnm, snm = _CS_COEFFS.get((n, m), (0.0, 0.0))
+
+                cos_m_lon = math.cos(m * lon)
+                sin_m_lon = math.sin(m * lon)
+
+                cs_term = cnm * cos_m_lon + snm * sin_m_lon
+
+                # Radial component
+                ar += -mu / (r * r) * re_r_power * (n + 1) * p[n][m] * cs_term
+
+                # Latitudinal component
+                # dP_nm/d(lat) = P_{n,m+1} * sqrt((n-m)*(n+m+1)) - m*tan(lat)*P_nm
+                # For m < n:
+                if m < n:
+                    dp = p[n][m + 1] * math.sqrt((n - m) * (n + m + 1.0))
+                else:
+                    dp = 0.0
+                if cos_lat > 1e-12:
+                    dp -= m * (sin_lat / cos_lat) * p[n][m]
+                alat += mu / (r * r) * re_r_power * dp * cs_term
+
+                # Longitudinal component
+                sc_term = -cnm * sin_m_lon + snm * cos_m_lon
+                if cos_lat > 1e-12:
+                    alon += mu / (r * r) * re_r_power * m * p[n][m] * sc_term / cos_lat
+
+        # Convert local to ECEF Cartesian
+        cos_lon = math.cos(lon)
+        sin_lon = math.sin(lon)
+
+        # Unit vectors in ECEF
+        # r_hat = (cos_lat*cos_lon, cos_lat*sin_lon, sin_lat)
+        # lat_hat = (-sin_lat*cos_lon, -sin_lat*sin_lon, cos_lat)
+        # lon_hat = (-sin_lon, cos_lon, 0)
+        ax_ecef = (ar * cos_lat * cos_lon
+                    + alat * (-sin_lat * cos_lon)
+                    + alon * (-sin_lon))
+        ay_ecef = (ar * cos_lat * sin_lon
+                    + alat * (-sin_lat * sin_lon)
+                    + alon * cos_lon)
+        az_ecef = ar * sin_lat + alat * cos_lat
+
+        # Rotate ECEF back to ECI
+        ax_eci = cos_g * ax_ecef - sin_g * ay_ecef
+        ay_eci = sin_g * ax_ecef + cos_g * ay_ecef
+        az_eci = az_ecef
+
+        return (ax_eci, ay_eci, az_eci)
+
+
 class AtmosphericDragForce:
     """Atmospheric drag acceleration with co-rotating atmosphere.
 
@@ -280,6 +478,100 @@ def rk4_step(
     return (t_s + h, state_new)
 
 
+# --- Symplectic integrators ---
+
+def stormer_verlet_step(
+    t_s: float,
+    state: tuple[float, ...],
+    h: float,
+    accel_fn: Callable[[float, tuple[float, float, float], tuple[float, float, float]], tuple[float, float, float]],
+) -> tuple[float, tuple[float, ...]]:
+    """Single Stormer-Verlet (leapfrog) integration step (2nd order symplectic).
+
+    Args:
+        t_s: Current time (seconds).
+        state: Current state vector (x, y, z, vx, vy, vz).
+        h: Step size (seconds).
+        accel_fn: Acceleration function a(t, pos, vel) -> (ax, ay, az).
+
+    Returns:
+        (t_new, state_new)
+    """
+    pos = (state[0], state[1], state[2])
+    vel = (state[3], state[4], state[5])
+
+    # Half-step velocity
+    acc = accel_fn(t_s, pos, vel)
+    v_half = (vel[0] + 0.5 * h * acc[0],
+              vel[1] + 0.5 * h * acc[1],
+              vel[2] + 0.5 * h * acc[2])
+
+    # Full-step position
+    pos_new = (pos[0] + h * v_half[0],
+               pos[1] + h * v_half[1],
+               pos[2] + h * v_half[2])
+
+    # Acceleration at new position
+    acc_new = accel_fn(t_s + h, pos_new, v_half)
+
+    # Complete velocity step
+    vel_new = (v_half[0] + 0.5 * h * acc_new[0],
+               v_half[1] + 0.5 * h * acc_new[1],
+               v_half[2] + 0.5 * h * acc_new[2])
+
+    return (t_s + h, pos_new + vel_new)
+
+
+def yoshida4_step(
+    t_s: float,
+    state: tuple[float, ...],
+    h: float,
+    accel_fn: Callable[[float, tuple[float, float, float], tuple[float, float, float]], tuple[float, float, float]],
+) -> tuple[float, tuple[float, ...]]:
+    """Single 4th-order Yoshida integration step (symplectic).
+
+    Composition of 3 Stormer-Verlet sub-steps with Yoshida coefficients.
+
+    Args:
+        t_s: Current time (seconds).
+        state: Current state vector (x, y, z, vx, vy, vz).
+        h: Step size (seconds).
+        accel_fn: Acceleration function a(t, pos, vel) -> (ax, ay, az).
+
+    Returns:
+        (t_new, state_new)
+    """
+    # Yoshida 4th-order coefficients
+    cbrt2 = 2.0 ** (1.0 / 3.0)
+    w1 = 1.0 / (2.0 - cbrt2)
+    w0 = -cbrt2 / (2.0 - cbrt2)
+
+    d = (w1, w0, w1)
+    c_half = (w1 / 2.0, (w0 + w1) / 2.0, (w0 + w1) / 2.0, w1 / 2.0)
+
+    pos = [state[0], state[1], state[2]]
+    vel = [state[3], state[4], state[5]]
+    t = t_s
+
+    # c[0] position kick
+    for k in range(3):
+        pos[k] += c_half[0] * h * vel[k]
+    t += c_half[0] * h
+
+    for i in range(3):
+        # d[i] velocity kick
+        acc = accel_fn(t, (pos[0], pos[1], pos[2]), (vel[0], vel[1], vel[2]))
+        for k in range(3):
+            vel[k] += d[i] * h * acc[k]
+
+        # c[i+1] position kick
+        for k in range(3):
+            pos[k] += c_half[i + 1] * h * vel[k]
+        t = t_s + sum(c_half[:i + 2]) * h
+
+    return (t_s + h, (pos[0], pos[1], pos[2], vel[0], vel[1], vel[2]))
+
+
 # --- Main propagation function ---
 
 def propagate_numerical(
@@ -288,12 +580,13 @@ def propagate_numerical(
     step: timedelta,
     force_models: list[ForceModel],
     epoch: datetime | None = None,
+    integrator: str = "rk4",
 ) -> NumericalPropagationResult:
-    """RK4 integration with summed force model accelerations.
+    """Numerical integration with summed force model accelerations.
 
     1. Convert OrbitalState -> Cartesian ECI via kepler_to_cartesian
-    2. Build derivative function: sums all force model accelerations
-    3. Step through time, recording PropagationStep at each step
+    2. Build derivative/acceleration function from force models
+    3. Step through time using chosen integrator
     4. Returns NumericalPropagationResult
 
     Args:
@@ -302,9 +595,13 @@ def propagate_numerical(
         step: Integration time step.
         force_models: List of force models to sum.
         epoch: Override epoch (defaults to initial_state.reference_epoch).
+        integrator: Integration method — "rk4", "verlet", or "yoshida".
     """
     # Import here to avoid circular import at module level
     from constellation_generator.domain.propagation import OrbitalState as _OS
+
+    if integrator not in ("rk4", "verlet", "yoshida"):
+        raise ValueError(f"Unknown integrator: {integrator!r}. Use 'rk4', 'verlet', or 'yoshida'.")
 
     ref_epoch = epoch if epoch is not None else initial_state.reference_epoch
     duration_s = duration.total_seconds()
@@ -342,6 +639,31 @@ def propagate_numerical(
 
         return (v[0], v[1], v[2], ax_total, ay_total, az_total)
 
+    def accel_fn(
+        t_s: float,
+        p: tuple[float, float, float],
+        v: tuple[float, float, float],
+    ) -> tuple[float, float, float]:
+        current_epoch = ref_epoch + timedelta(seconds=t_s)
+        ax_total, ay_total, az_total = 0.0, 0.0, 0.0
+        for fm in force_models:
+            ax, ay, az = fm.acceleration(current_epoch, p, v)
+            ax_total += ax
+            ay_total += ay
+            az_total += az
+        return (ax_total, ay_total, az_total)
+
+    # Select stepper
+    if integrator == "rk4":
+        def step_fn(t: float, sv: tuple[float, ...], h: float) -> tuple[float, tuple[float, ...]]:
+            return rk4_step(t, sv, h, deriv_fn)
+    elif integrator == "verlet":
+        def step_fn(t: float, sv: tuple[float, ...], h: float) -> tuple[float, tuple[float, ...]]:
+            return stormer_verlet_step(t, sv, h, accel_fn)
+    else:  # yoshida
+        def step_fn(t: float, sv: tuple[float, ...], h: float) -> tuple[float, tuple[float, ...]]:
+            return yoshida4_step(t, sv, h, accel_fn)
+
     # Collect steps
     steps: list[PropagationStep] = []
     t_current = 0.0
@@ -354,7 +676,7 @@ def propagate_numerical(
         steps.append(PropagationStep(time=current_time, position_eci=p, velocity_eci=v))
 
         if i < num_steps - 1:
-            t_current, state_vec = rk4_step(t_current, state_vec, step_s, deriv_fn)
+            t_current, state_vec = step_fn(t_current, state_vec, step_s)
 
     return NumericalPropagationResult(
         steps=tuple(steps),

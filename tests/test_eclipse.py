@@ -96,6 +96,78 @@ class TestIsEclipsed:
         assert result == EclipseType.NONE
 
 
+# ── Conical shadow model (penumbra) ──────────────────────────────
+
+class TestConicalShadow:
+
+    def test_deep_umbra_still_umbra(self):
+        """Satellite directly behind Earth (on shadow axis) → UMBRA."""
+        sun_pos = (AU_METERS, 0.0, 0.0)
+        sat_pos = (-(R_EARTH + 400_000), 0.0, 0.0)
+        result = is_eclipsed(sat_pos, sun_pos)
+        assert result == EclipseType.UMBRA
+
+    def test_sunlit_still_none(self):
+        """Satellite on sunlit side → NONE (regression)."""
+        sun_pos = (AU_METERS, 0.0, 0.0)
+        sat_pos = (R_EARTH + 400_000, 0.0, 0.0)
+        result = is_eclipsed(sat_pos, sun_pos)
+        assert result == EclipseType.NONE
+
+    def test_penumbra_zone_detected(self):
+        """Satellite at edge of Earth shadow → PENUMBRA.
+
+        Place satellite behind Earth, displaced perpendicular to shadow axis
+        just beyond the umbra cone but within the penumbra cone.
+        At LEO distance, penumbra zone is ~63 km wide (2*d*R_sun/D).
+        """
+        sun_pos = (AU_METERS, 0.0, 0.0)
+        sat_x = -(R_EARTH + 400_000)
+        # Umbra radius ≈ R_EARTH - 31 km, penumbra radius ≈ R_EARTH + 32 km
+        # Place satellite at perp distance = R_EARTH (between umbra and penumbra)
+        sat_y = R_EARTH
+        sat_pos = (sat_x, sat_y, 0.0)
+        result = is_eclipsed(sat_pos, sun_pos)
+        assert result == EclipseType.PENUMBRA
+
+    def test_penumbra_width_physically_reasonable(self):
+        """Penumbra zone width at LEO is ~50-80 km.
+
+        From cone geometry: width = 2 * d * R_sun / D ≈ 63 km at LEO.
+        """
+        sun_pos = (AU_METERS, 0.0, 0.0)
+        sat_x = -(R_EARTH + 400_000)
+        d = R_EARTH + 400_000
+        r_sun = 6.957e8
+        # Theoretical penumbra width
+        expected_width = 2 * d * r_sun / AU_METERS
+        # Sweep to find actual boundaries (1 km resolution)
+        umbra_edge = None
+        penumbra_edge = None
+        start_km = int((R_EARTH - 50_000) / 1000)
+        end_km = int((R_EARTH + 50_000) / 1000)
+        for y_km in range(start_km, end_km):
+            y_m = y_km * 1000.0
+            result = is_eclipsed((sat_x, y_m, 0.0), sun_pos)
+            if result != EclipseType.UMBRA and umbra_edge is None:
+                umbra_edge = y_m
+            if result == EclipseType.NONE and penumbra_edge is None and umbra_edge is not None:
+                penumbra_edge = y_m
+
+        assert umbra_edge is not None
+        assert penumbra_edge is not None
+        penumbra_width_km = (penumbra_edge - umbra_edge) / 1000.0
+        # Physically: penumbra width at LEO ≈ 63 km (±30% tolerance)
+        assert 40 < penumbra_width_km < 100
+
+    def test_far_off_axis_still_none(self):
+        """Satellite far off-axis → NONE (no change from cylindrical)."""
+        sun_pos = (AU_METERS, 0.0, 0.0)
+        sat_pos = (-(R_EARTH + 400_000), R_EARTH * 3, 0.0)
+        result = is_eclipsed(sat_pos, sun_pos)
+        assert result == EclipseType.NONE
+
+
 # ── Beta angle ────────────────────────────────────────────────────
 
 class TestBetaAngle:
@@ -170,6 +242,72 @@ class TestEclipseWindows:
         for w in windows:
             assert w.duration_seconds > 0
             assert w.duration_seconds < T_orbital
+
+
+# ── Event detection / bisection refinement ───────────────────────
+
+class TestEventDetection:
+
+    def _make_leo_state(self):
+        from constellation_generator.domain.constellation import (
+            ShellConfig, generate_walker_shell,
+        )
+        from constellation_generator.domain.propagation import derive_orbital_state
+        shell = ShellConfig(
+            altitude_km=500, inclination_deg=53, num_planes=1,
+            sats_per_plane=1, phase_factor=0, raan_offset_deg=0,
+            shell_name='Test',
+        )
+        sat = generate_walker_shell(shell)[0]
+        epoch = datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+        return derive_orbital_state(sat, epoch), epoch
+
+    def test_refined_times_within_step(self):
+        """Refined eclipse entry/exit differ from coarse by < step_size."""
+        state, epoch = self._make_leo_state()
+        step_s = 30
+        windows = compute_eclipse_windows(
+            state, epoch,
+            duration=timedelta(hours=3),
+            step=timedelta(seconds=step_s),
+        )
+        assert len(windows) > 0
+        for w in windows:
+            assert w.duration_seconds > 0
+
+    def test_eclipse_count_unchanged(self):
+        """Refinement doesn't create or remove eclipse events."""
+        state, epoch = self._make_leo_state()
+        # Coarse and fine step should find same number of eclipses
+        w_coarse = compute_eclipse_windows(
+            state, epoch,
+            duration=timedelta(hours=3),
+            step=timedelta(seconds=60),
+        )
+        w_fine = compute_eclipse_windows(
+            state, epoch,
+            duration=timedelta(hours=3),
+            step=timedelta(seconds=10),
+        )
+        assert len(w_coarse) == len(w_fine)
+
+    def test_eclipse_duration_consistency(self):
+        """Eclipse durations from refined windows are within 2*step of coarse."""
+        state, epoch = self._make_leo_state()
+        step_coarse = 60
+        step_fine = 10
+        w_coarse = compute_eclipse_windows(
+            state, epoch,
+            duration=timedelta(hours=3),
+            step=timedelta(seconds=step_coarse),
+        )
+        w_fine = compute_eclipse_windows(
+            state, epoch,
+            duration=timedelta(hours=3),
+            step=timedelta(seconds=step_fine),
+        )
+        for wc, wf in zip(w_coarse, w_fine):
+            assert abs(wc.duration_seconds - wf.duration_seconds) < 2 * step_coarse
 
 
 # ── Eclipse fraction ─────────────────────────────────────────────

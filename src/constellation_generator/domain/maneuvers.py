@@ -250,6 +250,166 @@ def phasing_maneuver(
     )
 
 
+@dataclass(frozen=True)
+class FiniteBurnConfig:
+    """Configuration for finite-duration burns."""
+    thrust_n: float           # thrust force (Newtons)
+    isp_s: float              # specific impulse (seconds)
+    initial_mass_kg: float    # wet mass at burn start
+
+
+@dataclass(frozen=True)
+class FiniteBurnResult:
+    """Result of a finite-duration burn computation."""
+    delta_v_ms: float         # achieved delta-V
+    burn_duration_s: float    # engine-on time
+    propellant_mass_kg: float # mass consumed
+    final_mass_kg: float      # mass after burn
+    thrust_arc_deg: float     # angular arc traversed during burn
+
+
+def compute_finite_burn(
+    delta_v_target_ms: float,
+    config: FiniteBurnConfig,
+    orbital_period_s: float = 5400.0,
+) -> FiniteBurnResult:
+    """Compute finite burn parameters for a target delta-V.
+
+    Uses Tsiolkovsky equation: dv = Isp * g0 * ln(m0/mf)
+    Solves for final mass, propellant, burn duration, and thrust arc.
+
+    Args:
+        delta_v_target_ms: Target delta-V (m/s).
+        config: Finite burn configuration.
+        orbital_period_s: Orbital period for arc calculation (seconds).
+
+    Returns:
+        FiniteBurnResult with burn parameters.
+
+    Raises:
+        ValueError: If thrust <= 0, Isp <= 0, or mass <= 0.
+    """
+    if config.thrust_n <= 0:
+        raise ValueError(f"thrust_n must be > 0, got {config.thrust_n}")
+    if config.isp_s <= 0:
+        raise ValueError(f"isp_s must be > 0, got {config.isp_s}")
+    if config.initial_mass_kg <= 0:
+        raise ValueError(f"initial_mass_kg must be > 0, got {config.initial_mass_kg}")
+
+    exhaust_vel = config.isp_s * _G0
+
+    # Tsiolkovsky: mf = m0 * exp(-dv / ve)
+    final_mass = config.initial_mass_kg * math.exp(-delta_v_target_ms / exhaust_vel)
+    propellant_mass = config.initial_mass_kg - final_mass
+
+    # Burn duration: T = propellant * ve / thrust
+    burn_duration = propellant_mass * exhaust_vel / config.thrust_n
+
+    # Thrust arc: fraction of orbit × 360°
+    thrust_arc = (burn_duration / orbital_period_s) * 360.0
+
+    return FiniteBurnResult(
+        delta_v_ms=delta_v_target_ms,
+        burn_duration_s=burn_duration,
+        propellant_mass_kg=propellant_mass,
+        final_mass_kg=final_mass,
+        thrust_arc_deg=thrust_arc,
+    )
+
+
+def finite_burn_loss(
+    delta_v_ms: float,
+    burn_duration_s: float,
+    orbital_velocity_ms: float,
+) -> float:
+    """Compute effective delta-V after finite burn gravity loss.
+
+    Uses the cosine loss approximation: effective_dv = dv * cos(alpha/2)
+    where alpha is the burn arc in radians.
+
+    Args:
+        delta_v_ms: Impulsive delta-V (m/s).
+        burn_duration_s: Burn duration (seconds).
+        orbital_velocity_ms: Orbital velocity (m/s).
+
+    Returns:
+        Effective delta-V after accounting for gravity loss (m/s).
+    """
+    if orbital_velocity_ms <= 0 or burn_duration_s <= 0:
+        return delta_v_ms
+
+    # Burn arc in radians: angular rate * burn time
+    # angular_rate ≈ v / r, burn arc ≈ burn_duration * angular_rate
+    # For circular orbit: angular_rate = v / r = v^2 / (v * r) = mu / (r^2 * v)
+    # Simpler: alpha = burn_duration * v / r, but we don't know r
+    # Use alpha = delta_v / v as a reasonable approximation
+    alpha = burn_duration_s * orbital_velocity_ms / (
+        _MU / orbital_velocity_ms
+    )  # burn_duration * omega = burn_duration * v / r
+
+    # Cosine loss
+    effective_dv = delta_v_ms * math.cos(alpha / 2.0)
+    return effective_dv
+
+
+def low_thrust_spiral(
+    r1_m: float,
+    r2_m: float,
+    config: FiniteBurnConfig,
+) -> FiniteBurnResult:
+    """Edelbaum approximation for continuous low-thrust orbit raising.
+
+    Spiral transfer between circular orbits.
+    dv ≈ |v1 - v2| where v = sqrt(mu/r).
+
+    Args:
+        r1_m: Initial circular orbit radius (m).
+        r2_m: Final circular orbit radius (m).
+        config: Finite burn configuration.
+
+    Returns:
+        FiniteBurnResult with spiral parameters.
+
+    Raises:
+        ValueError: If radii <= 0 or config invalid.
+    """
+    if r1_m <= 0:
+        raise ValueError(f"r1_m must be > 0, got {r1_m}")
+    if r2_m <= 0:
+        raise ValueError(f"r2_m must be > 0, got {r2_m}")
+    if config.thrust_n <= 0:
+        raise ValueError(f"thrust_n must be > 0, got {config.thrust_n}")
+    if config.isp_s <= 0:
+        raise ValueError(f"isp_s must be > 0, got {config.isp_s}")
+    if config.initial_mass_kg <= 0:
+        raise ValueError(f"initial_mass_kg must be > 0, got {config.initial_mass_kg}")
+
+    v1 = math.sqrt(_MU / r1_m)
+    v2 = math.sqrt(_MU / r2_m)
+    delta_v = abs(v1 - v2)
+
+    exhaust_vel = config.isp_s * _G0
+    final_mass = config.initial_mass_kg * math.exp(-delta_v / exhaust_vel)
+    propellant_mass = config.initial_mass_kg - final_mass
+
+    # Duration: iterative using average mass
+    avg_mass = (config.initial_mass_kg + final_mass) / 2.0
+    burn_duration = delta_v * avg_mass / config.thrust_n
+
+    # Total arc traversed (spiral, so many orbits)
+    avg_r = (r1_m + r2_m) / 2.0
+    avg_period = 2.0 * math.pi * math.sqrt(avg_r**3 / _MU)
+    thrust_arc = (burn_duration / avg_period) * 360.0
+
+    return FiniteBurnResult(
+        delta_v_ms=delta_v,
+        burn_duration_s=burn_duration,
+        propellant_mass_kg=propellant_mass,
+        final_mass_kg=final_mass,
+        thrust_arc_deg=thrust_arc,
+    )
+
+
 def add_propellant_estimate(
     transfer: TransferPlan, isp_s: float, dry_mass_kg: float,
 ) -> TransferPlan:
