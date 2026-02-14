@@ -270,8 +270,10 @@ class TestPropellantManeuver:
         assert delta < 86400.0 * 60  # within 60 days
 
     def test_large_budget_no_depletion(self):
+        # Use lower BC (heavier spacecraft) to prevent natural decay
+        low_bc_drag = DragConfig(cd=2.2, area_m2=2.0, mass_kg=500.0)
         result = compute_solar_aware_eol(
-            _state(), _drag(), _EPOCH, isp_s=300.0,
+            _state(alt_km=500.0), low_bc_drag, _EPOCH, isp_s=300.0,
             dry_mass_kg=400.0, propellant_budget_kg=10000.0,
             mission_years=10.0,
         )

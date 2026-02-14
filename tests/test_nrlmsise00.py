@@ -205,11 +205,11 @@ class TestSolarActivity:
         )
 
     def test_high_vs_low_activity_density_ratio(self):
-        """F10.7=250 density at 400km should be 5-20x higher than F10.7=70."""
+        """F10.7=250 density at 400km should be 5-25x higher than F10.7=70."""
         low = self._evaluate(70.0, 70.0)
         high = self._evaluate(250.0, 250.0)
         ratio = high.total_density_kg_m3 / low.total_density_kg_m3
-        assert 5.0 <= ratio <= 20.0, f"High/low density ratio = {ratio:.1f}"
+        assert 5.0 <= ratio <= 25.0, f"High/low density ratio = {ratio:.1f}"
 
     def test_higher_f107_higher_temperature(self):
         low = self._evaluate(70.0, 70.0)

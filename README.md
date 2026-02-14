@@ -1,8 +1,8 @@
 # Humeris
 
-[![Version](https://img.shields.io/badge/version-1.24.0-blue.svg)](packages/core/pyproject.toml)
+[![Version](https://img.shields.io/badge/version-1.26.0-blue.svg)](packages/core/pyproject.toml)
 [![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](packages/core/pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-3158_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3226_passing-brightgreen.svg)](tests/)
 [![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE)
 
 Generate Walker constellation satellite shells and fetch live orbital data for orbit simulation tools.

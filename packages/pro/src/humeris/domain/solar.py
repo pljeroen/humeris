@@ -109,12 +109,16 @@ class SolarCyclePrediction:
     ap_predicted: Predicted planetary geomagnetic index.
     cycle_number: Solar cycle number (23, 24, 25, ...).
     cycle_phase: Phase within cycle [0, 1] (0=minimum, ~0.3-0.4=maximum).
+    f107_upper: Upper bound (+1σ) of F10.7 prediction.
+    f107_lower: Lower bound (-1σ) of F10.7 prediction.
     """
     f107_predicted: float
     f107_81day: float
     ap_predicted: float
     cycle_number: int
     cycle_phase: float
+    f107_upper: float = 0.0
+    f107_lower: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -125,19 +129,27 @@ class _SolarCycleParams:
     amplitude: float   # Peak SSN amplitude
     rise_time: float   # Years from minimum to maximum
     duration: float    # Approximate cycle length in years
+    asymmetry: float = 0.8  # Hathaway (2015) asymmetry parameter c
+    amplitude_upper: float = 0.0  # +1σ amplitude (from SWPC prediction panels)
+    amplitude_lower: float = 0.0  # -1σ amplitude
 
 
 # Known solar cycle parameters (Hathaway 2015 parametric form)
 # Start years, amplitudes, and rise times from NOAA/SWPC observations.
+# Uncertainty ranges: ±1σ from SWPC prediction panels.
 SOLAR_CYCLES: tuple[_SolarCycleParams, ...] = (
     _SolarCycleParams(number=23, start_year=1996.4, amplitude=175.0,
-                      rise_time=4.0, duration=12.5),
+                      rise_time=4.0, duration=12.5,
+                      amplitude_upper=190.0, amplitude_lower=160.0),
     _SolarCycleParams(number=24, start_year=2008.9, amplitude=116.0,
-                      rise_time=5.4, duration=11.0),
+                      rise_time=5.4, duration=11.0,
+                      amplitude_upper=128.0, amplitude_lower=104.0),
     _SolarCycleParams(number=25, start_year=2019.9, amplitude=155.0,
-                      rise_time=4.6, duration=11.0),
+                      rise_time=4.6, duration=11.0,
+                      amplitude_upper=185.0, amplitude_lower=125.0),
     _SolarCycleParams(number=26, start_year=2030.9, amplitude=130.0,
-                      rise_time=4.5, duration=11.0),
+                      rise_time=4.5, duration=11.0,
+                      amplitude_upper=170.0, amplitude_lower=90.0),
 )
 
 
@@ -153,34 +165,80 @@ def _epoch_to_decimal_year(epoch: datetime) -> float:
     return year + year_fraction
 
 
-def _hathaway_ssn(t_years: float, amplitude: float, rise_time: float) -> float:
+def _hathaway_peak_x(c: float) -> float:
+    """Find x_peak where f(x) = x^3 / (exp(x^2) - c) is maximized.
+
+    Solves exp(x^2)(3 - 2x^2) = 3c via bisection.
+    For c=0, peak is at sqrt(3/2). For c>0, peak shifts left.
+    """
+    if c <= 0.0:
+        return math.sqrt(1.5)
+
+    # Bisection: h(x) = exp(x^2)*(3 - 2*x^2) - 3*c
+    # h is positive for small x, negative for x > sqrt(3/2)
+    lo, hi = 0.5, math.sqrt(1.5)
+    for _ in range(60):  # 60 iterations → ~18 digits of precision
+        mid = 0.5 * (lo + hi)
+        h = math.exp(mid * mid) * (3.0 - 2.0 * mid * mid) - 3.0 * c
+        if h > 0.0:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def _hathaway_ssn(
+    t_years: float, amplitude: float, rise_time: float, c: float = 0.8,
+) -> float:
     """Hathaway (2015) solar cycle shape function.
 
-    Uses a skewed Gaussian profile: SSN(t) = A * x^3 * exp(-x^2) / peak_norm
-    where x = t / tau and tau is chosen so the peak occurs at t = rise_time.
+    Full form: R(t) = A * x^3 / (exp(x^2) - c) / peak_norm
+    where x = t / tau, c is the asymmetry parameter (~0.8 per Hathaway 2015),
+    and tau is chosen so the peak occurs at t = rise_time.
 
-    Peak of x^3 * exp(-x^2) occurs at x = sqrt(3/2), so tau = rise_time / sqrt(3/2).
-    The peak is then normalized to equal amplitude.
+    The asymmetry parameter c > 0 produces a heavier declining-phase tail
+    compared to the c=0 simplification, matching observed cycle behavior.
+
+    References:
+        Hathaway, Wilson, Reichmann (1994) Solar Physics 151, 177-190
+        Hathaway (2015) Living Reviews in Solar Physics 12, 4
     """
     if t_years <= 0:
         return 0.0
 
-    tau = rise_time / math.sqrt(1.5)  # Width placing peak at rise_time
+    # Find peak location of f(x) = x^3 / (exp(x^2) - c)
+    x_peak = _hathaway_peak_x(c)
+
+    # tau places peak at t = rise_time
+    tau = rise_time / x_peak
     x = t_years / tau
 
-    # Normalization: peak of x^3 * exp(-x^2) is (3/2)^(3/2) * exp(-3/2)
-    peak_norm = 1.5 ** 1.5 * math.exp(-1.5)  # ~0.40987
+    # Evaluate shape function
+    exp_x2 = math.exp(x * x)
+    denom = exp_x2 - c
+    if denom <= 0.0:
+        return 0.0
 
-    ssn = amplitude * (x ** 3 * math.exp(-(x ** 2))) / peak_norm
+    f_x = (x ** 3) / denom
+
+    # Normalize: peak value of f(x) at x_peak
+    exp_peak = math.exp(x_peak * x_peak)
+    peak_norm = (x_peak ** 3) / (exp_peak - c)
+
+    ssn = amplitude * f_x / peak_norm
     return max(0.0, ssn)
 
 
 def _ssn_to_f107(ssn: float) -> float:
-    """Convert sunspot number to F10.7 using Tapping (2013) proxy.
+    """Convert sunspot number to F10.7 using ITU-R P.371 quadratic proxy.
 
-    F10.7 = 63.7 + 0.727 * SSN + 0.00089 * SSN^2
+    F10.7 = 63.7 + 0.728 * R12 + 0.00089 * R12^2
+
+    References:
+        ITU-R Recommendation P.371-8 (Choice of indices for long-term
+        ionospheric predictions). Also adopted by IRI and ECSS-E-ST-10-04C.
     """
-    return 63.7 + 0.727 * ssn + 0.00089 * ssn * ssn
+    return 63.7 + 0.728 * ssn + 0.00089 * ssn * ssn
 
 
 def _f107_to_ap(f107: float, cycle_phase: float) -> float:
@@ -210,8 +268,8 @@ def _find_cycle(decimal_year: float) -> _SolarCycleParams:
 def predict_solar_activity(epoch: datetime) -> SolarCyclePrediction:
     """Predict solar activity (F10.7, Ap) at a given epoch.
 
-    Uses the Hathaway (2015) parametric solar cycle model with known
-    parameters for cycles 23-26. Converts SSN to F10.7 via Tapping (2013).
+    Uses the Hathaway (2015) parametric solar cycle model with asymmetry
+    parameter c=0.8 for cycles 23-26. Converts SSN to F10.7 via ITU-R P.371.
 
     Args:
         epoch: UTC datetime for prediction.
@@ -223,8 +281,8 @@ def predict_solar_activity(epoch: datetime) -> SolarCyclePrediction:
     cycle = _find_cycle(decimal_year)
     t_years = decimal_year - cycle.start_year
 
-    # Compute SSN from Hathaway model
-    ssn = _hathaway_ssn(t_years, cycle.amplitude, cycle.rise_time)
+    # Compute SSN from Hathaway model (full form with asymmetry)
+    ssn = _hathaway_ssn(t_years, cycle.amplitude, cycle.rise_time, cycle.asymmetry)
 
     # Also sum contributions from adjacent cycles (overlap during minima)
     for other in SOLAR_CYCLES:
@@ -232,7 +290,7 @@ def predict_solar_activity(epoch: datetime) -> SolarCyclePrediction:
             continue
         t_other = decimal_year - other.start_year
         if 0 < t_other < other.duration + 3.0:
-            ssn += _hathaway_ssn(t_other, other.amplitude, other.rise_time)
+            ssn += _hathaway_ssn(t_other, other.amplitude, other.rise_time, other.asymmetry)
 
     # Convert SSN to F10.7
     f107 = _ssn_to_f107(ssn)
@@ -247,10 +305,26 @@ def predict_solar_activity(epoch: datetime) -> SolarCyclePrediction:
     # Ap estimate
     ap = _f107_to_ap(f107, phase)
 
+    # Uncertainty bounds: run Hathaway model at ±1σ amplitudes
+    ssn_upper = _hathaway_ssn(t_years, cycle.amplitude_upper, cycle.rise_time, cycle.asymmetry)
+    ssn_lower = _hathaway_ssn(t_years, cycle.amplitude_lower, cycle.rise_time, cycle.asymmetry)
+    for other in SOLAR_CYCLES:
+        if other.number == cycle.number:
+            continue
+        t_other = decimal_year - other.start_year
+        if 0 < t_other < other.duration + 3.0:
+            ssn_upper += _hathaway_ssn(t_other, other.amplitude_upper, other.rise_time, other.asymmetry)
+            ssn_lower += _hathaway_ssn(t_other, other.amplitude_lower, other.rise_time, other.asymmetry)
+
+    f107_upper = max(65.0, _ssn_to_f107(ssn_upper))
+    f107_lower = max(65.0, _ssn_to_f107(ssn_lower))
+
     return SolarCyclePrediction(
         f107_predicted=f107,
         f107_81day=f107_81,
         ap_predicted=ap,
         cycle_number=cycle.number,
         cycle_phase=phase,
+        f107_upper=f107_upper,
+        f107_lower=f107_lower,
     )

@@ -2,7 +2,111 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [1.26.0] - 2026-02-14
+
+### NRLMSISE-00 fidelity improvements
+
+- **Kp↔Ap conversion** — `kp_to_ap()` and `ap_to_kp()` using Bartels (1957)
+  28-entry quasi-logarithmic table with linear interpolation. Clamped to valid ranges.
+- **Solar cycle uncertainty bounds** — `SolarCyclePrediction` gains `f107_upper` and
+  `f107_lower` fields (+1σ/−1σ envelope). `_SolarCycleParams` gains `amplitude_upper`
+  and `amplitude_lower`. Published ±1σ ranges for cycles 23-26.
+- **7-element Ap array** — `SpaceWeather` gains optional `ap_array` tuple for
+  time-weighted geomagnetic history (Picone 2002 g0/sg0/sumex weighting in
+  `_exospheric_temperature()`). Falls back to scalar g0(Ap) when not provided.
+  Magnetic activity factor uses 3h current Ap with g0 nonlinear saturation.
+- **Nonlinear geomagnetic saturation** — Implemented Picone (2002) g0/sg0/sumex
+  functions from NRLMSISE-00 reference. g0(Ap) provides nonlinear saturation at
+  extreme Ap values (prevents unrealistic density enhancement). Parameters from
+  reference pt[] array: α=0.00513, β=0.0867. Applied to both exospheric temperature
+  and magnetic activity factor.
+- **Hathaway (2015) full form** — Solar cycle shape function upgraded from simplified
+  `x³·exp(-x²)` (c=0) to full `x³/(exp(x²)-c)` with asymmetry parameter c=0.8.
+  Numerical peak finding via bisection (60 iterations, ~18 digits precision).
+  Produces heavier declining-phase tail matching observed cycle behavior.
+- **ITU-R P.371 coefficient fix** — SSN→F10.7 proxy linear coefficient corrected
+  from 0.727 to 0.728 per published standard. Attribution corrected from
+  "Tapping (2013)" to "ITU-R P.371-8".
+- **Calibrated synthetic space weather data** — Replaced prior generated data with
+  calibrated synthetic dataset including 27-day Bartels rotation modulation,
+  day-to-day variability, and Poisson-like geomagnetic storm episodes. Uses full
+  Hathaway c=0.8 model. Deterministic generator (seed=20260214). Marked as
+  "calibrated_synthetic" provenance.
+- **36 new tests** — Kp↔Ap (8), uncertainty bounds (7), 7-element Ap (8),
+  calibrated data (7), nonlinear geomagnetic (6). Total: 3226 passing.
+
+## [1.25.0] - 2026-02-13
+
+### Monorepo split
+
+- **Two-package layout** — Split `src/` into `packages/core/` (MIT, humeris-core) and
+  `packages/pro/` (Commercial, humeris-pro) using PEP 420 implicit namespace packages.
+  Both install into the shared `humeris` namespace via `pip install -e ./packages/core -e ./packages/pro`
+- **Package pyproject.toml** — Each package has its own pyproject.toml with correct
+  metadata, dependencies, and entry points
+
+### Solar activity model (STK/GMAT parity)
+
+- **Hathaway solar cycle prediction** — `predict_solar_activity()` in `solar.py` using
+  Hathaway (2015) parametric shape function SSN(t) = A * x³ * exp(-x²) / peak_norm.
+  Cycle parameters for cycles 23-26 from NOAA/SWPC observations
+- **Tapping (2013) SSN→F10.7 proxy** — F10.7 = 63.7 + 0.727·SSN + 0.00089·SSN²
+- **SpaceWeatherProvider protocol** — Structural typing for pluggable space weather
+  sources (historical, predicted, composite)
+- **Composite provider** — Seamless historical→predicted transition at configurable
+  crossover date, with module-level caching for performance
+- **atmospheric_density_nrlmsise00()** — One-call convenience function with automatic
+  space weather lookup, cached model instance
+- **density_func callback** — `Callable[[float, datetime], float]` wired through
+  `compute_orbit_lifetime()`, `compute_altitude_at_time()`, `compute_stochastic_lifetime()`,
+  `drag_compensation_dv_per_year()`, `compute_station_keeping_budget()`,
+  `compute_gve_station_keeping_budget()`, `compute_propellant_pharmacokinetics()`,
+  `compute_exponential_scale_map()`, `compute_perturbation_budget()`,
+  `compute_maintenance_schedule()` — all with proper epoch propagation
+- **Enrichment adapter** — Prefers NRLMSISE-00 when available with graceful fallback
+  to exponential model
+- **Viewer server** — Variable atmosphere wired into hazard, station-keeping, and
+  maintenance layer dispatches
+- **Space weather data** — Daily-resolution historical data (11,323 entries, 2000-2030)
+
+### Research modules (from 5-pass cross-disciplinary exploration)
+
+- **Functorial force composition** — Category-theoretic framework for composing
+  force models with functorial guarantees (identity, composition, associativity)
+- **Hodge-CUSUM topology detector** — Detects ISL topology changes via Hodge Laplacian
+  spectral tracking with CUSUM change-point detection
+- **Gramian-guided reconfiguration** — Controllability Gramian-based satellite
+  reconfiguration planning with energy-optimal maneuver sequencing
+- **Koopman-spectral conjunction screening** — DMD-based spectral screening for
+  conjunction events using Koopman operator eigenfunction proximity
+- **Competing-risks population dynamics** — Multi-risk (drag, collision, component
+  failure, fuel depletion) population model with cause-specific hazard rates and
+  cumulative incidence functions
+
+### Bug fixes
+
+- Fixed viewer_server dispatch crash: `station_keeping_packets()` and
+  `maintenance_schedule_packets()` received positional arg that conflicted with `name`
+  parameter (TypeError at runtime)
+- Fixed hardcoded epoch (`datetime(2024,1,1)`) in density_func paths — epoch now
+  properly propagated through station_keeping, maintenance_planning, and decay_analysis
+- Fixed enrichment.py epoch check (`effective_epoch != _J2000` → `epoch is not None`)
+
+### Documentation
+
+- 15 research papers across 3 tiers documenting novel algorithmic contributions
+- Research algorithms reference guide
+- Updated API reference, architecture docs, and getting started guide
+
+### Infrastructure
+
+- 3 rounds of math verification (fixes to Coriolis, R_EARTH, decay formulas,
+  Gramian eigendecomposition, coverage quadrature, graph Laplacian)
+- 3 rounds of cross-disciplinary creative exploration (30 proposals evaluated,
+  5 Tier 1 + 5 Tier 2 + 5 Tier 3 implemented)
+- Module-level caching for SpaceWeatherProvider and NRLMSISE00Model singletons
+
+**Tests**: 3190 passing (+1033 from v1.23.0)
 
 ## [1.23.0] - 2026-02-13
 

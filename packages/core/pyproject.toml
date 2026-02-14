@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "humeris-core"
-version = "1.24.0"
+version = "1.26.0"
 description = "Astrodynamics library for satellite constellation design — MIT open core"
 readme = "../../README.md"
 requires-python = ">=3.11"

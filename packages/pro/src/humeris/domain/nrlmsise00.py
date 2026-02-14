@@ -93,6 +93,162 @@ _T_INF_BASE: float = 750.0  # K
 
 
 # --------------------------------------------------------------------------- #
+# Kp↔Ap Conversion (Bartels 1957)
+# --------------------------------------------------------------------------- #
+
+# Standard 28-entry quasi-logarithmic table mapping Kp to Ap.
+_KP_TO_AP_TABLE: tuple[tuple[float, float], ...] = (
+    (0.0, 0), (0.33, 2), (0.67, 3), (1.0, 4), (1.33, 5), (1.67, 6),
+    (2.0, 7), (2.33, 9), (2.67, 12), (3.0, 15), (3.33, 18), (3.67, 22),
+    (4.0, 27), (4.33, 32), (4.67, 39), (5.0, 48), (5.33, 56), (5.67, 67),
+    (6.0, 80), (6.33, 94), (6.67, 111), (7.0, 132), (7.33, 154), (7.67, 179),
+    (8.0, 207), (8.33, 236), (8.67, 300), (9.0, 400),
+)
+
+
+def kp_to_ap(kp: float) -> float:
+    """Convert Kp index to Ap using Bartels (1957) table with interpolation.
+
+    Clamps to [0, 9] range. For exact table entries returns exact Ap;
+    between entries uses linear interpolation.
+    """
+    if kp <= 0.0:
+        return 0.0
+    if kp >= 9.0:
+        return 400.0
+
+    for i in range(len(_KP_TO_AP_TABLE) - 1):
+        kp_lo, ap_lo = _KP_TO_AP_TABLE[i]
+        kp_hi, ap_hi = _KP_TO_AP_TABLE[i + 1]
+        if kp_lo <= kp <= kp_hi:
+            if kp_hi == kp_lo:
+                return ap_lo
+            frac = (kp - kp_lo) / (kp_hi - kp_lo)
+            return ap_lo + frac * (ap_hi - ap_lo)
+
+    return 400.0
+
+
+def ap_to_kp(ap: float) -> float:
+    """Convert Ap index to Kp using reverse Bartels (1957) table with interpolation.
+
+    Clamps to [0, 400] range.
+    """
+    if ap <= 0.0:
+        return 0.0
+    if ap >= 400.0:
+        return 9.0
+
+    for i in range(len(_KP_TO_AP_TABLE) - 1):
+        _, ap_lo = _KP_TO_AP_TABLE[i]
+        _, ap_hi = _KP_TO_AP_TABLE[i + 1]
+        kp_lo = _KP_TO_AP_TABLE[i][0]
+        kp_hi = _KP_TO_AP_TABLE[i + 1][0]
+        if ap_lo <= ap <= ap_hi:
+            if ap_hi == ap_lo:
+                return kp_lo
+            frac = (ap - ap_lo) / (ap_hi - ap_lo)
+            return kp_lo + frac * (kp_hi - kp_lo)
+
+    return 9.0
+
+
+# --------------------------------------------------------------------------- #
+# NRLMSISE-00 Nonlinear Geomagnetic Activity (Picone et al. 2002)
+# --------------------------------------------------------------------------- #
+
+# g0 parameters from Picone et al. (2002) reference implementation (pt array).
+# Structure: saturating nonlinearity centered at quiet-day Ap=4.
+# alpha controls saturation rate; beta controls large-disturbance slope.
+# At small Ap: g0 ≈ (Ap-4) (slope 1). At large Ap: slope → beta (saturation).
+_G0_ALPHA: float = 0.00513  # Saturation rate from NRLMSISE-00 pt[24]
+_G0_BETA: float = 0.0867    # Large-disturbance slope from NRLMSISE-00 pt[25]
+
+# Temporal decay for 3-hourly ap weighting.
+# exp1 = decay factor per 3-hour step. 0.39 ≈ 6.5h e-folding, consistent
+# with upper thermosphere thermal inertia after geomagnetic forcing.
+_AP_DECAY: float = 0.39
+
+
+def _g0(ap_val: float, alpha: float = _G0_ALPHA, beta: float = _G0_BETA) -> float:
+    """Nonlinear geomagnetic activity transform (Picone et al. 2002).
+
+    Maps raw Ap (centered at quiet-day value of 4) through a saturating
+    nonlinearity that prevents unrealistic temperatures during extreme storms.
+
+    g0(a) = beta*(a-4) + (beta-1)*(exp(-alpha*(a-4)) - 1)/alpha
+
+    Linear for small disturbances, saturates for large Ap.
+
+    References:
+        Picone, Hedin, Drob, Aikin (2002) J. Geophys. Res. 107(A12), 1468
+    """
+    x = ap_val - 4.0
+    if abs(alpha) < 1e-12:
+        return beta * x
+
+    exp_term = math.exp(-abs(alpha) * x)
+    return beta * x + (beta - 1.0) * (exp_term - 1.0) / abs(alpha)
+
+
+def _sumex(ex: float) -> float:
+    """Normalization denominator for sg0 time-weighted sum.
+
+    sumex(ex) = 1 + ex^0.5 * (1 - ex^19) / (1 - ex)
+
+    The geometric series (1 - ex^19)/(1 - ex) = 1 + ex + ex^2 + ... + ex^18,
+    giving 19 exponentially decaying weights when multiplied by ex^0.5.
+
+    References:
+        NRLMSISE-00 reference implementation (Picone et al. 2002)
+    """
+    if ex < 1e-12:
+        return 2.0
+    if ex > 0.99999:
+        ex = 0.99999
+    return 1.0 + (ex ** 0.5) * (1.0 - ex ** 19) / (1.0 - ex)
+
+
+def _sg0(
+    ap_array: tuple[float, ...],
+    ex: float = _AP_DECAY,
+    alpha: float = _G0_ALPHA,
+    beta: float = _G0_BETA,
+) -> float:
+    """Time-weighted geomagnetic activity from 7-element Ap array.
+
+    Applies g0 nonlinearity to each Ap element, then weights with
+    exponential decay (older activity has less influence). Structure
+    matches Picone (2002): recent 3h windows at ex^k, averaged historical
+    windows expanded over their sub-intervals.
+
+    ap_array elements:
+        [0] daily Ap, [1] 3h current, [2] 3h ago, [3] 6h ago,
+        [4] 9h ago, [5] avg 12-33h, [6] avg 36-57h
+
+    References:
+        Picone, Hedin, Drob, Aikin (2002) J. Geophys. Res. 107(A12), 1468
+    """
+    g = [_g0(a, alpha, beta) for a in ap_array[:7]]
+
+    # Numerator: exponentially decaying weighted sum
+    # ap[1]: current 3h (weight 1), ap[2]: 3h ago (weight ex), etc.
+    # ap[5]: 12-33h avg expanded over 8 sub-intervals (ex^4 to ex^11)
+    # ap[6]: 36-57h avg expanded over 8 sub-intervals (ex^12 to ex^19)
+    geo_sum = (1.0 - ex ** 8) / (1.0 - ex) if ex > 1e-12 else 8.0
+
+    numerator = (
+        g[1]
+        + g[2] * ex
+        + g[3] * ex ** 2
+        + g[4] * ex ** 3
+        + (g[5] * ex ** 4 + g[6] * ex ** 12) * geo_sum
+    )
+
+    return numerator / _sumex(ex)
+
+
+# --------------------------------------------------------------------------- #
 # Value objects
 # --------------------------------------------------------------------------- #
 
@@ -103,10 +259,13 @@ class SpaceWeather:
     f107_daily: 10.7 cm solar radio flux (SFU) for the day.
     f107_average: 81-day centered average of F10.7.
     ap_daily: Planetary geomagnetic index (0-400).
+    ap_array: Optional 7-element tuple for time-weighted geomagnetic history.
+        Elements: daily Ap, 3h current, 6h, 9h, 12-33h avg, 36-57h avg, magnetic.
     """
     f107_daily: float
     f107_average: float
     ap_daily: float
+    ap_array: tuple[float, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -186,12 +345,13 @@ class NRLMSISE00Model:
         f107 = space_weather.f107_daily
         f107a = space_weather.f107_average
         ap = space_weather.ap_daily
+        ap_array = space_weather.ap_array
 
         # Clamp altitude to minimum of 80 km for computation
         z = max(80.0, altitude_km)
 
         # --- Exospheric temperature ---
-        t_inf = self._exospheric_temperature(f107, f107a, ap)
+        t_inf = self._exospheric_temperature(f107, f107a, ap, ap_array)
 
         # --- Temperature at 120 km (weakly dependent on F10.7) ---
         t120 = _T120_BASE + 0.03 * (f107a - 150.0)
@@ -233,10 +393,14 @@ class NRLMSISE00Model:
 
         # --- Magnetic activity factor ---
         # Stronger effect at higher altitudes
+        # Apply g0 nonlinear saturation to prevent unrealistic density
+        # enhancement at extreme Ap. Use 3h current Ap when available.
+        ap_mag = ap_array[1] if (ap_array is not None and len(ap_array) >= 7) else ap
+        g0_mag = _g0(ap_mag)
         if z > 200.0:
-            ap_scale = 1.0 + 0.008 * ap * (1.0 + 0.002 * (z - 200.0))
+            ap_scale = 1.0 + 0.008 * g0_mag * (1.0 + 0.002 * (z - 200.0))
         else:
-            ap_scale = 1.0 + 0.003 * ap
+            ap_scale = 1.0 + 0.003 * g0_mag
 
         # Combined atmospheric factor (applied to densities)
         atm_factor = diurnal_factor * latitude_factor * seasonal_factor * ap_scale
@@ -283,14 +447,29 @@ class NRLMSISE00Model:
         )
 
     def _exospheric_temperature(
-        self, f107: float, f107a: float, ap: float
+        self,
+        f107: float,
+        f107a: float,
+        ap: float,
+        ap_array: tuple[float, ...] | None = None,
     ) -> float:
         """Compute exospheric temperature T_inf.
 
         T_inf = T_inf_0 + dT_F107 + dT_Ap
+
+        Uses the g0 nonlinear saturation (Picone et al. 2002) for the
+        geomagnetic contribution. When ap_array is provided with >= 7
+        elements, uses sg0 time-weighted exponential decay; otherwise
+        uses scalar Ap through g0.
         """
         dt_f107 = 2.75 * (f107a - 70.0) + 0.8 * (f107 - f107a)
-        dt_ap = 1.5 * ap
+        if ap_array is not None and len(ap_array) >= 7:
+            # 3-hourly mode: time-weighted nonlinear sum
+            effective_ap = _sg0(ap_array)
+            dt_ap = 1.5 * effective_ap
+        else:
+            # Daily mode: scalar nonlinear transform
+            dt_ap = 1.5 * _g0(ap)
         return _T_INF_BASE + dt_f107 + dt_ap
 
     def _compute_species_densities(
