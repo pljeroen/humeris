@@ -323,10 +323,8 @@ def _generate_czml(
         )
 
     if layer_type == "cascade_sir":
-        dur_s = duration.total_seconds()
-        step_s = step.total_seconds()
         return cascade_evolution_packets(
-            states, epoch, dur_s, step_s, name=name,
+            states, epoch, duration, step, name=name,
         )
 
     if layer_type == "relative_motion":
