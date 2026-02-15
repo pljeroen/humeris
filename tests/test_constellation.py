@@ -211,7 +211,7 @@ class TestDomainPurity:
             for fname in os.listdir(domain_dir):
                 if not fname.endswith('.py') or fname == '__init__.py':
                     continue
-                with open(os.path.join(domain_dir, fname)) as f:
+                with open(os.path.join(domain_dir, fname), encoding="utf-8") as f:
                     tree = ast.parse(f.read())
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Import):

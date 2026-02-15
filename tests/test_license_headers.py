@@ -26,7 +26,7 @@ def test_all_pro_files_have_standard_commercial_header():
 
     violations = []
     for py_file in files:
-        lines = py_file.read_text().splitlines()
+        lines = py_file.read_text(encoding="utf-8").splitlines()
         if len(lines) < 4:
             violations.append((py_file, "File has fewer than 4 lines"))
             continue
