@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented here.
 
+## [1.26.3] - 2026-02-16
+
+### CLI and viewer
+
+- **`--serve` mode** — CLI entry point (`humeris --serve`) launches the interactive
+  CesiumJS viewer server directly. Pre-loads Walker shells (500/450/400 km) and
+  live ISS data. Optional `--port` flag (default 8765).
+- **Windows executable** — GitHub Releases now include `humeris-windows-x64.zip`
+  (PyInstaller `--onedir` build). No Python installation required.
+- **21 analysis dispatch types** — Viewer server expanded from 15 to 21 analysis
+  types: added `dop_grid`, `radiation`, `beta_angle`, `deorbit`, `station_keeping`,
+  `cascade_sir`, `relative_motion`, `maintenance`.
+
+### Fixes
+
+- **CZML high-altitude crash** — `_satellite_description()` no longer raises
+  `ValueError` for satellites above 2000 km altitude. Atmospheric density
+  gracefully defaults to 0.0 outside the atmosphere table range.
+- **sdist build failure** — Removed `readme = "../../README.md"` from both
+  `pyproject.toml` files. Python 3.11+ tarfile security filter rejected the
+  path traversal.
+- **User-Agent version** — CelesTrak adapters updated to "Humeris/1.26.3".
+
+### Documentation
+
+- README restructured: feature list below hero image, install sections for
+  PyPI / GitHub Releases wheels / Windows exe / source.
+- All docs updated: version badges, test counts (3236), analysis type counts (21).
+- Five tier-2 research papers updated to v1.26.3.
+
 ## [1.26.1] - 2026-02-14
 
 ### Fixes from adversarial code review
