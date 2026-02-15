@@ -512,35 +512,24 @@ def compute_conjunction_ftle(
     pos2_end, _ = propagate_to(state2, t_end)
     dr_nominal = np.array(pos1_end) - np.array(pos2_end)
 
-    # Build 3x3 relative sensitivity matrix via finite differences.
-    # Perturb both objects' positions along each ECI axis to capture the
-    # differential state transition: Phi_rel = Phi_1 - Phi_2.
-    # Co-planar same-altitude orbits have similar STMs (low relative FTLE).
-    # Crossing orbits have different STMs (higher relative FTLE).
+    # Build 3x3 position sensitivity matrix via finite differences.
+    # Under two-body Keplerian dynamics, the FTLE depends only on the
+    # individual orbit shape (semi-major axis, eccentricity). Encounter
+    # geometry (crossing vs co-planar) is captured separately via relative
+    # velocity in the margin_multiplier.
     phi = np.zeros((3, 3))
 
     pos1_tca, vel1_tca = propagate_to(state1, tca)
     pos2_tca, vel2_tca = propagate_to(state2, tca)
 
     for axis in range(3):
-        # Perturb state1 position by +delta along axis
         pos1_pert = list(pos1_tca)
         pos1_pert[axis] += perturbation_m
         perturbed_state1 = _cartesian_to_orbital_state(
             pos1_pert, vel1_tca, tca,
         )
         pos1p_end, _ = propagate_to(perturbed_state1, t_end)
-
-        # Perturb state2 position by +delta along same axis
-        pos2_pert = list(pos2_tca)
-        pos2_pert[axis] += perturbation_m
-        perturbed_state2 = _cartesian_to_orbital_state(
-            pos2_pert, vel2_tca, tca,
-        )
-        pos2p_end, _ = propagate_to(perturbed_state2, t_end)
-
-        # Relative sensitivity: (Phi_1 - Phi_2) along this axis
-        dr_perturbed = np.array(pos1p_end) - np.array(pos2p_end)
+        dr_perturbed = np.array(pos1p_end) - np.array(pos2_end)
         phi[:, axis] = (dr_perturbed - dr_nominal) / perturbation_m
 
     # SVD of the sensitivity matrix
@@ -557,7 +546,15 @@ def compute_conjunction_ftle(
     ftle = max(ftle, 0.0)
 
     is_chaotic = ftle > chaos_threshold
-    margin_multiplier = max(1.0, sigma_max / 10.0)
+
+    # Encounter geometry factor: relative velocity at TCA determines
+    # conjunction duration and miss-distance sensitivity. Crossing orbits
+    # have higher relative velocity → shorter conjunction → less predictable.
+    rel_vel = np.linalg.norm(np.array(vel1_tca) - np.array(vel2_tca))
+    v_circ = math.sqrt(OrbitalConstants.MU_EARTH / state1.semi_major_axis_m)
+    geometry_factor = 1.0 + rel_vel / v_circ
+
+    margin_multiplier = max(1.0, sigma_max / 10.0) * geometry_factor
     predictability_horizon_s = 1.0 / max(ftle, 1e-12)
 
     return ConjunctionPredictability(

@@ -61,21 +61,28 @@ class TestFTLECoplanarLowDivergence:
 
 
 class TestFTLECrossingOrbits:
-    """Crossing orbits (different inclinations) have higher FTLE."""
+    """Crossing orbits (different inclinations) have higher encounter risk.
 
-    def test_crossing_orbits_higher_ftle(self):
-        """Different inclinations at same altitude => higher relative divergence."""
-        # Co-planar reference
+    Under two-body Keplerian dynamics, FTLE depends only on the individual
+    orbit shape (semi-major axis, eccentricity) — it cannot distinguish
+    encounter geometries. The margin_multiplier captures encounter geometry
+    via relative velocity at TCA: crossing orbits have higher relative
+    velocity, shorter conjunction windows, and less predictable outcomes.
+    """
+
+    def test_crossing_orbits_higher_margin(self):
+        """Different inclinations at same altitude => higher margin_multiplier."""
+        # Co-planar reference: low relative velocity
         s1_co = _circular_state(550, 53, raan_deg=0, nu_deg=0)
         s2_co = _circular_state(550, 53, raan_deg=0, nu_deg=5)
         result_co = compute_conjunction_ftle(s1_co, s2_co, EPOCH)
 
-        # Crossing orbits: very different inclinations
+        # Crossing orbits: high relative velocity from inclination difference
         s1_cross = _circular_state(550, 53, raan_deg=0, nu_deg=0)
         s2_cross = _circular_state(550, 97, raan_deg=30, nu_deg=0)
         result_cross = compute_conjunction_ftle(s1_cross, s2_cross, EPOCH)
 
-        assert result_cross.ftle > result_co.ftle
+        assert result_cross.margin_multiplier > result_co.margin_multiplier
 
 
 class TestFTLEMarginMultiplier:
