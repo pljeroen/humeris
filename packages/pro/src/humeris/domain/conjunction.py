@@ -512,29 +512,35 @@ def compute_conjunction_ftle(
     pos2_end, _ = propagate_to(state2, t_end)
     dr_nominal = np.array(pos1_end) - np.array(pos2_end)
 
-    # Build 3x3 position sensitivity matrix via finite differences
-    # Perturb state1 position in each of 3 ECI directions
+    # Build 3x3 relative sensitivity matrix via finite differences.
+    # Perturb both objects' positions along each ECI axis to capture the
+    # differential state transition: Phi_rel = Phi_1 - Phi_2.
+    # Co-planar same-altitude orbits have similar STMs (low relative FTLE).
+    # Crossing orbits have different STMs (higher relative FTLE).
     phi = np.zeros((3, 3))
 
+    pos1_tca, vel1_tca = propagate_to(state1, tca)
+    pos2_tca, vel2_tca = propagate_to(state2, tca)
+
     for axis in range(3):
-        # Create perturbed state1: shift position by perturbation_m along axis
-        # We achieve this by propagating state1 to TCA, perturbing, then
-        # creating a new OrbitalState from the perturbed Cartesian state.
-        pos1_tca, vel1_tca = propagate_to(state1, tca)
-        pos1_perturbed = list(pos1_tca)
-        pos1_perturbed[axis] += perturbation_m
-
-        # Convert perturbed Cartesian back to orbital elements for propagation
+        # Perturb state1 position by +delta along axis
+        pos1_pert = list(pos1_tca)
+        pos1_pert[axis] += perturbation_m
         perturbed_state1 = _cartesian_to_orbital_state(
-            pos1_perturbed, vel1_tca, tca,
+            pos1_pert, vel1_tca, tca,
         )
-
-        # Propagate perturbed state to end of window
         pos1p_end, _ = propagate_to(perturbed_state1, t_end)
-        pos2p_end, _ = propagate_to(state2, t_end)
-        dr_perturbed = np.array(pos1p_end) - np.array(pos2p_end)
 
-        # Finite difference: d(dr)/d(pos1_axis)
+        # Perturb state2 position by +delta along same axis
+        pos2_pert = list(pos2_tca)
+        pos2_pert[axis] += perturbation_m
+        perturbed_state2 = _cartesian_to_orbital_state(
+            pos2_pert, vel2_tca, tca,
+        )
+        pos2p_end, _ = propagate_to(perturbed_state2, t_end)
+
+        # Relative sensitivity: (Phi_1 - Phi_2) along this axis
+        dr_perturbed = np.array(pos1p_end) - np.array(pos2p_end)
         phi[:, axis] = (dr_perturbed - dr_nominal) / perturbation_m
 
     # SVD of the sensitivity matrix
