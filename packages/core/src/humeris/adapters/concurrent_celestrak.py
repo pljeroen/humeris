@@ -131,7 +131,7 @@ class ConcurrentCelesTrakAdapter(OrbitalDataSource):
     def _fetch_json(self, url: str) -> list[dict[str, Any]]:
         """Fetch JSON data from CelesTrak API (sequential)."""
         req = urllib.request.Request(
-            url, headers={"User-Agent": "Humeris/1.26.1"}
+            url, headers={"User-Agent": "Humeris/1.26.3"}
         )
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as response:
