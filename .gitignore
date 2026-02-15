@@ -6,6 +6,8 @@ CONTRACT_*.md
 PRE_RELEASE_CHECKLIST.md
 archive/
 Archive/
+docs/archive/
+output/
 constellation_viewer.html
 
 # Python
@@ -18,3 +20,8 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+
+
+# Personal workflow files
+SESSION_HANDOFF*.md
+.hypothesis/
