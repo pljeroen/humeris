@@ -1,0 +1,30 @@
+{
+  "basic_leo_two_body": {
+    "startSMA": 6999.999999999996,
+    "startECC": 0.0009999999999994419,
+    "startRMAG": 6993.0,
+    "endSMA": 7000.000000825705,
+    "endECC": 0.0009999999818095546,
+    "endRMAG": 6993.735079514563,
+    "elapsedSecs": 5400.0
+  },
+  "advanced_j2_raan_drift": {
+    "startRAAN": 20.00000000000001,
+    "startINC": 97.8,
+    "startECC": 0.000999999999999961,
+    "endRAAN": 26.84304855744937,
+    "endINC": 97.80568900976026,
+    "endECC": 0.0015604408087486576,
+    "elapsedDays": 7.0,
+    "raanDriftDeg": 6.84304855744935
+  },
+  "advanced_oumuamua_hyperbolic": {
+    "startECC": 1.2,
+    "startINC": 122.74,
+    "startRMAG": 29803256.846796587,
+    "endECC": 1.1999999999999984,
+    "endINC": 122.74000000000015,
+    "endRMAG": 30492355.87181703,
+    "elapsedDays": 120.0
+  }
+}

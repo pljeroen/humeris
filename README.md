@@ -53,9 +53,14 @@ comparison artifacts, including cases where tests are imperfect or still
 evolving. Any "better" result is treated as provisional until independently
 re-validated.
 
+Reference GMAT test-suite repository:
+
+- `https://github.com/pljeroen/testsuite_gmat`
+
 Latest parity artifact:
 
 - `docs/gmat-parity-runs/LATEST`
+- `docs/gmat-parity-runs/LATEST_REPORT`
 - `docs/gmat-parity-runs/run-0001-a00b904-dirty-vs-d9025c0-clean/manifest.json`
 
 ## Install

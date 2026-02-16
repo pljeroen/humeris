@@ -1,9 +1,17 @@
 {
-  "next_run": 2,
+  "next_run": 4,
   "runs": [
     {
       "run_id": "run-0001-a00b904-dirty-vs-d9025c0-clean",
       "run_number": 1
+    },
+    {
+      "run_id": "run-0002-882ffe8-dirty-vs-d9025c0-clean",
+      "run_number": 2
+    },
+    {
+      "run_id": "run-0003-882ffe8-dirty-vs-d9025c0-clean",
+      "run_number": 3
     }
   ]
 }

@@ -42,9 +42,70 @@ def _next_run_dir(out_root: Path, cg_label: str, gmat_label: str) -> tuple[Path,
     return run_dir, run_number
 
 
+def _fmt_number(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if abs(value) >= 1e4 or (abs(value) > 0 and abs(value) < 1e-4):
+            return f"{value:.6e}"
+        return f"{value:.12g}"
+    return str(value)
+
+
+def _build_report_markdown(payload: dict) -> str:
+    comp = payload["comparison"]
+    cg = payload["constellation_repo"]["git"]
+    gmat = payload["gmat_repo"]["git"]
+    lines: list[str] = []
+    lines.append("# GMAT Mirror Parity Report")
+    lines.append("")
+    lines.append(f"- Status: **{payload['status'].upper()}**")
+    lines.append(f"- Timestamp (UTC): `{payload['timestamp_utc']}`")
+    lines.append(
+        f"- Humeris git: `{cg['label']}` (commit `{cg['commit']}`, dirty=`{cg['dirty']}`)"
+    )
+    lines.append(
+        f"- GMAT testsuite git: `{gmat['label']}` (commit `{gmat['commit']}`, dirty=`{gmat['dirty']}`)"
+    )
+    lines.append(f"- GMAT testsuite repo: `{payload['gmat_repo']['repository_url']}`")
+    lines.append(f"- GMAT run reference: `{payload['gmat_repo']['run_id']}`")
+    lines.append("")
+    lines.append(
+        "This is a reference-comparison report. It is intended as a learning and"
+        " validation artifact, not a certification claim."
+    )
+    lines.append("")
+
+    for case in comp["cases"]:
+        lines.append(f"## Case: `{case['case']}`")
+        lines.append(f"- Case status: **{case['status'].upper()}**")
+        lines.append("")
+        lines.append("| Metric | GMAT | Humeris | Abs delta | Tolerance | Pass |")
+        lines.append("|---|---:|---:|---:|---:|:---:|")
+        for metric in case["metrics"]:
+            gmat_v = _fmt_number(metric.get("gmat", ""))
+            hum_v = _fmt_number(metric.get("humeris", ""))
+            delta = _fmt_number(metric.get("abs_delta", ""))
+            tol = _fmt_number(metric.get("tolerance", ""))
+            passed = "yes" if metric.get("pass", False) else "no"
+            lines.append(
+                f"| `{metric['metric']}` | {gmat_v} | {hum_v} | {delta} | {tol} | {passed} |"
+            )
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--gmat-repo", default="/home/jeroen/gmat", help="Path to GMAT testsuite repository")
+    parser.add_argument(
+        "--gmat-repo-url",
+        default="https://github.com/pljeroen/testsuite_gmat",
+        help="Canonical URL for the GMAT testsuite repository",
+    )
     parser.add_argument("--gmat-run", default=None, help="GMAT run id under docs/test-runs (default: LATEST)")
     parser.add_argument(
         "--out-root",
@@ -75,6 +136,7 @@ def main() -> int:
         },
         "gmat_repo": {
             "path": str(gmat_repo),
+            "repository_url": args.gmat_repo_url,
             "git": gmat_git.__dict__,
             "run_id": run_dir.name,
             "run_manifest": str(run_dir / "manifest.json"),
@@ -84,6 +146,8 @@ def main() -> int:
     write_json(out_dir / "manifest.json", payload)
     write_json(out_dir / "humeris_values.json", humeris_values)
     write_json(out_dir / "gmat_values.json", gmat_values)
+    (out_dir / "REPORT.md").write_text(_build_report_markdown(payload), encoding="utf-8")
+    (out_root / "LATEST_REPORT").write_text(str(out_dir / "REPORT.md") + "\n", encoding="utf-8")
 
     print(f"comparison_run={out_dir}")
     print(f"status={comparison['status']}")
@@ -92,4 +156,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
