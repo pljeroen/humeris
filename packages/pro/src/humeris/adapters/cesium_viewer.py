@@ -356,6 +356,7 @@ def generate_interactive_html(
             flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
             color: #fff; padding: 3px 6px; border-radius: 3px; font-size: 11px;
         }}
+        .form-row select option {{ background: #222; color: #fff; }}
         .btn {{
             display: inline-block; padding: 4px 10px; margin: 2px;
             background: rgba(80,160,255,0.3); color: #fff;
