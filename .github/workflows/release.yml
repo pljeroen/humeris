@@ -76,7 +76,7 @@ jobs:
       - name: Install packages and PyInstaller
         run: |
           python -m pip install --upgrade pip
-          pip install ./packages/core ./packages/pro pyinstaller
+          pip install "./packages/core[live]" ./packages/pro pyinstaller
 
       - name: Build exe
         run: >
@@ -85,6 +85,7 @@ jobs:
           --onedir
           --console
           --collect-all humeris
+          --hidden-import sgp4
           --copy-metadata humeris-core
           --copy-metadata humeris-pro
           packages/core/src/humeris/cli.py
