@@ -42,6 +42,22 @@ Generate Walker constellation satellite shells and fetch live orbital data for o
 > See the warranty disclaimer in [LICENSE](LICENSE) and
 > [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
 
+## Validation posture (reference-first, humble claims)
+
+This project treats GMAT as a trusted reference baseline. The goal is not to
+claim superiority, but to learn how far a small, iterative engineering effort
+can go under reproducible tests.
+
+We therefore run mirror scenarios against archived GMAT outputs and publish the
+comparison artifacts, including cases where tests are imperfect or still
+evolving. Any "better" result is treated as provisional until independently
+re-validated.
+
+Latest parity artifact:
+
+- `docs/gmat-parity-runs/LATEST`
+- `docs/gmat-parity-runs/run-0001-a00b904-dirty-vs-d9025c0-clean/manifest.json`
+
 ## Install
 
 ### From PyPI
@@ -877,6 +893,30 @@ pytest tests/test_live_data.py   # live CelesTrak tests (requires network)
 The test suite covers all 76 domain modules (10 core + 66 commercial), 6 invariant
 test suites, adapter tests, and domain purity tests (verifying no external
 dependencies beyond NumPy). All tests except `test_live_data.py` run offline.
+
+### GMAT mirror parity (no GMAT runtime)
+
+Mirror the core GMAT tier-1 scenarios with native Humeris propagation and
+compare against archived GMAT outputs from a separate GMAT test-suite repo.
+This is a reference-check workflow, not a certification claim:
+
+```bash
+python scripts/run_gmat_mirror_compare.py \
+  --gmat-repo /home/jeroen/gmat
+```
+
+This produces commit-linked artifacts under `docs/gmat-parity-runs/` with:
+
+- Humeris mirrored scenario outputs
+- Parsed GMAT scenario outputs from `docs/test-runs/<run_id>/`
+- Per-metric comparison report and pass/fail status
+- Git references for both repositories
+
+The mirror covers:
+
+- `basic_leo_two_body`
+- `advanced_j2_raan_drift`
+- `advanced_oumuamua_hyperbolic` (regime parity: hyperbolic behavior checks)
 
 ### Validated against
 

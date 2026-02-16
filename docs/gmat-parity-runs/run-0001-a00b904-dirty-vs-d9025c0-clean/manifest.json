@@ -1,0 +1,220 @@
+{
+  "run_number": 1,
+  "timestamp_utc": "2026-02-16T22:15:12.524867+00:00",
+  "status": "pass",
+  "constellation_repo": {
+    "path": "/home/jeroen/dev/constellation-generator",
+    "git": {
+      "state": "repo",
+      "commit": "a00b904",
+      "dirty": "dirty",
+      "label": "a00b904-dirty"
+    }
+  },
+  "gmat_repo": {
+    "path": "/home/jeroen/gmat",
+    "git": {
+      "state": "repo",
+      "commit": "d9025c0",
+      "dirty": "clean",
+      "label": "d9025c0-clean"
+    },
+    "run_id": "run-0008-3b5fc7b-clean",
+    "run_manifest": "/home/jeroen/gmat/docs/test-runs/run-0008-3b5fc7b-clean/manifest.json"
+  },
+  "comparison": {
+    "status": "pass",
+    "cases": [
+      {
+        "case": "basic_leo_two_body",
+        "status": "pass",
+        "metrics": [
+          {
+            "metric": "startSMA",
+            "gmat": 6999.999999999997,
+            "humeris": 6999.999999999996,
+            "abs_delta": 9.094947017729282e-13,
+            "tolerance": 5.0,
+            "pass": true
+          },
+          {
+            "metric": "startECC",
+            "gmat": 0.0009999999999995535,
+            "humeris": 0.0009999999999994419,
+            "abs_delta": 1.1167282376600696e-16,
+            "tolerance": 0.001,
+            "pass": true
+          },
+          {
+            "metric": "endSMA",
+            "gmat": 6999.999999999777,
+            "humeris": 7000.000000825705,
+            "abs_delta": 8.259276000899263e-07,
+            "tolerance": 5.0,
+            "pass": true
+          },
+          {
+            "metric": "endECC",
+            "gmat": 0.001000000000006574,
+            "humeris": 0.0009999999818095546,
+            "abs_delta": 1.819701941213614e-11,
+            "tolerance": 0.001,
+            "pass": true
+          },
+          {
+            "metric": "elapsedSecs",
+            "gmat": 5400.000000314321,
+            "humeris": 5400.0,
+            "abs_delta": 3.14321368932724e-07,
+            "tolerance": 0.001,
+            "pass": true
+          },
+          {
+            "metric": "conservation_behavior_match",
+            "gmat": true,
+            "humeris": true,
+            "pass": true
+          }
+        ],
+        "gmat": {
+          "startSMA": 6999.999999999997,
+          "startECC": 0.0009999999999995535,
+          "startRMAG": 6993.0,
+          "endSMA": 6999.999999999777,
+          "endECC": 0.001000000000006574,
+          "endRMAG": 6993.735078576089,
+          "elapsedSecs": 5400.000000314321
+        },
+        "humeris": {
+          "startSMA": 6999.999999999996,
+          "startECC": 0.0009999999999994419,
+          "startRMAG": 6993.0,
+          "endSMA": 7000.000000825705,
+          "endECC": 0.0009999999818095546,
+          "endRMAG": 6993.735079514563,
+          "elapsedSecs": 5400.0
+        }
+      },
+      {
+        "case": "advanced_j2_raan_drift",
+        "status": "pass",
+        "metrics": [
+          {
+            "metric": "startRAAN",
+            "gmat": 20.00000000000001,
+            "humeris": 20.00000000000001,
+            "abs_delta": 0.0,
+            "tolerance": 2.0,
+            "pass": true
+          },
+          {
+            "metric": "startINC",
+            "gmat": 97.8,
+            "humeris": 97.8,
+            "abs_delta": 0.0,
+            "tolerance": 0.2,
+            "pass": true
+          },
+          {
+            "metric": "startECC",
+            "gmat": 0.001000000000000226,
+            "humeris": 0.000999999999999961,
+            "abs_delta": 2.649790109554573e-16,
+            "tolerance": 0.0005,
+            "pass": true
+          },
+          {
+            "metric": "elapsedDays",
+            "gmat": 7.0,
+            "humeris": 7.0,
+            "abs_delta": 0.0,
+            "tolerance": 1e-06,
+            "pass": true
+          },
+          {
+            "metric": "raanDriftDeg",
+            "gmat": 6.805480746048801,
+            "humeris": 6.84304855744935,
+            "abs_delta": 0.037567811400549544,
+            "tolerance": 2.0,
+            "pass": true
+          },
+          {
+            "metric": "j2_regime_match",
+            "gmat": true,
+            "humeris": true,
+            "pass": true
+          }
+        ],
+        "gmat": {
+          "startRAAN": 20.00000000000001,
+          "startINC": 97.8,
+          "startECC": 0.001000000000000226,
+          "endRAAN": 26.80548074604882,
+          "endINC": 97.82023563673485,
+          "endECC": 0.001578223818606747,
+          "elapsedDays": 7.0,
+          "raanDriftDeg": 6.805480746048801
+        },
+        "humeris": {
+          "startRAAN": 20.00000000000001,
+          "startINC": 97.8,
+          "startECC": 0.000999999999999961,
+          "endRAAN": 26.84304855744937,
+          "endINC": 97.80568900976026,
+          "endECC": 0.0015604408087486576,
+          "elapsedDays": 7.0,
+          "raanDriftDeg": 6.84304855744935
+        }
+      },
+      {
+        "case": "advanced_oumuamua_hyperbolic",
+        "status": "pass",
+        "metrics": [
+          {
+            "metric": "start_ecc_gt_1",
+            "gmat": true,
+            "humeris": true,
+            "pass": true
+          },
+          {
+            "metric": "end_ecc_gt_1",
+            "gmat": true,
+            "humeris": true,
+            "pass": true
+          },
+          {
+            "metric": "rmag_changes_materially",
+            "gmat": true,
+            "humeris": true,
+            "pass": true
+          },
+          {
+            "metric": "elapsed_days_120",
+            "gmat": true,
+            "humeris": true,
+            "pass": true
+          }
+        ],
+        "gmat": {
+          "startECC": 5338405.65452878,
+          "startINC": 33.81974332291281,
+          "startRMAG": 29803256.84679659,
+          "endECC": 7664919.746223633,
+          "endINC": 19.07508870024755,
+          "endRMAG": 1044481242.397864,
+          "elapsedDays": 119.9999999999964
+        },
+        "humeris": {
+          "startECC": 1.2,
+          "startINC": 122.74,
+          "startRMAG": 29803256.846796587,
+          "endECC": 1.1999999999999984,
+          "endINC": 122.74000000000015,
+          "endRMAG": 30492355.87181703,
+          "elapsedDays": 120.0
+        }
+      }
+    ]
+  }
+}
