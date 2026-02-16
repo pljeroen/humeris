@@ -41,6 +41,18 @@ def test_suncentric_case_emits_required_metrics():
     assert case["endECC"] > 1.0
     assert case["startEnergySign"] in {-1, 0, 1}
     assert case["endEnergySign"] in {-1, 0, 1}
+    assert "forceModels" in case
+    assert "SolarThirdBodyForce" in case["forceModels"]
+    assert "LunarThirdBodyForce" in case["forceModels"]
+
+    # Sun-centric extension must not be numerically identical to the
+    # legacy hyperbolic regime-only case.
+    legacy = out["advanced_oumuamua_hyperbolic"]
+    assert (
+        abs(case["endECC"] - legacy["endECC"]) > 1e-12
+        or abs(case["endINC"] - legacy["endINC"]) > 1e-9
+        or abs(case["endRMAG"] - legacy["endRMAG"]) > 1e-6
+    )
 
 
 def test_report_includes_assumption_and_residual_sections():
@@ -66,10 +78,16 @@ def test_report_includes_assumption_and_residual_sections():
                 "rmag_km": "advisory",
                 "energy_sign": "bounded",
             },
+            "delta_table": {
+                "ecc": 0.001,
+                "inc_deg": 0.01,
+                "rmag_km": 12.3,
+            },
         },
     }
 
     report = module._build_report_markdown(payload)
     assert "## Assumption Differences" in report
     assert "## Residual Mismatch Budget" in report
+    assert "## Sun-centric Delta Table" in report
     assert "Earth-mu mirror used for hyperbolic regime parity." in report

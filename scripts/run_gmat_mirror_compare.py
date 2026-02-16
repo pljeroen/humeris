@@ -114,6 +114,7 @@ def _build_report_markdown(payload: dict) -> str:
     if isinstance(suncentric, dict):
         assumptions = suncentric.get("assumption_differences", [])
         residual = suncentric.get("residual_mismatch_budget", {})
+        delta_table = suncentric.get("delta_table", {})
         lines.append("## Assumption Differences")
         if assumptions:
             for item in assumptions:
@@ -127,6 +128,15 @@ def _build_report_markdown(payload: dict) -> str:
             lines.append("|---|---|")
             for key, value in residual.items():
                 lines.append(f"| `{key}` | `{value}` |")
+        else:
+            lines.append("- none recorded")
+        lines.append("")
+        lines.append("## Sun-centric Delta Table")
+        if isinstance(delta_table, dict) and delta_table:
+            lines.append("| Metric | Delta |")
+            lines.append("|---|---:|")
+            for key, value in delta_table.items():
+                lines.append(f"| `{key}` | `{_fmt_number(value)}` |")
         else:
             lines.append("- none recorded")
         lines.append("")

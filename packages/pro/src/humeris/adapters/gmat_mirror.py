@@ -22,10 +22,12 @@ from humeris.domain.orbital_mechanics import OrbitalConstants
 from humeris.domain.propagation import OrbitalState
 from humeris.domain.numerical_propagation import (
     J2Perturbation,
+    SolarRadiationPressureForce,
     TwoBodyGravity,
     propagate_numerical,
 )
 from humeris.domain.orbit_properties import state_vector_to_elements
+from humeris.domain.third_body import LunarThirdBodyForce, SolarThirdBodyForce
 
 
 _UTC = timezone.utc
@@ -217,19 +219,37 @@ def run_humeris_mirror() -> dict[str, dict[str, float]]:
         "elapsedDays": 120.0,
     }
 
-    # Mirror 4: Sun-centric extension scaffold.
-    # Current architecture still uses Earth-mu in this mirror path, but we emit
-    # dedicated metrics to support explicit assumption and residual tracking.
+    # Mirror 4: Sun-centric high-fidelity extension.
+    # Uses an enriched force-model stack (solar/lunar third-body + SRP) while
+    # remaining in the current Earth-centered propagator architecture.
+    suncentric_forces = [
+        TwoBodyGravity(),
+        SolarThirdBodyForce(),
+        LunarThirdBodyForce(),
+        SolarRadiationPressureForce(cr=1.2, area_m2=8.0, mass_kg=1200.0),
+    ]
+    ou_sun = propagate_numerical(
+        initial_state=ou_state,
+        duration=timedelta(days=120.0),
+        step=timedelta(seconds=3600.0),
+        force_models=suncentric_forces,
+        integrator="dormand_prince",
+    )
+    os_start = ou_sun.steps[0]
+    os_end = ou_sun.steps[-1]
+    os0 = _elements(os_start.position_eci, os_start.velocity_eci)
+    os1 = _elements(os_end.position_eci, os_end.velocity_eci)
     out["advanced_oumuamua_suncentric"] = {
-        "startECC": o0["ecc"],
-        "startINC": o0["inc_deg"],
-        "startRMAG": _rmag_km(o_start.position_eci),
-        "endECC": o1["ecc"],
-        "endINC": o1["inc_deg"],
-        "endRMAG": _rmag_km(o_end.position_eci),
-        "startEnergySign": _specific_energy_sign(o_start.position_eci, o_start.velocity_eci),
-        "endEnergySign": _specific_energy_sign(o_end.position_eci, o_end.velocity_eci),
+        "startECC": os0["ecc"],
+        "startINC": os0["inc_deg"],
+        "startRMAG": _rmag_km(os_start.position_eci),
+        "endECC": os1["ecc"],
+        "endINC": os1["inc_deg"],
+        "endRMAG": _rmag_km(os_end.position_eci),
+        "startEnergySign": _specific_energy_sign(os_start.position_eci, os_start.velocity_eci),
+        "endEnergySign": _specific_energy_sign(os_end.position_eci, os_end.velocity_eci),
         "elapsedDays": 120.0,
+        "forceModels": [type(force).__name__ for force in suncentric_forces],
     }
     return out
 
