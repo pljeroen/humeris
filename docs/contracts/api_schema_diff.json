@@ -1,0 +1,19 @@
+{
+  "previous_schema_version": "1.26.3",
+  "current_schema_version": "1.26.3",
+  "diff": {
+    "added": [],
+    "removed": [],
+    "unchanged": [
+      "comparison",
+      "constellation_repo",
+      "executive_summary",
+      "gmat_repo",
+      "replay_bundle",
+      "run_number",
+      "status",
+      "suncentric_extension",
+      "timestamp_utc"
+    ]
+  }
+}

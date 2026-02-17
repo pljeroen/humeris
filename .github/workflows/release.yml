@@ -34,6 +34,9 @@ jobs:
       - name: Run API compatibility gate
         run: python scripts/check_api_compat_gate.py
 
+      - name: Generate API schema diff artifact
+        run: python scripts/generate_api_schema_diff.py
+
       - name: Run tests
         run: pytest tests/ -x -q
 
@@ -120,6 +123,11 @@ jobs:
         with:
           name: windows-exe
           path: dist/
+
+      - name: Generate API schema diff release artifact
+        run: |
+          python scripts/generate_api_schema_diff.py
+          cp docs/contracts/api_schema_diff.json dist/api_schema_diff.json
 
       - name: Create release
         uses: softprops/action-gh-release@v2
