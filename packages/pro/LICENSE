@@ -47,7 +47,6 @@ source of which license applies to each file.
 - `information_theory.py` — BEC channel, coverage spectrum, marginal value
 - `inter_satellite_links.py` — ISL topology, link geometry
 - `kessler_heatmap.py` — Kessler spatial density heatmap, percolation, cascade k_eff
-- `koopman_conjunction.py` — Koopman-spectral conjunction screening
 - `koopman_propagation.py` — Koopman operator propagation via Dynamic Mode Decomposition
 - `lifetime.py` — Orbit lifetime, decay profile
 - `linalg.py` — Linear algebra (Jacobi eigensolver, DFT)

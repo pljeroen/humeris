@@ -55,7 +55,7 @@ any imports beyond stdlib and NumPy.
 | Category | Modules |
 |----------|---------|
 | Propagation | `numerical_propagation` (RK4, pluggable forces), `functorial_composition` (functorial force composition) |
-| Analysis | `revisit`, `conjunction`, `eclipse`, `sensor`, `pass_analysis`, `constellation_metrics`, `dilution_of_precision`, `koopman_conjunction` (Koopman-spectral screening) |
+| Analysis | `revisit`, `conjunction`, `eclipse`, `sensor`, `pass_analysis`, `constellation_metrics`, `dilution_of_precision` |
 | Design | `orbit_design`, `trade_study`, `multi_objective_design`, `design_optimization`, `design_sensitivity`, `orbit_properties`, `gramian_reconfiguration` (Gramian-guided reconfiguration) |
 | Environment | `atmosphere`, `lifetime`, `station_keeping`, `deorbit`, `radiation`, `torques`, `third_body`, `solar` |
 | Topology | `inter_satellite_links`, `link_budget`, `graph_analysis`, `information_theory`, `spectral_topology`, `hodge_cusum` (Hodge-CUSUM topology detection) |

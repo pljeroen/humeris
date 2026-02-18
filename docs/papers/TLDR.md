@@ -3,17 +3,17 @@
 Quick reference for the 15 algorithms derived from cross-disciplinary analysis
 of the Humeris astrodynamics library.
 
-## Tier 1 — Implemented, Validated
+## Tier 1 — Implemented, Validated (with one archived)
 
 | # | Algorithm | One-liner | Module |
 |---|-----------|-----------|--------|
 | 1 | Functorial Force Composition | Compose force models with category-theoretic guarantees (associativity, commutativity check, RTN decomposition, frame pullbacks) | `functorial_composition.py` |
 | 2 | Hodge-CUSUM Topology Detector | Monitor ISL network topology via Hodge Laplacian spectral features (Betti numbers, spectral gap) with CUSUM change-point detection | `hodge_cusum.py` |
 | 3 | G-RECON | Use CW controllability Gramian eigenstructure to find minimum-fuel constellation reconfiguration maneuvers | `gramian_reconfiguration.py` |
-| 4 | KSCS | Screen conjunctions in Koopman eigenvalue space (O(N²) spectral distance) before expensive trajectory propagation | `koopman_conjunction.py` |
+| 4 | KSCS (Archived) | Removed after falsification gate failure (`T1-04`) | Removed |
 | 5 | Competing Risks | Multi-risk survival analysis for satellite populations (drag, collision, component failure, deorbit as competing hazards) | `competing_risks.py` |
 
-**Status**: All 5 implemented, 106 tests passing, wired into `__init__.py`.
+**Status**: 4 active implementations, 1 archived/removed after falsification.
 
 ## Tier 2 — Conceptual, Mathematically Grounded
 

@@ -574,7 +574,7 @@ estimates.
    computationally feasible.
 
 5. **Integration with BIJE and Koopman conjunction screening.** The
-   existing `koopman_conjunction` module screens conjunctions by
+   former `koopman_conjunction` module screened conjunctions by
    spectral similarity. Can the BIJE intent posterior inform the
    Koopman screening (e.g., higher screening priority for objects
    with $P(UN) > 0.5$)?

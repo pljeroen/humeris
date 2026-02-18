@@ -6,7 +6,7 @@ information theory, dynamical systems, statistical physics, and other fields.
 
 Generated: 2026-02-13
 
-## Tier 1 — Implemented
+## Tier 1 — Implemented (with one archived)
 
 ### 1. Functorial Force Model Composition
 - **Module**: `functorial_composition.py`
@@ -29,12 +29,10 @@ Generated: 2026-02-13
 - **Key result**: Reconfiguration plans with fuel cost indices showing which maneuvers exploit dynamics vs fight them
 - **Source disciplines**: Control Theory, Optimization, Orbital Mechanics
 
-### 4. Koopman-Spectral Conjunction Screening (KSCS)
-- **Module**: `koopman_conjunction.py`
-- **Insight**: In Koopman observable space, orbital propagation is linear. Satellites with similar Koopman eigenvalue spectra share dynamical structure and periodically approach each other. Spectral distance screening in O(N²) filters candidates before expensive Koopman propagation.
-- **Mathematical basis**: Koopman operator theory (DMD), spectral distance (Wasserstein-1 on eigenvalue magnitudes)
-- **Key result**: Reduces conjunction screening computation by filtering via spectral similarity before trajectory propagation
-- **Source disciplines**: Dynamical Systems, Operator Theory, Signal Processing
+### 4. Koopman-Spectral Conjunction Screening (KSCS, archived)
+- **Module**: Removed from active code
+- **Status**: Archived after falsification failure (`T1-04`) in the Tier-1 gate suite
+- **Rationale**: Spectral metric failed required discriminative behavior in current implementation
 
 ### 5. Competing-Risks Satellite Population Dynamics
 - **Module**: `competing_risks.py`
@@ -133,7 +131,7 @@ G-RECON ←──────────────────────→
                                 │
 Competing Risks ←──────────────→ Percolation-Debris (risk profiles feed phase transition model)
                                 │
-KSCS ←─────────────────────────→ BIJE (Koopman features feed intent estimation)
+KSCS link removed from active dependency graph (algorithm archived)
 ```
 
 ## Quality Metrics

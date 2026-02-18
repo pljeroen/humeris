@@ -3,7 +3,8 @@
 **Authors**: Humeris Research Team
 **Affiliation**: Humeris Astrodynamics Library
 **Date**: February 2026
-**Version**: 1.0
+**Version**: 1.1 (archived)
+**Status**: Archived / removed from active code after falsification failure (`T1-04`)
 
 ---
 
