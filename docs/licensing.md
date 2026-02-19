@@ -79,6 +79,34 @@ Check the copyright line at the top of any file:
 # Licensed under the terms in COMMERCIAL-LICENSE.md.
 ```
 
+## What you get with the commercial modules
+
+The 66 commercial modules extend the MIT core into a broader analysis
+toolkit. A few things worth knowing:
+
+**Analytical and numerical in one place.** The MIT core gives you Keplerian
+and J2 secular propagation. The commercial modules add RK4 numerical
+integration with pluggable forces — drag, SRP, third-body, J2/J3,
+relativistic, tidal, albedo. You can switch between fast analytical
+estimates and higher-fidelity numerical runs without changing your workflow.
+
+**Things compose.** Conjunction screening flows into collision probability,
+which flows into avoidance maneuver planning. Coverage analysis combines
+with eclipse prediction, link budgets, and lifetime estimates into a
+single mission assessment. These compositions encode domain knowledge that
+would take time to build from scratch.
+
+**Pure Python, inspectable.** No C extensions, no compiled binaries, no
+platform-specific builds. Every computation — the RK4 integrator, the
+Jacobi eigensolver, the NRLMSISE-00 atmosphere model — is plain Python
+you can step through in your debugger.
+
+**What it is not.** This library is not certified for operational flight
+decisions, regulatory compliance determination, or safety-of-flight
+assessment. It provides engineering analysis tools for research, education,
+and design exploration. Operational use requires independent validation
+against authoritative sources.
+
 ## Contact
 
 For commercial licensing: see COMMERCIAL-LICENSE.md for contact details.
