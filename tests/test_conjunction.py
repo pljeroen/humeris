@@ -354,6 +354,24 @@ class TestScreenConjunctionsNumerical:
         assert len(events) == 0
 
 
+class TestCartesianToOrbitalHyperbolic:
+    """_cartesian_to_orbital_state must handle hyperbolic orbits."""
+
+    def test_hyperbolic_orbit_mean_motion_finite(self):
+        """Hyperbolic state (v > v_escape) must produce finite positive mean_motion."""
+        from humeris.domain.conjunction import _cartesian_to_orbital_state
+
+        # At r=7000 km, v_escape = sqrt(2*mu/r) ~ 10.9 km/s
+        # v=15 km/s is well above escape velocity → hyperbolic orbit
+        result = _cartesian_to_orbital_state(
+            [7e6, 0.0, 0.0],
+            [0.0, 15000.0, 0.0],
+            EPOCH,
+        )
+        assert math.isfinite(result.mean_motion_rad_s)
+        assert result.mean_motion_rad_s > 0
+
+
 class TestConjunctionPurity:
 
     def test_conjunction_module_pure(self):

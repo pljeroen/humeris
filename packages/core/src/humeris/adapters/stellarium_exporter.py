@@ -212,7 +212,6 @@ class StellariumExporter(SatelliteExporter):
 
         with open(path, "w", encoding="utf-8") as f:
             if lines:
-                f.write("\n".join(lines))
-            # Empty satellites list produces empty file
+                f.write("\n".join(lines) + "\n")
 
         return len(satellites)

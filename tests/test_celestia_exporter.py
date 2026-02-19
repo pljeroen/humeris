@@ -350,3 +350,64 @@ class TestAcosClamping:
         path = str(tmp_path / "polar.ssc")
         # This must not raise ValueError from math.acos domain error
         CelestiaExporter().export([sat], path, epoch=EPOCH)
+
+
+class TestCelestiaNameSanitization:
+    """Satellite names with special characters must not break .ssc output."""
+
+    def test_special_chars_stripped(self, tmp_path):
+        """Quotes and newlines in name must be sanitized in the .ssc block."""
+        from humeris.adapters.celestia_exporter import CelestiaExporter
+
+        sat = Satellite(
+            name='Test"sat\nfoo',
+            plane_index=0,
+            sat_index=0,
+            position_eci=(7e6, 0.0, 0.0),
+            velocity_eci=(0.0, 7500.0, 0.0),
+            raan_deg=0.0,
+            true_anomaly_deg=0.0,
+        )
+        path = str(tmp_path / "test.ssc")
+        CelestiaExporter().export([sat], path, epoch=EPOCH)
+
+        content = _read_ssc(path)
+        blocks = _extract_blocks(content)
+        assert len(blocks) == 1
+        # The block should not contain raw newlines within a quoted name
+        # and should not contain unescaped quotes that break the format
+        first_line = blocks[0].split("\n")[0]
+        # Name is the first quoted string before "Sol/Earth"
+        assert "\n" not in first_line
+        assert first_line.count('"') % 2 == 0, f"Unbalanced quotes: {first_line}"
+
+    def test_zero_position_no_crash(self, tmp_path):
+        """Satellite at position (0,0,0) must not crash the exporter."""
+        from humeris.adapters.celestia_exporter import CelestiaExporter
+
+        sat = Satellite(
+            name="ZeroPos",
+            plane_index=0,
+            sat_index=0,
+            position_eci=(0.0, 0.0, 0.0),
+            velocity_eci=(0.0, 0.0, 0.0),
+            raan_deg=0.0,
+            true_anomaly_deg=0.0,
+        )
+        path = str(tmp_path / "test.ssc")
+        CelestiaExporter().export([sat], path, epoch=EPOCH)
+
+        content = _read_ssc(path)
+        assert len(content) > 0
+
+    def test_trailing_newline(self, tmp_path):
+        """Exported file must end with a single newline."""
+        from humeris.adapters.celestia_exporter import CelestiaExporter
+
+        sats = _make_satellites()[:1]
+        path = str(tmp_path / "test.ssc")
+        CelestiaExporter().export(sats, path, epoch=EPOCH)
+
+        with open(path, "rb") as f:
+            raw = f.read()
+        assert raw.endswith(b"\n"), "File must end with a newline"

@@ -701,6 +701,24 @@ class TestDomainPurity:
                     ), f"Forbidden import from: {node.module}"
 
 
+class TestG0OverflowGuard:
+    """_g0 geomagnetic transform must stay finite for extreme Ap values."""
+
+    def test_extreme_negative_ap_no_overflow(self):
+        """Extremely negative Ap must not overflow."""
+        from humeris.domain.nrlmsise00 import _g0
+
+        result = _g0(-1e6)
+        assert math.isfinite(result)
+
+    def test_extreme_positive_ap_no_overflow(self):
+        """Extremely positive Ap must not overflow."""
+        from humeris.domain.nrlmsise00 import _g0
+
+        result = _g0(1e6)
+        assert math.isfinite(result)
+
+
 class TestNrlmsise00ZeroF107:
     """NRLMSISE-00 must not crash or produce NaN with f107a=0."""
 

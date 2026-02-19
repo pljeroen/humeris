@@ -149,7 +149,6 @@ def _propagate_geodetic(
     )
     lat_deg, lon_deg, alt_m = ecef_to_geodetic(pos_ecef)
     # Guard against NaN/Inf from degenerate propagation
-    import math
     if not (math.isfinite(lat_deg) and math.isfinite(lon_deg) and math.isfinite(alt_m)):
         lat_deg, lon_deg, alt_m = 0.0, 0.0, 0.0
     return pos_eci, vel_eci, lat_deg, lon_deg, alt_m
@@ -755,6 +754,8 @@ def precession_constellation_packets(
 
 def _snr_color(snr_db: float, min_snr: float = 0.0, max_snr: float = 30.0) -> list[int]:
     """Map SNR to green->yellow->red color gradient."""
+    if max_snr <= min_snr:
+        return [0, 255, 0, 200]
     t = max(0.0, min(1.0, (snr_db - min_snr) / (max_snr - min_snr)))
     if t > 0.5:
         # Green to yellow

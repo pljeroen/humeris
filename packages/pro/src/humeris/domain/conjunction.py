@@ -655,7 +655,7 @@ def _cartesian_to_orbital_state(
             nu_rad = math.atan2(r_vec[1], r_vec[0])
 
     # Mean motion
-    n = math.sqrt(mu / abs(a) ** 3) if a > 0 else math.sqrt(mu / r_mag ** 3)
+    n = math.sqrt(mu / abs(a) ** 3)
 
     return OrbitalState(
         semi_major_axis_m=a,

@@ -269,10 +269,13 @@ class KmlExporter(SatelliteExporter):
             from humeris.domain.propagation import derive_orbital_state
             from humeris.domain.inter_satellite_links import compute_isl_topology
 
-            states = [derive_orbital_state(s, effective_epoch) for s in satellites]
+            try:
+                states = [derive_orbital_state(s, effective_epoch) for s in satellites]
+            except (ValueError, ZeroDivisionError):
+                states = []
             topology = compute_isl_topology(
                 states, effective_epoch, max_range_km=self._max_isl_range_km,
-            )
+            ) if len(states) == len(satellites) else None
 
             isl_folder = _sub_element(doc, f"{{{_KML_NS}}}Folder")
             _sub_element(isl_folder, f"{{{_KML_NS}}}name", "ISL Topology")
@@ -283,7 +286,7 @@ class KmlExporter(SatelliteExporter):
             _sub_element(isl_line, f"{{{_KML_NS}}}color", "ff00ff00")
             _sub_element(isl_line, f"{{{_KML_NS}}}width", "1")
 
-            for link in topology.links:
+            for link in (topology.links if topology is not None else []):
                 if link.distance_m / 1000.0 > self._max_isl_range_km:
                     continue
                 if link.is_blocked:

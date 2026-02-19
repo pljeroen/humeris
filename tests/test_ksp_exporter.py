@@ -400,3 +400,42 @@ class TestAcosClamping:
         )
         path = str(tmp_path / "polar.sfs")
         KspExporter().export([sat], path, epoch=EPOCH)
+
+
+class TestKspNameSanitization:
+    """Satellite names with special characters must not break .sfs output."""
+
+    def test_special_chars_stripped(self, tmp_path):
+        """Newlines, ampersands, quotes in name must not appear in name= line."""
+        from humeris.adapters.ksp_exporter import KspExporter
+
+        sat = Satellite(
+            name='Test\n&"sat',
+            plane_index=0,
+            sat_index=0,
+            position_eci=(7e6, 0.0, 0.0),
+            velocity_eci=(0.0, 7500.0, 0.0),
+            raan_deg=0.0,
+            true_anomaly_deg=0.0,
+        )
+        path = str(tmp_path / "test.sfs")
+        KspExporter().export([sat], path, epoch=EPOCH)
+
+        text = _read_export(path)
+        vessels = _extract_vessels(text)
+        assert len(vessels) == 1
+        name_value = _extract_field(vessels[0], "name")
+        assert "\n" not in name_value
+        assert '"' not in name_value
+
+    def test_trailing_newline(self, tmp_path):
+        """Exported file must end with a single newline."""
+        from humeris.adapters.ksp_exporter import KspExporter
+
+        sats = _make_satellites()[:1]
+        path = str(tmp_path / "test.sfs")
+        KspExporter().export(sats, path, epoch=EPOCH)
+
+        with open(path, "rb") as f:
+            raw = f.read()
+        assert raw.endswith(b"\n"), "File must end with a newline"

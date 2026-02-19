@@ -31,6 +31,16 @@ from humeris.adapters.czml_visualization import (
     hazard_evolution_packets,
     coverage_connectivity_packets,
     network_eclipse_packets,
+    kessler_heatmap_packets,
+    conjunction_hazard_packets,
+    dop_grid_packets,
+    radiation_coloring_packets,
+    beta_angle_packets,
+    deorbit_compliance_packets,
+    station_keeping_packets,
+    cascade_evolution_packets,
+    relative_motion_packets,
+    maintenance_schedule_packets,
 )
 from humeris.domain.link_budget import LinkConfig
 
@@ -649,6 +659,24 @@ class TestNetworkEclipsePackets:
         assert len(pkts) == 1
 
 
+class TestSnrColorGuard:
+    """SNR color mapping must handle degenerate min/max ranges."""
+
+    def test_snr_color_equal_min_max(self):
+        """Equal min_snr and max_snr must not ZeroDivisionError."""
+        from humeris.adapters.czml_visualization import _snr_color
+
+        result = _snr_color(10.0, min_snr=10.0, max_snr=10.0)
+        assert result == [0, 255, 0, 200]
+
+    def test_snr_color_inverted_range(self):
+        """Inverted range (min > max) must return safe fallback."""
+        from humeris.adapters.czml_visualization import _snr_color
+
+        result = _snr_color(5.0, min_snr=20.0, max_snr=10.0)
+        assert result == [0, 255, 0, 200]
+
+
 class TestCzmlVisualizationPurity:
     """Adapter purity: only stdlib + internal imports allowed."""
 
@@ -672,3 +700,135 @@ class TestCzmlVisualizationPurity:
                     top = node.module.split(".")[0]
                     assert top in allowed_stdlib or top in allowed_internal, \
                         f"Forbidden import from: {node.module}"
+
+
+class TestUntestedPacketGenerators:
+    """Smoke tests for previously untested CZML packet generator functions.
+
+    Each test verifies the function runs without error on minimal input
+    and returns a list of dicts (CZML packets).
+    """
+
+    def test_kessler_heatmap_packets(self, orbital_states):
+        pkts = kessler_heatmap_packets(
+            orbital_states, EPOCH, timedelta(hours=2), timedelta(seconds=120),
+        )
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        # Should have document + 1 per satellite
+        assert len(pkts) == len(orbital_states) + 1
+        # Each satellite packet should have a point with color
+        for pkt in pkts[1:]:
+            assert "point" in pkt
+            assert "color" in pkt["point"]
+
+    def test_conjunction_hazard_packets(self, orbital_states):
+        pkts = conjunction_hazard_packets(
+            orbital_states, EPOCH, timedelta(hours=2), timedelta(seconds=120),
+        )
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        # At minimum: document + satellite packets (conjunctions optional)
+        assert len(pkts) >= len(orbital_states) + 1
+
+    def test_dop_grid_packets(self, orbital_states):
+        pkts = dop_grid_packets(
+            orbital_states, EPOCH,
+            lat_step_deg=30.0, lon_step_deg=30.0,
+        )
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        # Should produce at least the document packet + some grid cells
+        assert len(pkts) >= 1
+
+    def test_radiation_coloring_packets(self, orbital_states):
+        pkts = radiation_coloring_packets(
+            orbital_states, EPOCH, timedelta(hours=2), timedelta(seconds=120),
+        )
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        assert len(pkts) == len(orbital_states) + 1
+        # Each satellite should have interval-based coloring
+        for pkt in pkts[1:]:
+            assert "point" in pkt
+            color = pkt["point"]["color"]
+            assert isinstance(color, list)
+            assert "interval" in color[0]
+
+    def test_beta_angle_packets(self, orbital_states):
+        pkts = beta_angle_packets(orbital_states, EPOCH)
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        assert len(pkts) == len(orbital_states) + 1
+        for pkt in pkts[1:]:
+            assert "point" in pkt
+            assert "label" in pkt
+            # Label text should contain "deg"
+            assert "deg" in pkt["label"]["text"]
+
+    def test_deorbit_compliance_packets(self, orbital_states):
+        pkts = deorbit_compliance_packets(orbital_states, EPOCH)
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        assert len(pkts) == len(orbital_states) + 1
+        for pkt in pkts[1:]:
+            assert "point" in pkt
+            assert "label" in pkt
+
+    def test_station_keeping_packets(self, orbital_states):
+        pkts = station_keeping_packets(orbital_states, EPOCH)
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        assert len(pkts) == len(orbital_states) + 1
+        for pkt in pkts[1:]:
+            assert "point" in pkt
+            assert "label" in pkt
+            # Label should contain "m/s/yr"
+            assert "m/s/yr" in pkt["label"]["text"]
+
+    def test_cascade_evolution_packets(self, orbital_states):
+        pkts = cascade_evolution_packets(
+            orbital_states, EPOCH, timedelta(hours=2), timedelta(seconds=120),
+        )
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        assert len(pkts) == len(orbital_states) + 1
+        for pkt in pkts[1:]:
+            assert "point" in pkt
+            color = pkt["point"]["color"]
+            assert isinstance(color, list)
+
+    def test_relative_motion_packets(self, orbital_states):
+        # Need exactly two states
+        state_a = orbital_states[0]
+        state_b = orbital_states[1]
+        pkts = relative_motion_packets(
+            state_a, state_b, EPOCH, timedelta(hours=2), timedelta(seconds=120),
+        )
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        # Should have document + 2 sat packets + 1 proximity line
+        assert len(pkts) == 4
+        sat_pkts = [p for p in pkts if p.get("id", "").startswith("relmotion-sat-")]
+        assert len(sat_pkts) == 2
+        line_pkts = [p for p in pkts if "polyline" in p]
+        assert len(line_pkts) == 1
+
+    def test_maintenance_schedule_packets(self, orbital_states):
+        pkts = maintenance_schedule_packets(orbital_states, EPOCH)
+        assert isinstance(pkts, list)
+        assert all(isinstance(p, dict) for p in pkts)
+        assert pkts[0]["id"] == "document"
+        assert len(pkts) == len(orbital_states) + 1
+        for pkt in pkts[1:]:
+            assert "point" in pkt
+            assert "label" in pkt

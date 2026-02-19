@@ -167,6 +167,10 @@ def propellant_mass_for_dv(
     Returns:
         Propellant mass in kg.
     """
+    if isp_s <= 0:
+        raise ValueError(f"isp_s must be positive, got {isp_s}")
+    if dry_mass_kg <= 0:
+        raise ValueError(f"dry_mass_kg must be positive, got {dry_mass_kg}")
     return dry_mass_kg * (float(np.exp(dv_ms / (isp_s * _G0))) - 1.0)
 
 

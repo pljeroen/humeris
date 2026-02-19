@@ -206,6 +206,25 @@ class TestComputeBudget:
         assert budget_large.operational_lifetime_years > budget_small.operational_lifetime_years
 
 
+# ── propellant_mass_for_dv validation ────────────────────────────────
+
+class TestPropellantMassValidation:
+
+    def test_zero_isp_raises(self):
+        """Zero Isp must raise ValueError mentioning isp_s."""
+        from humeris.domain.station_keeping import propellant_mass_for_dv
+
+        with pytest.raises(ValueError, match="isp_s"):
+            propellant_mass_for_dv(isp_s=0.0, dry_mass_kg=100.0, dv_ms=50.0)
+
+    def test_negative_dry_mass_raises(self):
+        """Negative dry mass must raise ValueError mentioning dry_mass_kg."""
+        from humeris.domain.station_keeping import propellant_mass_for_dv
+
+        with pytest.raises(ValueError, match="dry_mass_kg"):
+            propellant_mass_for_dv(isp_s=300.0, dry_mass_kg=-1.0, dv_ms=50.0)
+
+
 # ── Domain purity ───────────────────────────────────────────────────
 
 class TestStationKeepingPurity:

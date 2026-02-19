@@ -42,6 +42,9 @@ def _build_vessel(
     raan_deg = sat.raan_deg % 360.0
     mna_rad = math.radians(sat.true_anomaly_deg % 360.0)
 
+    import re
+    safe_name = re.sub(r'[^\w .()-]', '', sat.name)
+
     pid = f"00000000-0000-0000-0000-{index + 1:012d}"
     uid = 1_000_000_000 + index
 
@@ -51,7 +54,7 @@ def _build_vessel(
         "VESSEL\n"
         "{\n"
         f"\tpid = {pid}\n"
-        f"\tname = {sat.name}\n"
+        f"\tname = {safe_name}\n"
         "\ttype = Probe\n"
         "\tsit = ORBITING\n"
         "\tlanded = False\n"
@@ -170,7 +173,7 @@ class KspExporter(SatelliteExporter):
             lines.append("")
 
         with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
+            f.write("\n".join(lines) + "\n")
 
         return len(satellites)
 

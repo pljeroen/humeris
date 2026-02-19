@@ -81,7 +81,7 @@ def is_eclipsed(
 
     # Satellite is behind Earth relative to Sun.
     sun_dist = float(np.linalg.norm(sun))
-    if sun_dist == 0:
+    if sun_dist < 1e-3:
         return EclipseType.NONE
 
     sun_hat = sun / sun_dist

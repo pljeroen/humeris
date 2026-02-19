@@ -480,6 +480,18 @@ class TestEclipsePurity:
                         assert False, f"Disallowed import from '{node.module}'"
 
 
+class TestEclipseSunDistEpsilon:
+    """Eclipse must handle very small sun distances without crash."""
+
+    def test_very_small_sun_distance_no_crash(self):
+        """Sun position below 1e-3 norm must return valid EclipseType."""
+        result = is_eclipsed(
+            sat_position_eci=(-7e6, 0.0, 0.0),
+            sun_position_eci_m=(0.5, 0.0, 0.0),
+        )
+        assert isinstance(result, EclipseType)
+
+
 class TestEclipseEdgeCases:
     """Eclipse computation hardening for degenerate inputs."""
 

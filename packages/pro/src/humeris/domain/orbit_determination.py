@@ -123,6 +123,8 @@ def _two_body_propagate(
     """
     def deriv(s: list[float]) -> list[float]:
         r = float(np.linalg.norm(s[:3]))
+        if r < 1e-3:
+            return [s[3], s[4], s[5], 0.0, 0.0, 0.0]
         r3 = r**3
         coeff = -_MU / r3
         return [s[3], s[4], s[5], coeff * s[0], coeff * s[1], coeff * s[2]]

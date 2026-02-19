@@ -156,7 +156,7 @@ class BlenderExporter(SatelliteExporter):
 
         # Create plane materials if color_by_plane is enabled
         if self._color_by_plane:
-            plane_indices = sorted({s.plane_index for s in satellites})
+            plane_indices = sorted({s.plane_index for s in satellites if s.plane_index >= 0})
             _COLORS = [
                 (1.0, 0.0, 0.0, 1.0), (0.0, 1.0, 0.0, 1.0),
                 (0.0, 0.5, 1.0, 1.0), (1.0, 1.0, 0.0, 1.0),
@@ -189,11 +189,12 @@ class BlenderExporter(SatelliteExporter):
                 f"subdivisions=1)"
             )
             lines.append("sat = bpy.context.active_object")
-            safe_name = sat.name.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+            import re
+            safe_name = re.sub(r'[^\w .()-]', '', sat.name)
             lines.append(f'sat.name = "{safe_name}"')
 
             # Assign plane material
-            if self._color_by_plane:
+            if self._color_by_plane and sat.plane_index >= 0:
                 lines.append(f"sat.data.materials.append(mat_plane_{sat.plane_index})")
 
             # Enrichment custom properties
@@ -209,7 +210,7 @@ class BlenderExporter(SatelliteExporter):
             # Orbit curve (optional)
             if self._include_orbits:
                 orbit_pts = _orbit_points_km(sat.position_eci, sat.velocity_eci)
-                safe_curve = sat.name.replace("'", "").replace("\\", "").replace("\n", "")
+                safe_curve = re.sub(r'[^\w ()-]', '', sat.name)
                 curve_var = f"orbit_{safe_curve}"
 
                 lines.append(f"# Create orbit curve for: {safe_name}")

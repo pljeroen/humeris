@@ -207,6 +207,18 @@ class TestEKF:
             assert result.final_covariance[i][i] > 0
 
 
+# ── Zero-position guard ───────────────────────────────────────
+
+class TestOdZeroPositionGuard:
+
+    def test_two_body_propagate_zero_position(self):
+        """Zero position vector must not crash _two_body_propagate."""
+        state = [0.0, 0.0, 0.0, 100.0, 0.0, 0.0]
+        result = _two_body_propagate(state, 60.0)
+        assert len(result) == 6
+        assert all(math.isfinite(v) for v in result)
+
+
 # ── Domain purity ─────────────────────────────────────────────
 
 class TestODPurity:

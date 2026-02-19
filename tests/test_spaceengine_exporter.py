@@ -308,3 +308,60 @@ class TestAcosClamping:
         )
         path = str(tmp_path / "polar.sc")
         SpaceEngineExporter().export([sat], path, epoch=EPOCH)
+
+
+class TestSpaceEngineNameSanitization:
+    """Satellite names with special characters must not break .sc output."""
+
+    def test_special_chars_stripped(self, tmp_path):
+        """Quotes and newlines in name must be sanitized in the .sc catalog."""
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
+
+        sat = Satellite(
+            name='Test"sat\nfoo',
+            plane_index=0,
+            sat_index=0,
+            position_eci=(7e6, 0.0, 0.0),
+            velocity_eci=(0.0, 7500.0, 0.0),
+            raan_deg=0.0,
+            true_anomaly_deg=0.0,
+        )
+        path = str(tmp_path / "test.sc")
+        SpaceEngineExporter().export([sat], path, epoch=EPOCH)
+
+        content = _read_sc(path)
+        # Each Moon line must have balanced quotes and no raw newlines within name
+        for line in content.split("\n"):
+            if line.strip().startswith("Moon"):
+                assert line.count('"') % 2 == 0, f"Unbalanced quotes: {line}"
+
+    def test_zero_position_no_crash(self, tmp_path):
+        """Satellite at position (0,0,0) must not crash the exporter."""
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
+
+        sat = Satellite(
+            name="ZeroPos",
+            plane_index=0,
+            sat_index=0,
+            position_eci=(0.0, 0.0, 0.0),
+            velocity_eci=(0.0, 0.0, 0.0),
+            raan_deg=0.0,
+            true_anomaly_deg=0.0,
+        )
+        path = str(tmp_path / "test.sc")
+        SpaceEngineExporter().export([sat], path, epoch=EPOCH)
+
+        content = _read_sc(path)
+        assert len(content) > 0
+
+    def test_trailing_newline(self, tmp_path):
+        """Exported file must end with a single newline."""
+        from humeris.adapters.spaceengine_exporter import SpaceEngineExporter
+
+        sats = _make_satellites()[:1]
+        path = str(tmp_path / "test.sc")
+        SpaceEngineExporter().export(sats, path, epoch=EPOCH)
+
+        with open(path, "rb") as f:
+            raw = f.read()
+        assert raw.endswith(b"\n"), "File must end with a newline"

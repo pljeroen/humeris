@@ -61,13 +61,18 @@ class SpaceEngineExporter(SatelliteExporter):
             )
             lines.append(self._format_satellite(sat))
         with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
+            f.write("\n".join(lines) + "\n")
         return len(satellites)
 
     def _format_satellite(self, sat: Satellite) -> str:
+        import re
+        safe_name = re.sub(r'[^\w .()-]', '', sat.name)
+
         # Derive orbital elements
         px, py, pz = sat.position_eci
         r_mag = math.sqrt(px**2 + py**2 + pz**2)
+        if r_mag == 0.0:
+            r_mag = 1.0  # prevent division by zero
 
         # Semi-major axis in AU
         a_au = r_mag / _AU_M
@@ -93,7 +98,7 @@ class SpaceEngineExporter(SatelliteExporter):
 
         # Build the .sc block
         parts = [
-            f'Moon "{sat.name}"',
+            f'Moon "{safe_name}"',
             "{",
             f'\tParentBody "Earth"',
         ]

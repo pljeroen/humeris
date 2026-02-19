@@ -57,13 +57,18 @@ class CelestiaExporter(SatelliteExporter):
             )
             lines.append(self._format_satellite(sat, epoch))
         with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
+            f.write("\n".join(lines) + "\n")
         return len(satellites)
 
     def _format_satellite(self, sat: Satellite, epoch: datetime | None) -> str:
+        import re
+        safe_name = re.sub(r'[^\w .()-]', '', sat.name)
+
         # Derive orbital elements from ECI state vectors
         px, py, pz = sat.position_eci
         r_mag = math.sqrt(px**2 + py**2 + pz**2)
+        if r_mag == 0.0:
+            r_mag = 1.0  # prevent division by zero
 
         # Semi-major axis in km
         a_km = r_mag / 1000.0
@@ -100,7 +105,7 @@ class CelestiaExporter(SatelliteExporter):
 
         # Build the .ssc block
         parts = [
-            f'"{sat.name}" "Sol/Earth" {{',
+            f'"{safe_name}" "Sol/Earth" {{',
             f'    Class "spacecraft"',
             f'    Mesh ""',
             f'    Radius {radius_km:.6e}',

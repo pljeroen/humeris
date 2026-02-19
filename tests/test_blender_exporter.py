@@ -304,3 +304,59 @@ class TestNameSanitization:
         for line in content.split("\n"):
             if "sat.name" in line:
                 assert "\n" not in line.split("sat.name")[1].strip()
+
+
+class TestBlenderNameSanitization:
+    """Combined special characters must not break generated Python script."""
+
+    def test_special_chars_in_name_sanitized(self, tmp_path):
+        """Quotes, backslashes, newlines in name must not appear raw in code."""
+        from humeris.domain.constellation import Satellite
+        import ast
+
+        r = OrbitalConstants.R_EARTH + 550_000.0
+        sat = Satellite(
+            name='Sat"test\\n\nfoo',
+            plane_index=0,
+            sat_index=0,
+            position_eci=(r, 0.0, 0.0),
+            velocity_eci=(0.0, 7600.0, 0.0),
+            raan_deg=0.0,
+            true_anomaly_deg=0.0,
+        )
+        path = str(tmp_path / "test.py")
+        BlenderExporter().export([sat], path, epoch=EPOCH)
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        # Must be syntactically valid Python
+        ast.parse(content)
+        # No raw quotes, backslashes, or newlines in non-comment code lines
+        for line in content.split("\n"):
+            if line.strip().startswith("#"):
+                continue
+            if "sat.name" in line:
+                # The value portion after '=' should not contain raw special chars
+                value_part = line.split("=", 1)[1].strip()
+                # No unescaped literal newlines (already guaranteed by line split)
+                # No raw backslash-n literal that isn't a Python escape
+                assert '\\"' not in value_part or value_part.count('"') % 2 == 0
+
+    def test_negative_plane_index_skipped(self, tmp_path):
+        """Satellite with plane_index=-1 must not crash or create mat_plane_-1."""
+        from humeris.domain.constellation import Satellite
+
+        r = OrbitalConstants.R_EARTH + 550_000.0
+        sat = Satellite(
+            name="NegPlane",
+            plane_index=-1,
+            sat_index=0,
+            position_eci=(r, 0.0, 0.0),
+            velocity_eci=(0.0, 7600.0, 0.0),
+            raan_deg=0.0,
+            true_anomaly_deg=0.0,
+        )
+        path = str(tmp_path / "test.py")
+        BlenderExporter(color_by_plane=True).export([sat], path, epoch=EPOCH)
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        assert "mat_plane_-1" not in content

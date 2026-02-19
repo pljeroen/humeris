@@ -310,3 +310,23 @@ class TestTleEdgeCases:
             pass  # Acceptable: reject overflow
         finally:
             os.unlink(path)
+
+
+class TestStellariumTrailingNewline:
+    """Exported TLE file must end with a trailing newline."""
+
+    def test_trailing_newline(self):
+        """Exported file must end with a single newline."""
+        sats = generate_walker_shell(SHELL)[:1]
+        exporter = StellariumExporter()
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".tle", delete=False
+        ) as f:
+            path = f.name
+        try:
+            exporter.export(sats, path, epoch=EPOCH)
+            with open(path, "rb") as f:
+                raw = f.read()
+            assert raw.endswith(b"\n"), "File must end with a newline"
+        finally:
+            os.unlink(path)

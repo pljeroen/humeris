@@ -74,6 +74,8 @@ class NumericalPropagationResult:
 def _specific_energy(pos: tuple[float, float, float], vel: tuple[float, float, float]) -> float:
     """Compute specific orbital energy: E = v²/2 - μ/r."""
     r = math.sqrt(pos[0]**2 + pos[1]**2 + pos[2]**2)
+    if r < 1e-3:
+        return 0.0
     v = math.sqrt(vel[0]**2 + vel[1]**2 + vel[2]**2)
     return 0.5 * v**2 - OrbitalConstants.MU_EARTH / r
 

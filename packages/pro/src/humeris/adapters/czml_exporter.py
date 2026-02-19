@@ -236,7 +236,7 @@ def constellation_packets(
 
     total_seconds = duration.total_seconds()
     step_seconds = _validate_step(step)
-    num_steps = int(total_seconds / step_seconds) + 1
+    num_steps = math.ceil(total_seconds / step_seconds) + 1
     interp_degree = _interpolation_degree(num_steps)
 
     plane_indices = _assign_plane_indices(orbital_states)

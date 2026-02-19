@@ -185,7 +185,7 @@ def _g0(ap_val: float, alpha: float = _G0_ALPHA, beta: float = _G0_BETA) -> floa
     References:
         Picone, Hedin, Drob, Aikin (2002) J. Geophys. Res. 107(A12), 1468
     """
-    x = ap_val - 4.0
+    x = max(-1000.0, min(1000.0, ap_val - 4.0))
     if abs(alpha) < 1e-12:
         return beta * x
 
