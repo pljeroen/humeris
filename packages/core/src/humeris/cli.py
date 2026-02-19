@@ -288,18 +288,7 @@ def _run_serve(
     # Headless mode: export and exit without starting server
     if headless:
         if export_czml_path:
-            import os
-            os.makedirs(export_czml_path, exist_ok=True)
-            exported = 0
-            with mgr._lock:
-                for layer_id, layer in mgr.layers.items():
-                    safe_name = layer.name.replace("/", "_").replace(":", "_").replace(" ", "_")
-                    filename = f"{safe_name}.czml"
-                    filepath = os.path.join(export_czml_path, filename)
-                    with open(filepath, "w", encoding="utf-8") as f:
-                        _json.dump(layer.czml, f, indent=2)
-                    exported += 1
-                    print(f"  Exported {filename} ({len(layer.czml)} packets)")
+            exported = mgr.export_czml_layers(export_czml_path)
             print(f"Exported {exported} CZML files to {export_czml_path}")
         else:
             print(f"Session loaded: {len(mgr.layers)} layers")

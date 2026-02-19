@@ -2141,58 +2141,30 @@ class TestCliLoadSession:
         assert result.returncode != 0
 
 
-class TestFidelityMode:
-    """LayerManager fidelity mode controls propagation quality."""
+class TestFidelityModeRemoved:
+    """F-06: Fidelity was dead code — verify it has been removed."""
 
-    def test_default_fidelity_is_standard(self):
-        """LayerManager defaults to 'standard' fidelity."""
+    def test_no_fidelity_attribute(self):
+        """LayerManager must not have a fidelity attribute (dead code removed)."""
         from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
-        assert mgr.fidelity == "standard"
+        assert not hasattr(mgr, "fidelity"), "fidelity was dead code and should be removed"
 
-    def test_fidelity_set_to_high(self):
-        """LayerManager fidelity can be set to 'high'."""
+    def test_no_fidelity_in_save_session(self):
+        """save_session must not include fidelity key."""
         from humeris.adapters.viewer_server import LayerManager
         mgr = LayerManager(epoch=EPOCH)
-        mgr.fidelity = "high"
-        assert mgr.fidelity == "high"
-
-    def test_fidelity_in_save_session(self):
-        """save_session includes fidelity setting."""
-        from humeris.adapters.viewer_server import LayerManager
-        mgr = LayerManager(epoch=EPOCH)
-        mgr.fidelity = "high"
         session = mgr.save_session()
-        assert session["fidelity"] == "high"
+        assert "fidelity" not in session
 
-    def test_fidelity_restored_from_load_session(self):
-        """load_session restores fidelity setting."""
-        from humeris.adapters.viewer_server import LayerManager
-        mgr = LayerManager(epoch=EPOCH)
-        session_data = {
-            "fidelity": "high",
-            "layers": [],
-        }
-        mgr.load_session(session_data)
-        assert mgr.fidelity == "high"
-
-    def test_fidelity_via_settings_api(self, running_server):
-        """PUT /api/settings with fidelity should update it."""
+    def test_settings_api_ignores_fidelity(self, running_server):
+        """PUT /api/settings with fidelity should not error (ignored)."""
         port, mgr = running_server
         status, body = _api_request(port, "PUT", "/api/settings", {
             "fidelity": "high",
         })
         assert status == 200
-        assert body.get("fidelity") == "high"
-        assert mgr.fidelity == "high"
-
-    def test_fidelity_invalid_value_rejected(self, running_server):
-        """PUT /api/settings with invalid fidelity should return 400."""
-        port, mgr = running_server
-        status, body = _api_request(port, "PUT", "/api/settings", {
-            "fidelity": "ultra",
-        })
-        assert status == 400
+        assert "fidelity" not in body
 
 
 class TestGroundStationPresets:
@@ -2321,6 +2293,53 @@ class TestMultiLayerCzmlExport:
         assert len(body) == 1
         assert body[0].get("id") == "document"
 
+    def test_export_all_unique_entity_ids(self):
+        """F-01: Merged CZML must not have duplicate entity IDs across layers."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states1 = _make_states(n_planes=1, n_sats=3)
+        states2 = _make_states(n_planes=1, n_sats=3)
+        mgr.add_layer(
+            name="Walker-A", category="Constellation",
+            layer_type="walker", states=states1, params={},
+        )
+        mgr.add_layer(
+            name="Walker-B", category="Constellation",
+            layer_type="walker", states=states2, params={},
+        )
+        merged = mgr.export_all_czml(visible_only=False)
+        ids = [pkt["id"] for pkt in merged if "id" in pkt]
+        assert len(ids) == len(set(ids)), (
+            f"Duplicate entity IDs in merged CZML: "
+            f"{[x for x in ids if ids.count(x) > 1]}"
+        )
+
+    def test_export_all_does_not_alias_packets(self):
+        """F-07: Modifying returned packets must not change layer data."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states = _make_states(n_planes=1, n_sats=2)
+        mgr.add_layer(
+            name="Alias-Test", category="Constellation",
+            layer_type="walker", states=states, params={},
+        )
+        merged = mgr.export_all_czml(visible_only=False)
+        # Mutate a returned non-document packet
+        for pkt in merged:
+            if pkt.get("id") != "document":
+                pkt["INJECTED"] = True
+                break
+        # Original layer data must be unaffected
+        layer = list(mgr.layers.values())[0]
+        for pkt in layer.czml:
+            assert "INJECTED" not in pkt, "export_all_czml must copy packets"
+
+    def test_export_czml_layers_method_exists(self):
+        """F-04: LayerManager must have export_czml_layers for headless use."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        assert callable(getattr(mgr, "export_czml_layers", None))
+
 
 class TestCliHeadlessMode:
     """CLI --headless mode exports CZML without starting server."""
@@ -2397,7 +2416,7 @@ class TestViewerServerPurity:
         allowed_stdlib = {
             "json", "http", "threading", "datetime", "dataclasses",
             "urllib", "functools", "math", "numpy", "logging", "typing",
-            "socketserver",
+            "socketserver", "os",
         }
         allowed_internal = {"humeris"}
 

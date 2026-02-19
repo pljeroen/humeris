@@ -223,6 +223,29 @@ _LEGENDS: dict[str, list[dict[str, str]]] = {
 }
 
 
+def _merge_clocks(
+    existing: dict[str, Any] | None,
+    incoming: dict[str, Any],
+) -> dict[str, Any]:
+    """Merge two CZML clock objects, taking the widest time range.
+
+    CZML clock interval format: "start_iso/end_iso".
+    """
+    if existing is None:
+        return dict(incoming)
+    merged = dict(existing)
+    try:
+        e_start, e_end = existing["interval"].split("/")
+        i_start, i_end = incoming["interval"].split("/")
+        start = min(e_start, i_start)  # ISO8601 strings sort lexically
+        end = max(e_end, i_end)
+        merged["interval"] = f"{start}/{end}"
+        merged["currentTime"] = start
+    except (KeyError, ValueError):
+        pass
+    return merged
+
+
 @dataclass
 class LayerState:
     """State for a single visualization layer."""
@@ -511,15 +534,12 @@ def _rad_to_deg(rad: float) -> float:
 class LayerManager:
     """Manages visualization layers and their CZML generation."""
 
-    VALID_FIDELITY = ("standard", "high")
-
     def __init__(self, epoch: datetime) -> None:
         self.epoch = epoch
         self.layers: dict[str, LayerState] = {}
         self._counter = 0
         self.duration = _DEFAULT_DURATION
         self.step = _DEFAULT_STEP
-        self.fidelity: str = "standard"
         self._lock = threading.RLock()
 
     def _next_id(self) -> str:
@@ -711,7 +731,6 @@ class LayerManager:
                 "epoch": self.epoch.isoformat(),
                 "duration_s": self.duration.total_seconds(),
                 "step_s": self.step.total_seconds(),
-                "fidelity": self.fidelity,
                 "layers": layers,
             }
 
@@ -723,6 +742,9 @@ class LayerManager:
         Pass 1.5: ground station layers
         Pass 2: analysis layers (with source constellation references)
 
+        The entire operation holds the lock to prevent TOCTOU races
+        (RLock allows re-entry from add_layer/add_ground_station).
+
         Returns the number of layers restored.
         """
         layers_data = session_data.get("layers", [])
@@ -730,18 +752,19 @@ class LayerManager:
             raise ValueError("Session 'layers' must be a list")
         layers_data = [ld for ld in layers_data if isinstance(ld, dict)]
 
-        # Clear existing layers
         with self._lock:
+            # Clear existing layers atomically with restore
             self.layers.clear()
             self._counter = 0
             if "duration_s" in session_data:
                 self.duration = timedelta(seconds=session_data["duration_s"])
             if "step_s" in session_data:
                 self.step = timedelta(seconds=session_data["step_s"])
-            fid = session_data.get("fidelity", "standard")
-            if fid in self.VALID_FIDELITY:
-                self.fidelity = fid
 
+            return self._restore_layers(layers_data)
+
+    def _restore_layers(self, layers_data: list[dict[str, Any]]) -> int:
+        """Restore layers from session data. Caller must hold self._lock."""
         # Pass 1: Restore constellation layers (walker and celestrak)
         restored = 0
         restored_layers: list[str] = []
@@ -845,8 +868,9 @@ class LayerManager:
     def export_all_czml(self, visible_only: bool = True) -> list[dict[str, Any]]:
         """Merge all (visible) layers into a single CZML document.
 
-        The merged document uses a single document packet with the
-        widest time range, then appends all non-document packets.
+        Entity IDs are prefixed with the layer name to prevent collisions.
+        The merged clock encompasses all layers' time ranges.
+        Packets are shallow-copied to prevent aliasing.
         """
         doc_packet: dict[str, Any] = {
             "id": "document",
@@ -854,18 +878,45 @@ class LayerManager:
             "version": "1.0",
         }
         merged: list[dict[str, Any]] = [doc_packet]
+        merged_clock: dict[str, Any] | None = None
         with self._lock:
             for layer in self.layers.values():
                 if visible_only and not layer.visible:
                     continue
+                # Sanitize layer name for use as ID prefix
+                prefix = layer.name.replace(" ", "_").replace("/", "_").replace(":", "_")
                 for pkt in layer.czml:
                     if pkt.get("id") == "document":
-                        # Capture clock from first document packet with one
-                        if "clock" in pkt and "clock" not in doc_packet:
-                            doc_packet["clock"] = pkt["clock"]
+                        if "clock" in pkt:
+                            merged_clock = _merge_clocks(merged_clock, pkt["clock"])
                         continue
-                    merged.append(pkt)
+                    # Shallow copy + prefix entity ID to avoid collisions
+                    copied = dict(pkt)
+                    if "id" in copied:
+                        copied["id"] = f"{prefix}/{copied['id']}"
+                    merged.append(copied)
+        if merged_clock is not None:
+            doc_packet["clock"] = merged_clock
         return merged
+
+    def export_czml_layers(self, output_dir: str) -> int:
+        """Export each layer's CZML to a separate file in output_dir.
+
+        Returns the number of files written.
+        """
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+        exported = 0
+        with self._lock:
+            layer_snapshot = list(self.layers.values())
+        for layer in layer_snapshot:
+            safe_name = layer.name.replace("/", "_").replace(":", "_").replace(" ", "_")
+            filename = f"{safe_name}.czml"
+            filepath = os.path.join(output_dir, filename)
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(layer.czml, f, indent=2)
+            exported += 1
+        return exported
 
     def get_czml(self, layer_id: str) -> list[dict[str, Any]]:
         """Return CZML packets for a layer. Raises KeyError if not found."""
@@ -1173,16 +1224,13 @@ class ConstellationHandler(BaseHTTPRequestHandler):
             self._error_response(400, f"lon must be in [-180, 180], got {lon}")
             return
 
-        # Find first constellation layer for access computation
+        # Find first constellation layer for access computation (under lock)
         source_states: list[OrbitalState] = []
-        for layer in self.layer_manager.layers.values():
-            if layer.category == "Constellation":
-                source_states = layer.states
-                break
-
-        if not source_states:
-            # Use empty states — station will render without access windows
-            source_states = []
+        with self.layer_manager._lock:
+            for layer in self.layer_manager.layers.values():
+                if layer.category == "Constellation":
+                    source_states = layer.states
+                    break
 
         try:
             layer_id = self.layer_manager.add_ground_station(
@@ -1216,12 +1264,13 @@ class ConstellationHandler(BaseHTTPRequestHandler):
             )
             return
 
-        # Find first constellation layer for access computation
+        # Find first constellation layer for access computation (under lock)
         source_states: list[OrbitalState] = []
-        for layer in self.layer_manager.layers.values():
-            if layer.category == "Constellation":
-                source_states = layer.states
-                break
+        with self.layer_manager._lock:
+            for layer in self.layer_manager.layers.values():
+                if layer.category == "Constellation":
+                    source_states = layer.states
+                    break
 
         added = 0
         for st in preset["stations"]:
@@ -1295,7 +1344,6 @@ class ConstellationHandler(BaseHTTPRequestHandler):
         if base == "/api/settings":
             dur = body.get("duration_s")
             step = body.get("step_s")
-            fidelity = body.get("fidelity")
             if dur is not None:
                 if not isinstance(dur, (int, float)) or dur <= 0 or dur > 604800:
                     self._error_response(
@@ -1310,19 +1358,9 @@ class ConstellationHandler(BaseHTTPRequestHandler):
                     )
                     return
                 self.layer_manager.step = timedelta(seconds=step)
-            if fidelity is not None:
-                if fidelity not in LayerManager.VALID_FIDELITY:
-                    self._error_response(
-                        400,
-                        f"fidelity must be one of {LayerManager.VALID_FIDELITY}, "
-                        f"got {fidelity!r}",
-                    )
-                    return
-                self.layer_manager.fidelity = fidelity
             self._json_response({
                 "duration_s": self.layer_manager.duration.total_seconds(),
                 "step_s": self.layer_manager.step.total_seconds(),
-                "fidelity": self.layer_manager.fidelity,
             })
             return
 
