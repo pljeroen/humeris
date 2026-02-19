@@ -11,8 +11,11 @@ DragConfig when provided.
 
 No external dependencies — only stdlib math.
 """
+import logging
 import math
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from humeris.domain.constellation import Satellite
 from humeris.domain.orbital_mechanics import OrbitalConstants
@@ -44,6 +47,10 @@ class CelestiaExporter(SatelliteExporter):
         path: str,
         epoch: datetime | None = None,
     ) -> int:
+        if epoch is None:
+            logger.warning(
+                "No epoch provided, defaulting to J2000 (2000-01-01T12:00:00Z)"
+            )
         lines: list[str] = []
         for sat in satellites:
             enrich = compute_satellite_enrichment(sat, epoch)

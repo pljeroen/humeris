@@ -7,9 +7,12 @@ Exports satellite positions and orbit paths as KML with Placemarks.
 Uses spherical Earth approximation for ECI-to-geodetic conversion.
 External dependencies (xml, file I/O) are confined to this adapter.
 """
+import logging
 import math
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from humeris.domain.constellation import Satellite
 from humeris.domain.coordinate_frames import gmst_rad
@@ -234,6 +237,10 @@ class KmlExporter(SatelliteExporter):
 
         _j2000 = datetime(2000, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         effective_epoch = epoch or _j2000
+        if epoch is None:
+            logger.warning(
+                "No epoch provided, defaulting to J2000 (2000-01-01T12:00:00Z)"
+            )
         gmst = gmst_rad(effective_epoch)
 
         kml = ET.Element(f"{{{_KML_NS}}}kml")

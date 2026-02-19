@@ -451,10 +451,10 @@ class ParticleFilterResult:
     resampling_count: int
 
 
-def _euler_two_body(state: np.ndarray, dt: float) -> np.ndarray:
-    """Simple Euler step for two-body dynamics.
+def _rk4_two_body(state: np.ndarray, dt: float) -> np.ndarray:
+    """RK4 integration step for two-body dynamics.
 
-    x += v*dt, v += (-mu/r^3)*x*dt
+    Fourth-order Runge-Kutta for d/dt [pos, vel] = [vel, -mu/r^3 * pos].
 
     Args:
         state: Array of shape (6,) — [x, y, z, vx, vy, vz].
@@ -463,15 +463,19 @@ def _euler_two_body(state: np.ndarray, dt: float) -> np.ndarray:
     Returns:
         Propagated state array of shape (6,).
     """
-    pos = state[:3].copy()
-    vel = state[3:].copy()
-    r = float(np.linalg.norm(pos))
-    if r < 1e-10:
-        return state.copy()
-    acc = -_MU / (r ** 3) * pos
-    new_pos = pos + vel * dt
-    new_vel = vel + acc * dt
-    return np.concatenate([new_pos, new_vel])
+    def _deriv(s: np.ndarray) -> np.ndarray:
+        r = float(np.linalg.norm(s[:3]))
+        if r < 1e-3:
+            return np.array([s[3], s[4], s[5], 0.0, 0.0, 0.0])
+        coeff = -_MU / (r ** 3)
+        return np.array([s[3], s[4], s[5], coeff * s[0], coeff * s[1], coeff * s[2]])
+
+    k1 = _deriv(state)
+    k2 = _deriv(state + 0.5 * dt * k1)
+    k3 = _deriv(state + 0.5 * dt * k2)
+    k4 = _deriv(state + dt * k3)
+
+    return state + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
 
 
 def _systematic_resample(weights: np.ndarray, n_particles: int) -> np.ndarray:
@@ -571,7 +575,7 @@ def run_particle_filter(
             noise = np.hstack([noise_pos, noise_vel])
 
             for i in range(N):
-                particles[i] = _euler_two_body(particles[i], dt)
+                particles[i] = _rk4_two_body(particles[i], dt)
             particles += noise
 
         current_time = obs.time

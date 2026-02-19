@@ -8,7 +8,10 @@ Point geometries. Coordinates follow the GeoJSON spec: [lon, lat, alt].
 External dependencies (json, file I/O) are confined to this adapter.
 """
 import json
+import logging
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from humeris.ports.export import SatelliteExporter
 from humeris.domain.constellation import Satellite
@@ -33,9 +36,15 @@ class GeoJsonSatelliteExporter(SatelliteExporter):
         epoch: datetime | None = None,
     ) -> int:
         features = []
+        _warned_j2000 = False
 
         for sat in satellites:
             sat_epoch = sat.epoch or epoch or _J2000
+            if sat_epoch is _J2000 and not _warned_j2000:
+                logger.warning(
+                    "No epoch provided, defaulting to J2000 (2000-01-01T12:00:00Z)"
+                )
+                _warned_j2000 = True
             gmst_angle = gmst_rad(sat_epoch)
             pos_ecef, _ = eci_to_ecef(
                 sat.position_eci, sat.velocity_eci, gmst_angle,

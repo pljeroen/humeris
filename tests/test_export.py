@@ -280,8 +280,8 @@ class TestExportPurity:
 
     def test_csv_exporter_no_external_deps(self):
         import humeris.adapters.csv_exporter as mod
-        self._check_imports(mod.__file__, {'csv', 'datetime', 'math', 'numpy'})
+        self._check_imports(mod.__file__, {'csv', 'datetime', 'logging', 'math', 'numpy'})
 
     def test_geojson_exporter_no_external_deps(self):
         import humeris.adapters.geojson_exporter as mod
-        self._check_imports(mod.__file__, {'json', 'datetime', 'math', 'numpy'})
+        self._check_imports(mod.__file__, {'json', 'datetime', 'logging', 'math', 'numpy'})

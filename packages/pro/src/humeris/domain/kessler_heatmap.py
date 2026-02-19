@@ -831,7 +831,7 @@ def compute_spectral_kessler(
 
     # Dominant eigenvector: compute from the transfer matrix
     # Use power iteration for robustness (real, non-negative eigenvector)
-    dominant_mode = _power_iteration(transfer, max_iter=100)
+    dominant_mode, _converged, _iters = _power_iteration(transfer, max_iter=100)
 
     # Most dangerous cell: highest component in dominant mode
     most_dangerous = int(np.argmax(dominant_mode))
@@ -847,7 +847,9 @@ def compute_spectral_kessler(
     )
 
 
-def _power_iteration(matrix: np.ndarray, max_iter: int = 100, tol: float = 1e-10) -> np.ndarray:
+def _power_iteration(
+    matrix: np.ndarray, max_iter: int = 100, tol: float = 1e-10,
+) -> tuple[np.ndarray, bool, int]:
     """Power iteration to find dominant eigenvector of a non-negative matrix.
 
     Args:
@@ -856,34 +858,39 @@ def _power_iteration(matrix: np.ndarray, max_iter: int = 100, tol: float = 1e-10
         tol: Convergence tolerance.
 
     Returns:
-        Normalized dominant eigenvector (non-negative).
+        Tuple of (eigenvector, converged, iterations_used).
     """
     n = matrix.shape[0]
     if n == 0:
-        return np.array([])
+        return np.array([]), True, 0
 
     # Start with uniform vector
     v = np.ones(n) / n
+    converged = False
 
-    for _ in range(max_iter):
+    for iteration in range(1, max_iter + 1):
         v_new = matrix @ v
         norm = float(np.linalg.norm(v_new))
         if norm < 1e-20:
-            return np.ones(n) / n  # Matrix is effectively zero
+            return np.ones(n) / n, True, iteration  # Matrix is effectively zero
         v_new = v_new / norm
 
         # Check convergence
         if float(np.linalg.norm(v_new - v)) < tol:
+            v = v_new
+            converged = True
             break
         v = v_new
+    else:
+        iteration = max_iter
 
     # Ensure non-negative (PF eigenvector should be)
     v = np.abs(v)
-    norm = float(np.sum(v))
-    if norm > 0:
-        v = v / norm
+    v_sum = float(np.sum(v))
+    if v_sum > 0:
+        v = v / v_sum
 
-    return v
+    return v, converged, iteration
 
 
 # ── P33: Fokker-Planck Density Evolution ────────────────────────────

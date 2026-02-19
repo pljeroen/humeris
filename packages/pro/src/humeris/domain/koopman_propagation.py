@@ -11,10 +11,13 @@ multi-step prediction without re-evaluating force models.
 
 Uses numpy for matrix operations (SVD, pseudoinverse).
 """
+import logging
 import math
 from dataclasses import dataclass
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -27,6 +30,7 @@ class KoopmanModel:
     singular_values: tuple  # SVD singular values (for diagnostics)
     training_error: float   # RMS training error (normalized)
     max_eigenvalue_magnitude: float = 0.0  # Max |lambda| of Koopman matrix (stability diagnostic)
+    is_stable: bool = True  # True if max |lambda| <= 1.0 + epsilon
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,7 @@ class KoopmanPrediction:
     positions_eci: tuple         # Tuple of (x,y,z) tuples
     velocities_eci: tuple        # Tuple of (vx,vy,vz) tuples
     model: KoopmanModel
+    is_stable: bool = True       # Stability flag from model
 
 
 def _build_observables(
@@ -127,6 +132,9 @@ def fit_koopman_model(
     rms_future = np.sqrt(np.mean(g_future ** 2))
     training_error = float(rms_residual / rms_future) if rms_future > 1e-15 else 0.0
 
+    _STABILITY_EPSILON = 1e-6
+    stable = max_eig_mag <= 1.0 + _STABILITY_EPSILON
+
     return KoopmanModel(
         koopman_matrix=tuple(float(v) for v in k_matrix.ravel()),
         n_observables=n_obs,
@@ -135,6 +143,7 @@ def fit_koopman_model(
         singular_values=singular_values,
         training_error=training_error,
         max_eigenvalue_magnitude=max_eig_mag,
+        is_stable=stable,
     )
 
 
@@ -160,6 +169,13 @@ def predict_koopman(
     Returns:
         KoopmanPrediction with time series of positions and velocities.
     """
+    if not model.is_stable:
+        logger.warning(
+            "Koopman model is unstable (max eigenvalue magnitude %.4f > 1.0). "
+            "Predictions may diverge.",
+            model.max_eigenvalue_magnitude,
+        )
+
     n_obs = model.n_observables
     k_matrix = np.array(model.koopman_matrix, dtype=np.float64).reshape(n_obs, n_obs)
 
@@ -204,4 +220,5 @@ def predict_koopman(
         positions_eci=tuple(positions),
         velocities_eci=tuple(velocities),
         model=model,
+        is_stable=model.is_stable,
     )
