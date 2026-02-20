@@ -10,6 +10,7 @@ dynamic constellation management, and analysis layer control.
 
 import ast
 import json
+import sys
 import threading
 import time
 import urllib.request
@@ -2108,7 +2109,7 @@ class TestCliLoadSession:
         """CLI parser must accept --load-session argument."""
         import subprocess
         result = subprocess.run(
-            ["venv/bin/python3", "-m", "humeris.cli", "--help"],
+            [sys.executable, "-m", "humeris.cli", "--help"],
             capture_output=True, text=True, timeout=10,
         )
         assert "--load-session" in result.stdout
@@ -2118,7 +2119,7 @@ class TestCliLoadSession:
         import subprocess
         result = subprocess.run(
             [
-                "venv/bin/python3", "-m", "humeris.cli",
+                sys.executable, "-m", "humeris.cli",
                 "--serve", "--load-session", "/nonexistent/session.json",
             ],
             capture_output=True, text=True, timeout=10,
@@ -2133,7 +2134,7 @@ class TestCliLoadSession:
         bad_file.write_text("not json at all")
         result = subprocess.run(
             [
-                "venv/bin/python3", "-m", "humeris.cli",
+                sys.executable, "-m", "humeris.cli",
                 "--serve", "--load-session", str(bad_file),
             ],
             capture_output=True, text=True, timeout=10,
@@ -2348,7 +2349,7 @@ class TestCliHeadlessMode:
         """CLI parser must accept --headless argument."""
         import subprocess
         result = subprocess.run(
-            ["venv/bin/python3", "-m", "humeris.cli", "--help"],
+            [sys.executable, "-m", "humeris.cli", "--help"],
             capture_output=True, text=True, timeout=10,
         )
         assert "--headless" in result.stdout
@@ -2358,7 +2359,7 @@ class TestCliHeadlessMode:
         import subprocess
         result = subprocess.run(
             [
-                "venv/bin/python3", "-m", "humeris.cli",
+                sys.executable, "-m", "humeris.cli",
                 "--serve", "--headless",
             ],
             capture_output=True, text=True, timeout=10,
@@ -2391,7 +2392,7 @@ class TestCliHeadlessMode:
 
         result = subprocess.run(
             [
-                "venv/bin/python3", "-m", "humeris.cli",
+                sys.executable, "-m", "humeris.cli",
                 "--serve", "--headless",
                 "--load-session", str(session_file),
                 "--export-czml", str(output_dir),
