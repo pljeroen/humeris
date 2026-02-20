@@ -3053,3 +3053,76 @@ class TestNamedScenarios:
         mgr2 = LayerManager(epoch=EPOCH)
         restored = mgr2.load_session(session)
         assert restored >= 1
+
+
+# ---------------------------------------------------------------------------
+# APP-05: Parameter sweep / trade study
+# ---------------------------------------------------------------------------
+
+
+class TestParameterSweep:
+    """Tests for parameter sweep backend."""
+
+    def test_single_param_sweep_returns_results(self):
+        """Sweep altitude returns one result per step."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        results = mgr.run_sweep(
+            base_params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2, "sats_per_plane": 2, "phase_factor": 0, "raan_offset_deg": 0},
+            sweep_param="altitude_km",
+            sweep_min=400,
+            sweep_max=600,
+            sweep_step=100,
+            metric_type="beta_angle",
+        )
+        # 400, 500, 600 = 3 points
+        assert len(results) == 3
+        assert results[0]["params"]["altitude_km"] == 400
+        assert results[1]["params"]["altitude_km"] == 500
+        assert results[2]["params"]["altitude_km"] == 600
+
+    def test_sweep_result_has_metrics(self):
+        """Each sweep result includes computed metrics."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        results = mgr.run_sweep(
+            base_params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2, "sats_per_plane": 2, "phase_factor": 0, "raan_offset_deg": 0},
+            sweep_param="altitude_km",
+            sweep_min=500,
+            sweep_max=600,
+            sweep_step=100,
+            metric_type="beta_angle",
+        )
+        assert "metrics" in results[0]
+        assert "avg_beta_deg" in results[0]["metrics"]
+
+    def test_sweep_inclination(self):
+        """Sweep inclination works correctly."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        results = mgr.run_sweep(
+            base_params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2, "sats_per_plane": 2, "phase_factor": 0, "raan_offset_deg": 0},
+            sweep_param="inclination_deg",
+            sweep_min=30,
+            sweep_max=90,
+            sweep_step=30,
+            metric_type="beta_angle",
+        )
+        # 30, 60, 90 = 3 points
+        assert len(results) == 3
+        assert results[0]["params"]["inclination_deg"] == 30
+
+    def test_sweep_coverage_metric(self):
+        """Sweep with coverage metric type produces coverage metrics."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        results = mgr.run_sweep(
+            base_params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2, "sats_per_plane": 2, "phase_factor": 0, "raan_offset_deg": 0},
+            sweep_param="altitude_km",
+            sweep_min=500,
+            sweep_max=600,
+            sweep_step=100,
+            metric_type="coverage",
+        )
+        assert "metrics" in results[0]
+        assert "percent_covered" in results[0]["metrics"]

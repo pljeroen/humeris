@@ -931,6 +931,45 @@ class LayerManager:
                     self.layers[dep_id].sat_names = sat_names
                     self.layers[dep_id].czml = dep_czml
 
+    def run_sweep(
+        self,
+        base_params: dict[str, Any],
+        sweep_param: str,
+        sweep_min: float,
+        sweep_max: float,
+        sweep_step: float,
+        metric_type: str,
+    ) -> list[dict[str, Any]]:
+        """Run a parameter sweep computing metrics for each configuration.
+
+        Generates a Walker constellation for each sweep value, computes
+        metrics of the specified type, returns list of {params, metrics}.
+        """
+        results: list[dict[str, Any]] = []
+        val = sweep_min
+        while val <= sweep_max + 1e-9:  # float tolerance
+            params = dict(base_params)
+            params[sweep_param] = round(val, 6) if isinstance(val, float) else val
+            # Generate constellation
+            shell = ShellConfig(
+                altitude_km=params.get("altitude_km", 550),
+                inclination_deg=params.get("inclination_deg", 53),
+                num_planes=int(params.get("num_planes", 6)),
+                sats_per_plane=int(params.get("sats_per_plane", 10)),
+                phase_factor=int(params.get("phase_factor", 0)),
+                raan_offset_deg=params.get("raan_offset_deg", 0),
+                shell_name="Sweep",
+            )
+            sats = generate_walker_shell(shell)
+            states = [derive_orbital_state(s, self.epoch) for s in sats]
+            metrics = _compute_metrics(metric_type, states, self.epoch, params)
+            results.append({
+                "params": params,
+                "metrics": metrics or {},
+            })
+            val += sweep_step
+        return results
+
     def get_satellite_table(self, layer_id: str) -> dict[str, Any]:
         """Return tabular per-satellite data for a constellation layer.
 
@@ -1403,6 +1442,26 @@ class ConstellationHandler(BaseHTTPRequestHandler):
 
         if base == "/api/session" and param == "load":
             self._handle_load_session()
+            return
+
+        if base == "/api/sweep":
+            try:
+                body = self._read_body()
+            except (ValueError, json.JSONDecodeError) as e:
+                self._error_response(400, f"Bad request body: {e}")
+                return
+            try:
+                results = self.layer_manager.run_sweep(
+                    base_params=body.get("base_params", {}),
+                    sweep_param=body["sweep_param"],
+                    sweep_min=float(body["sweep_min"]),
+                    sweep_max=float(body["sweep_max"]),
+                    sweep_step=float(body["sweep_step"]),
+                    metric_type=body.get("metric_type", "coverage"),
+                )
+                self._json_response({"results": results})
+            except (KeyError, ValueError, TypeError) as e:
+                self._error_response(400, f"Sweep error: {e}")
             return
 
         self._error_response(404, "Not found")

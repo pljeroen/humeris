@@ -504,6 +504,30 @@ def generate_interactive_html(
         .layer-metrics .metric-row .metric-val {{
             font-family: monospace; color: rgba(80,200,255,0.9);
         }}
+        #sweepChart {{
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px; height: 400px;
+            background: rgba(20,25,35,0.97); color: #fff;
+            border: 1px solid rgba(80,160,255,0.3); border-radius: 6px;
+            display: none; z-index: 200; padding: 12px;
+        }}
+        #sweepChart.visible {{ display: block; }}
+        #sweepChart canvas {{ width: 100%; height: 320px; }}
+        #sweepChart .chart-close {{
+            position: absolute; top: 6px; right: 10px;
+            background: none; border: none; color: rgba(255,100,100,0.8);
+            font-size: 16px; cursor: pointer;
+        }}
+        #sweepChart .chart-title {{
+            font-size: 13px; color: rgba(80,160,255,0.9);
+            margin-bottom: 6px;
+        }}
+        #sweepChart .chart-export {{
+            margin-top: 6px; font-size: 10px; padding: 2px 8px;
+            background: rgba(80,160,255,0.2); border: 1px solid rgba(80,160,255,0.3);
+            color: #fff; border-radius: 2px; cursor: pointer;
+        }}
         .recent-item {{
             padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
         }}
@@ -558,6 +582,7 @@ def generate_interactive_html(
     <button id="panelToggle" onclick="togglePanel()" title="Toggle panel">&#9776;</button>
     <button id="satTableToggle" onclick="toggleSatTable()">Table</button>
     <div id="satTable"></div>
+    <div id="sweepChart"><div class="chart-title" id="sweepTitle"></div><canvas id="sweepCanvas"></canvas><button class="chart-close" onclick="closeSweepChart()">&times;</button><button class="chart-export" onclick="exportSweepCSV()">Export CSV</button></div>
     <div id="colorLegend"></div>
     <div id="sidePanel">
         <!-- Add Layer Section -->
@@ -655,6 +680,33 @@ def generate_interactive_html(
                 <div class="form-row"><label>Duration (h)</label><input type="number" id="sim-duration" value="2" min="0.1" step="0.5"></div>
                 <div class="form-row"><label>Step (s)</label><input type="number" id="sim-step" value="60" min="1" step="10"></div>
                 <button class="btn btn-sm" onclick="applySettings()">Apply</button>
+            </div>
+        </details>
+        <!-- Parameter Sweep (APP-05) -->
+        <details>
+            <summary>Sweep</summary>
+            <div class="panel-section">
+                <div class="form-row"><label>Parameter</label>
+                    <select id="sw-param">
+                        <option value="altitude_km">Altitude (km)</option>
+                        <option value="inclination_deg">Inclination (deg)</option>
+                        <option value="num_planes">Planes</option>
+                        <option value="sats_per_plane">Sats/plane</option>
+                    </select>
+                </div>
+                <div class="form-row"><label>Min</label><input type="number" id="sw-min" value="400" step="10"></div>
+                <div class="form-row"><label>Max</label><input type="number" id="sw-max" value="800" step="10"></div>
+                <div class="form-row"><label>Step</label><input type="number" id="sw-step" value="50" step="10"></div>
+                <div class="form-row"><label>Metric</label>
+                    <select id="sw-metric">
+                        <option value="coverage">Coverage</option>
+                        <option value="eclipse">Eclipse</option>
+                        <option value="beta_angle">Beta Angle</option>
+                        <option value="deorbit">Deorbit</option>
+                        <option value="station_keeping">Station Keeping</option>
+                    </select>
+                </div>
+                <button class="btn btn-sm" onclick="runSweep()">Run Sweep</button>
             </div>
         </details>
         <!-- Analysis Layers Section -->
@@ -1242,6 +1294,144 @@ def generate_interactive_html(
             }});
             container.innerHTML = html;
         }}
+        // --- Parameter sweep (APP-05) ---
+        var sweepResults = null;
+        var sweepParam = "";
+        var sweepMetric = "";
+
+        function runSweep() {{
+            var param = document.getElementById("sw-param").value;
+            var sMin = parseFloat(document.getElementById("sw-min").value);
+            var sMax = parseFloat(document.getElementById("sw-max").value);
+            var sStep = parseFloat(document.getElementById("sw-step").value);
+            var metric = document.getElementById("sw-metric").value;
+            if (sStep <= 0 || sMin >= sMax) {{
+                showToast("Invalid sweep range", "error");
+                return;
+            }}
+            // Get base params from first constellation layer
+            showLoading("Running sweep...");
+            apiGet("/api/state").then(function(state) {{
+                var constLayer = state.layers.find(function(l) {{ return l.category === "Constellation"; }});
+                var baseParams = constLayer ? constLayer.params : {{altitude_km: 550, inclination_deg: 53, num_planes: 6, sats_per_plane: 10, phase_factor: 0, raan_offset_deg: 0}};
+                return apiPost("/api/sweep", {{
+                    base_params: baseParams,
+                    sweep_param: param,
+                    sweep_min: sMin,
+                    sweep_max: sMax,
+                    sweep_step: sStep,
+                    metric_type: metric,
+                }});
+            }}).then(function(resp) {{
+                sweepResults = resp.results;
+                sweepParam = param;
+                sweepMetric = metric;
+                hideLoading();
+                renderSweepChart();
+                showToast("Sweep complete: " + sweepResults.length + " points", "success");
+            }}).catch(function(e) {{
+                hideLoading();
+                showToast("Sweep error: " + e.message, "error");
+            }});
+        }}
+
+        function renderSweepChart() {{
+            if (!sweepResults || sweepResults.length === 0) return;
+            var chart = document.getElementById("sweepChart");
+            var canvas = document.getElementById("sweepCanvas");
+            var ctx = canvas.getContext("2d");
+            chart.classList.add("visible");
+
+            canvas.width = 576;
+            canvas.height = 320;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Extract data — pick first numeric metric key
+            var metricKeys = Object.keys(sweepResults[0].metrics || {{}});
+            var numericKey = metricKeys.find(function(k) {{ return typeof sweepResults[0].metrics[k] === "number"; }});
+            if (!numericKey) {{ ctx.fillStyle = "#fff"; ctx.fillText("No numeric metrics", 100, 160); return; }}
+
+            document.getElementById("sweepTitle").textContent = sweepParam.replace(/_/g, " ") + " vs " + numericKey.replace(/_/g, " ");
+
+            var xs = sweepResults.map(function(r) {{ return r.params[sweepParam]; }});
+            var ys = sweepResults.map(function(r) {{ return r.metrics[numericKey] || 0; }});
+
+            var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+            var yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
+            if (yMax === yMin) yMax = yMin + 1;
+
+            var pad = {{left: 60, right: 20, top: 20, bottom: 40}};
+            var w = canvas.width - pad.left - pad.right;
+            var h = canvas.height - pad.top - pad.bottom;
+
+            function toX(v) {{ return pad.left + (v - xMin) / (xMax - xMin || 1) * w; }}
+            function toY(v) {{ return pad.top + h - (v - yMin) / (yMax - yMin) * h; }}
+
+            // Grid
+            ctx.strokeStyle = "rgba(255,255,255,0.1)";
+            ctx.lineWidth = 1;
+            for (var i = 0; i <= 4; i++) {{
+                var gy = pad.top + h * i / 4;
+                ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(pad.left + w, gy); ctx.stroke();
+            }}
+
+            // Axes labels
+            ctx.fillStyle = "rgba(255,255,255,0.5)";
+            ctx.font = "10px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(sweepParam.replace(/_/g, " "), pad.left + w / 2, canvas.height - 5);
+            for (var i = 0; i <= 4; i++) {{
+                var yv = yMin + (yMax - yMin) * (4 - i) / 4;
+                ctx.textAlign = "right";
+                ctx.fillText(yv.toFixed(1), pad.left - 5, pad.top + h * i / 4 + 4);
+            }}
+            xs.forEach(function(x) {{
+                ctx.textAlign = "center";
+                ctx.fillText(x.toFixed(0), toX(x), canvas.height - 22);
+            }});
+
+            // Line
+            ctx.strokeStyle = "rgba(80,160,255,0.9)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            xs.forEach(function(x, i) {{
+                var px = toX(x), py = toY(ys[i]);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }});
+            ctx.stroke();
+
+            // Points
+            ctx.fillStyle = "rgba(80,200,255,1)";
+            xs.forEach(function(x, i) {{
+                ctx.beginPath();
+                ctx.arc(toX(x), toY(ys[i]), 4, 0, 2 * Math.PI);
+                ctx.fill();
+            }});
+        }}
+
+        function closeSweepChart() {{
+            document.getElementById("sweepChart").classList.remove("visible");
+        }}
+
+        function exportSweepCSV() {{
+            if (!sweepResults) return;
+            var cols = Object.keys(sweepResults[0].params).concat(Object.keys(sweepResults[0].metrics || {{}}));
+            var csv = cols.join(",") + "\\n";
+            sweepResults.forEach(function(r) {{
+                var row = cols.map(function(c) {{
+                    return r.params[c] !== undefined ? r.params[c] : (r.metrics[c] !== undefined ? r.metrics[c] : "");
+                }});
+                csv += row.join(",") + "\\n";
+            }});
+            var blob = new Blob([csv], {{type: "text/csv"}});
+            var a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "sweep_" + sweepParam + ".csv";
+            a.click();
+            setTimeout(function() {{ URL.revokeObjectURL(a.href); }}, 1000);
+        }}
+
         function clearAllSources() {{
             // Remove all tracked data sources from the viewer
             Object.keys(layerSources).forEach(function(lid) {{
