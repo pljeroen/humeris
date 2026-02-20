@@ -470,6 +470,26 @@ def generate_interactive_html(
             color: #fff; font-size: 11px; padding: 1px 4px; border-radius: 2px;
             width: 100%; outline: none;
         }}
+        .edit-params {{
+            padding: 2px 12px 6px; font-size: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }}
+        .edit-params .ep-row {{
+            display: flex; align-items: center; gap: 4px; margin: 2px 0;
+        }}
+        .edit-params .ep-row label {{
+            min-width: 60px; color: rgba(255,255,255,0.6); font-size: 10px;
+        }}
+        .edit-params .ep-row input {{
+            flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; padding: 2px 4px; border-radius: 2px; font-size: 10px; max-width: 70px;
+        }}
+        .edit-params .ep-apply {{
+            margin-top: 3px; font-size: 9px; padding: 2px 8px;
+            background: rgba(80,200,80,0.3); border: 1px solid rgba(80,200,80,0.5);
+            color: #fff; border-radius: 2px; cursor: pointer;
+        }}
+        .edit-params .ep-apply:hover {{ background: rgba(80,200,80,0.5); }}
         @media (max-width: 1024px) {{
             #sidePanel {{ width: 220px; font-size: 11px; }}
             #sidePanel.collapsed {{ display: none; }}
@@ -977,6 +997,39 @@ def generate_interactive_html(
             }});
         }}
 
+        // --- Reconfigure walker constellation ---
+        function reconfigureConstellation(layerId) {{
+            var prefix = "ep-" + layerId + "-";
+            var params = {{}};
+            var fields = ["altitude_km", "inclination_deg", "num_planes", "sats_per_plane", "phase_factor", "raan_offset_deg"];
+            fields.forEach(function(f) {{
+                var el = document.getElementById(prefix + f);
+                if (el) params[f] = parseFloat(el.value);
+            }});
+            showLoading("Reconfiguring constellation...");
+            apiPut("/api/constellation/" + layerId, {{params: params}}).then(function() {{
+                return loadLayerCzml(layerId);
+            }}).then(function() {{
+                // Reload any analysis layers that depend on this constellation
+                return apiGet("/api/state");
+            }}).then(function(state) {{
+                var reloads = [];
+                state.layers.forEach(function(l) {{
+                    if (l.category === "Analysis" && layerSources[l.layer_id]) {{
+                        reloads.push(loadLayerCzml(l.layer_id));
+                    }}
+                }});
+                return Promise.all(reloads);
+            }}).then(function() {{
+                rebuildPanel();
+                hideLoading();
+                showToast("Constellation reconfigured", "success");
+            }}).catch(function(e) {{
+                hideLoading();
+                showToast("Reconfigure error: " + e.message, "error");
+            }});
+        }}
+
         // --- Update color legend ---
         function updateLegend(legend, title) {{
             var el = document.getElementById("colorLegend");
@@ -1260,6 +1313,44 @@ def generate_interactive_html(
                             }}
                             statsDiv.textContent = statsText;
                             catDiv.appendChild(statsDiv);
+                        }}
+
+                        // Editable parameter form for walker layers (APP-01)
+                        if (layer.editable && layer.params) {{
+                            var epDiv = document.createElement("div");
+                            epDiv.className = "edit-params";
+                            var prefix = "ep-" + layer.layer_id + "-";
+                            var epFields = [
+                                ["altitude_km", "Alt (km)", layer.params.altitude_km],
+                                ["inclination_deg", "Inc (deg)", layer.params.inclination_deg],
+                                ["num_planes", "Planes", layer.params.num_planes],
+                                ["sats_per_plane", "Sats/plane", layer.params.sats_per_plane],
+                                ["phase_factor", "Phase F", layer.params.phase_factor],
+                                ["raan_offset_deg", "RAAN off", layer.params.raan_offset_deg],
+                            ];
+                            epFields.forEach(function(f) {{
+                                if (f[2] == null) return;
+                                var row = document.createElement("div");
+                                row.className = "ep-row";
+                                var lbl = document.createElement("label");
+                                lbl.textContent = f[1];
+                                row.appendChild(lbl);
+                                var inp = document.createElement("input");
+                                inp.type = "number";
+                                inp.id = prefix + f[0];
+                                inp.value = f[2];
+                                inp.step = f[0] === "num_planes" || f[0] === "sats_per_plane" || f[0] === "phase_factor" ? "1" : "0.1";
+                                row.appendChild(inp);
+                                epDiv.appendChild(row);
+                            }});
+                            var applyBtn = document.createElement("button");
+                            applyBtn.className = "ep-apply";
+                            applyBtn.textContent = "Apply";
+                            applyBtn.onclick = (function(lid) {{
+                                return function() {{ reconfigureConstellation(lid); }};
+                            }})(layer.layer_id);
+                            epDiv.appendChild(applyBtn);
+                            catDiv.appendChild(epDiv);
                         }}
 
                         // Show legend for analysis layers

@@ -669,6 +669,7 @@ class LayerManager:
                         if not k.startswith("_")
                     },
                 }
+                info["editable"] = layer.layer_type == "walker"
                 if "_capped_from" in layer.params:
                     info["capped_from"] = layer.params["_capped_from"]
                 if layer.layer_type in _LEGENDS:
@@ -704,6 +705,97 @@ class LayerManager:
             if layer_id in self.layers:
                 self.layers[layer_id].params = new_params
                 self.layers[layer_id].czml = new_czml
+
+    def reconfigure_constellation(
+        self, layer_id: str, new_params: dict[str, Any],
+    ) -> None:
+        """Reconfigure a walker constellation with new parameters.
+
+        Merges *new_params* into the existing walker params, regenerates the
+        constellation (ShellConfig -> generate_walker_shell -> derive_orbital_state),
+        updates the layer states/czml/sat_names, and cascades the change to any
+        analysis layers that use this constellation as their source.
+
+        Raises KeyError if the layer doesn't exist.
+        Raises ValueError if the layer is not a walker constellation.
+        """
+        with self._lock:
+            if layer_id not in self.layers:
+                raise KeyError(f"Layer not found: {layer_id}")
+            layer = self.layers[layer_id]
+            if layer.layer_type != "walker":
+                raise ValueError(
+                    f"Only walker layers can be reconfigured, got {layer.layer_type}"
+                )
+            # Merge: new values override old, preserve anything not specified
+            merged = {**layer.params, **new_params}
+
+        # Build ShellConfig from merged params (outside lock — pure computation)
+        config = ShellConfig(
+            altitude_km=merged["altitude_km"],
+            inclination_deg=merged["inclination_deg"],
+            num_planes=merged["num_planes"],
+            sats_per_plane=merged["sats_per_plane"],
+            phase_factor=merged.get("phase_factor", 1),
+            raan_offset_deg=merged.get("raan_offset_deg", 0.0),
+            shell_name=merged.get("shell_name", "Walker"),
+        )
+        sats = generate_walker_shell(config)
+        sat_names = [s.name for s in sats]
+        states = [
+            derive_orbital_state(s, self.epoch, include_j2=True)
+            for s in sats
+        ]
+
+        # Regenerate CZML for the constellation
+        with self._lock:
+            if layer_id not in self.layers:
+                return
+            layer = self.layers[layer_id]
+            mode = layer.mode
+            name = layer.name
+
+        new_czml = _generate_czml(
+            "walker", mode, states, self.epoch, name, merged,
+            sat_names=sat_names,
+        )
+
+        # Update the constellation layer atomically
+        with self._lock:
+            if layer_id not in self.layers:
+                return
+            layer = self.layers[layer_id]
+            layer.states = states
+            layer.params = merged
+            layer.sat_names = sat_names
+            layer.czml = new_czml
+
+        # Cascade: regenerate any analysis layers sourced from this constellation
+        with self._lock:
+            dependent_ids = [
+                lid for lid, lyr in self.layers.items()
+                if lyr.source_layer_id == layer_id
+            ]
+
+        for dep_id in dependent_ids:
+            with self._lock:
+                if dep_id not in self.layers:
+                    continue
+                dep = self.layers[dep_id]
+                dep_type = dep.layer_type
+                dep_mode = dep.mode
+                dep_name = dep.name
+                dep_params = dep.params
+
+            dep_czml = _generate_czml(
+                dep_type, dep_mode, states, self.epoch, dep_name,
+                dep_params, sat_names=sat_names,
+            )
+            with self._lock:
+                if dep_id in self.layers:
+                    self.layers[dep_id].states = states
+                    self.layers[dep_id].sat_names = sat_names
+                    self.layers[dep_id].czml = dep_czml
 
     def save_session(self) -> dict[str, Any]:
         """Serialize current session state for save/restore."""
@@ -1349,6 +1441,17 @@ class ConstellationHandler(BaseHTTPRequestHandler):
                     })
             except KeyError:
                 self._error_response(404, f"Layer not found: {param}")
+            return
+
+        if base == "/api/constellation" and param:
+            params = body.get("params", {})
+            try:
+                self.layer_manager.reconfigure_constellation(param, params)
+                self._json_response({"status": "reconfigured", "layer_id": param})
+            except KeyError:
+                self._error_response(404, f"Layer not found: {param}")
+            except ValueError as e:
+                self._error_response(400, str(e))
             return
 
         if base == "/api/analysis" and param:

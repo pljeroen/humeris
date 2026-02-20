@@ -2558,3 +2558,176 @@ class TestViewerServerPurity:
                     top = node.module.split(".")[0]
                     assert top in allowed_stdlib or top in allowed_internal, \
                         f"Forbidden import from: {node.module}"
+
+
+# ---------------------------------------------------------------------------
+# APP-01: In-place parameter editing with live regeneration
+# ---------------------------------------------------------------------------
+
+
+class TestReconfigureConstellation:
+    """APP-01: Reconfigure walker constellation parameters in-place."""
+
+    def _make_walker_layer(self, mgr, altitude_km=550, n_planes=2, n_sats=2):
+        """Helper: create a walker layer and return its ID."""
+        params = {
+            "altitude_km": altitude_km,
+            "inclination_deg": 53,
+            "num_planes": n_planes,
+            "sats_per_plane": n_sats,
+            "phase_factor": 1,
+            "raan_offset_deg": 0.0,
+            "shell_name": "Test",
+        }
+        shell = ShellConfig(**params)
+        sats = generate_walker_shell(shell)
+        sat_names = [s.name for s in sats]
+        states = [derive_orbital_state(s, EPOCH) for s in sats]
+        return mgr.add_layer(
+            name="Constellation:Test",
+            category="Constellation",
+            layer_type="walker",
+            states=states,
+            params=params,
+            sat_names=sat_names,
+        )
+
+    def test_reconfigure_changes_altitude(self):
+        """Reconfiguring altitude regenerates constellation with new SMA."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        layer_id = self._make_walker_layer(mgr, altitude_km=550)
+        old_states = mgr.layers[layer_id].states
+
+        mgr.reconfigure_constellation(layer_id, {"altitude_km": 700})
+
+        new_states = mgr.layers[layer_id].states
+        assert len(new_states) == len(old_states)
+        # SMA should be different
+        assert new_states[0].semi_major_axis_m != old_states[0].semi_major_axis_m
+        # Params should reflect new altitude
+        assert mgr.layers[layer_id].params["altitude_km"] == 700
+
+    def test_reconfigure_changes_num_planes(self):
+        """Reconfiguring num_planes changes satellite count."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        layer_id = self._make_walker_layer(mgr, n_planes=2, n_sats=3)
+        assert len(mgr.layers[layer_id].states) == 6
+
+        mgr.reconfigure_constellation(layer_id, {"num_planes": 3})
+
+        assert len(mgr.layers[layer_id].states) == 9  # 3 planes * 3 sats
+        assert mgr.layers[layer_id].params["num_planes"] == 3
+
+    def test_reconfigure_regenerates_czml(self):
+        """CZML is regenerated after reconfiguration."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        layer_id = self._make_walker_layer(mgr, altitude_km=550)
+        old_czml = mgr.layers[layer_id].czml
+
+        mgr.reconfigure_constellation(layer_id, {"altitude_km": 700})
+
+        new_czml = mgr.layers[layer_id].czml
+        assert new_czml != old_czml
+
+    def test_reconfigure_updates_sat_names(self):
+        """Satellite names are regenerated from new constellation."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        layer_id = self._make_walker_layer(mgr, n_planes=2, n_sats=2)
+        old_names = mgr.layers[layer_id].sat_names
+        assert len(old_names) == 4
+
+        mgr.reconfigure_constellation(layer_id, {"num_planes": 3})
+
+        new_names = mgr.layers[layer_id].sat_names
+        assert len(new_names) == 6  # 3 planes * 2 sats
+
+    def test_reconfigure_cascades_to_analysis_layers(self):
+        """Analysis layers sourced from this constellation are regenerated."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        layer_id = self._make_walker_layer(mgr, altitude_km=550)
+
+        # Add an analysis layer sourced from this constellation
+        analysis_id = mgr.add_layer(
+            name="Analysis:Eclipse",
+            category="Analysis",
+            layer_type="eclipse",
+            states=mgr.layers[layer_id].states,
+            params={},
+            source_layer_id=layer_id,
+        )
+        old_analysis_czml = mgr.layers[analysis_id].czml
+
+        # Reconfigure the source constellation
+        mgr.reconfigure_constellation(layer_id, {"altitude_km": 700})
+
+        # Analysis layer should have been regenerated
+        new_analysis_czml = mgr.layers[analysis_id].czml
+        assert new_analysis_czml != old_analysis_czml
+        # Analysis layer states should match new constellation
+        assert len(mgr.layers[analysis_id].states) == len(mgr.layers[layer_id].states)
+
+    def test_reconfigure_nonexistent_layer_raises(self):
+        """Reconfiguring a non-existent layer raises KeyError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        with pytest.raises(KeyError):
+            mgr.reconfigure_constellation("nonexistent", {"altitude_km": 700})
+
+    def test_reconfigure_non_walker_raises(self):
+        """Reconfiguring a non-walker layer raises ValueError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states = _make_states()
+        layer_id = mgr.add_layer(
+            name="Analysis:Eclipse",
+            category="Analysis",
+            layer_type="eclipse",
+            states=states,
+            params={},
+        )
+        with pytest.raises(ValueError, match="walker"):
+            mgr.reconfigure_constellation(layer_id, {"altitude_km": 700})
+
+    def test_reconfigure_partial_params(self):
+        """Only changed params are updated; others preserved."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        layer_id = self._make_walker_layer(mgr, altitude_km=550, n_planes=2)
+
+        mgr.reconfigure_constellation(layer_id, {"altitude_km": 700})
+
+        params = mgr.layers[layer_id].params
+        assert params["altitude_km"] == 700
+        assert params["num_planes"] == 2  # preserved
+        assert params["inclination_deg"] == 53  # preserved
+
+    def test_get_state_includes_editable_flag(self):
+        """get_state() marks walker layers as editable."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        layer_id = self._make_walker_layer(mgr, altitude_km=550)
+
+        state = mgr.get_state()
+        layer_info = state["layers"][0]
+        assert layer_info["editable"] is True
+
+    def test_get_state_celestrak_not_editable(self):
+        """get_state() marks non-walker constellation layers as not editable."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states = _make_states()
+        mgr.add_layer(
+            name="Constellation:GPS",
+            category="Constellation",
+            layer_type="celestrak",
+            states=states,
+            params={},
+        )
+        state = mgr.get_state()
+        layer_info = state["layers"][0]
+        assert layer_info["editable"] is False
