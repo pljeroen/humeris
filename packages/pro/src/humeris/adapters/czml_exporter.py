@@ -156,7 +156,7 @@ def _document_packet(
         pkt["clock"] = {
             "interval": f"{_iso(epoch)}/{_iso(end)}",
             "currentTime": _iso(epoch),
-            "multiplier": 60,
+            "multiplier": 1,
             "range": "LOOP_START",
             "step": "SYSTEM_CLOCK_MULTIPLIER",
         }
