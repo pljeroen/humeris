@@ -85,6 +85,24 @@ def _make_density_func(epoch: datetime) -> Any:
         return atmospheric_density_nrlmsise00(altitude_km, ep)
     return density_func
 
+_MAX_SWEEP_ITERATIONS = 1000
+_VALID_CONSTRAINT_OPS = {">=", "<=", ">", "<", "=="}
+
+
+def _sanitize_for_json(obj: Any) -> Any:
+    """Replace float('inf') and float('nan') with None for JSON safety."""
+    import math
+    if isinstance(obj, float):
+        if math.isinf(obj) or math.isnan(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(v) for v in obj]
+    return obj
+
+
 _DEFAULT_DURATION = timedelta(hours=2)
 _DEFAULT_STEP = timedelta(seconds=60)
 _SNAPSHOT_THRESHOLD = 100  # sats above this default to snapshot mode
@@ -312,10 +330,12 @@ def _compute_metrics(
                     state.raan_rad, state.inclination_rad, epoch,
                 )
                 betas.append(beta)
+            if not betas:
+                return {"min_beta_deg": 0.0, "max_beta_deg": 0.0, "avg_beta_deg": 0.0}
             return {
                 "min_beta_deg": round(min(betas), 1),
                 "max_beta_deg": round(max(betas), 1),
-                "avg_beta_deg": round(sum(betas) / len(betas), 1) if betas else 0.0,
+                "avg_beta_deg": round(sum(betas) / len(betas), 1),
             }
 
         if layer_type == "deorbit":
@@ -865,6 +885,22 @@ class LayerManager:
             # Merge: new values override old, preserve anything not specified
             merged = {**layer.params, **new_params}
 
+        # Validate bounds (same as POST /api/constellation handler)
+        alt = merged.get("altitude_km", 550)
+        inc = merged.get("inclination_deg", 53)
+        nplanes = merged.get("num_planes", 6)
+        spp = merged.get("sats_per_plane", 10)
+        if not (100 <= alt <= 100000):
+            raise ValueError(f"altitude_km must be in [100, 100000], got {alt}")
+        if not (0 <= inc <= 180):
+            raise ValueError(f"inclination_deg must be in [0, 180], got {inc}")
+        if not (1 <= nplanes <= 100):
+            raise ValueError(f"num_planes must be in [1, 100], got {nplanes}")
+        if not (1 <= spp <= 100):
+            raise ValueError(f"sats_per_plane must be in [1, 100], got {spp}")
+        if nplanes * spp > 10000:
+            raise ValueError(f"Total satellites ({nplanes * spp}) exceeds 10000")
+
         # Build ShellConfig from merged params (outside lock — pure computation)
         config = ShellConfig(
             altitude_km=merged["altitude_km"],
@@ -926,11 +962,13 @@ class LayerManager:
                 dep_type, dep_mode, states, self.epoch, dep_name,
                 dep_params, sat_names=sat_names,
             )
+            dep_metrics = _compute_metrics(dep_type, states, self.epoch, dep_params)
             with self._lock:
                 if dep_id in self.layers:
                     self.layers[dep_id].states = states
                     self.layers[dep_id].sat_names = sat_names
                     self.layers[dep_id].czml = dep_czml
+                    self.layers[dep_id].metrics = dep_metrics
 
     def generate_report(
         self, name: str = "Constellation Report", description: str = "",
@@ -962,6 +1000,8 @@ th {{ background: #f0f4f8; font-weight: 600; }}
 
         with self._lock:
             # Layers
+            if not self.layers:
+                parts.append("<p>No layers configured.</p>")
             for layer in self.layers.values():
                 parts.append(f"<h2>{escape(layer.name)}</h2>")
                 parts.append(f"<p>Type: {layer.layer_type} | Category: {layer.category}</p>")
@@ -997,15 +1037,28 @@ th {{ background: #f0f4f8; font-weight: 600; }}
                         icon = '<span class="pass">PASS</span>' if r["passed"] else '<span class="fail">FAIL</span>'
                         actual = str(r["actual"]) if r["actual"] is not None else "N/A"
                         parts.append(f'<tr><td>{escape(r["metric"])}</td><td>{escape(r["operator"])}</td>'
-                                     f'<td>{r["threshold"]}</td><td>{actual}</td><td>{icon}</td></tr>')
+                                     f'<td>{escape(str(r["threshold"]))}</td><td>{escape(actual)}</td><td>{icon}</td></tr>')
                     parts.append("</table>")
 
         parts.append("</body></html>")
         return "\n".join(parts)
 
     def add_constraint(self, constraint: dict[str, Any]) -> None:
-        """Add a metric constraint {metric, operator, threshold}."""
-        self.constraints.append(constraint)
+        """Add a metric constraint {metric, operator, threshold}.
+
+        Raises ValueError if required keys are missing or invalid.
+        """
+        if "metric" not in constraint:
+            raise ValueError("Constraint must include 'metric' key")
+        if "operator" not in constraint or constraint["operator"] not in _VALID_CONSTRAINT_OPS:
+            raise ValueError(
+                f"Constraint 'operator' must be one of {_VALID_CONSTRAINT_OPS}, "
+                f"got {constraint.get('operator')!r}"
+            )
+        if "threshold" not in constraint or not isinstance(constraint["threshold"], (int, float)):
+            raise ValueError("Constraint 'threshold' must be numeric")
+        with self._lock:
+            self.constraints.append(constraint)
 
     def evaluate_constraints(
         self, constellation_layer_id: str,
@@ -1032,9 +1085,12 @@ th {{ background: #f0f4f8; font-weight: 600; }}
 
             results = []
             for c in self.constraints:
-                metric_key = c["metric"]
-                op = c["operator"]
-                threshold = c["threshold"]
+                try:
+                    metric_key = c["metric"]
+                    op = c["operator"]
+                    threshold = c["threshold"]
+                except KeyError:
+                    continue  # Skip malformed constraints
                 actual = merged.get(metric_key)
                 if actual is not None and isinstance(actual, (int, float)):
                     op_fn = _ops.get(op)
@@ -1076,12 +1132,12 @@ th {{ background: #f0f4f8; font-weight: 600; }}
             metrics_a = _collect_metrics(layer_id_a)
             metrics_b = _collect_metrics(layer_id_b)
 
-            # Compute delta for numeric values
-            all_keys = set(metrics_a.keys()) | set(metrics_b.keys())
+            # Compute delta for numeric values — only when both sides have the metric
+            common_keys = set(metrics_a.keys()) & set(metrics_b.keys())
             delta: dict[str, float] = {}
-            for k in all_keys:
-                va = metrics_a.get(k, 0)
-                vb = metrics_b.get(k, 0)
+            for k in common_keys:
+                va = metrics_a[k]
+                vb = metrics_b[k]
                 if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
                     delta[k] = round(vb - va, 6)
 
@@ -1113,9 +1169,24 @@ th {{ background: #f0f4f8; font-weight: 600; }}
         Generates a Walker constellation for each sweep value, computes
         metrics of the specified type, returns list of {params, metrics}.
         """
+        if sweep_step <= 0:
+            raise ValueError(f"sweep_step must be > 0, got {sweep_step}")
+        if sweep_min > sweep_max:
+            raise ValueError(
+                f"sweep_min ({sweep_min}) must be <= sweep_max ({sweep_max})"
+            )
+        n_iterations = int((sweep_max - sweep_min) / sweep_step) + 1
+        if n_iterations > _MAX_SWEEP_ITERATIONS:
+            raise ValueError(
+                f"Sweep would require {n_iterations} iterations "
+                f"(max {_MAX_SWEEP_ITERATIONS})"
+            )
+
         results: list[dict[str, Any]] = []
-        val = sweep_min
-        while val <= sweep_max + 1e-9:  # float tolerance
+        for i in range(n_iterations):
+            val = sweep_min + i * sweep_step
+            if val > sweep_max + 1e-9:
+                break
             params = dict(base_params)
             params[sweep_param] = round(val, 6) if isinstance(val, float) else val
             # Generate constellation
@@ -1135,7 +1206,6 @@ th {{ background: #f0f4f8; font-weight: 600; }}
                 "params": params,
                 "metrics": metrics or {},
             })
-            val += sweep_step
         return results
 
     def get_satellite_table(self, layer_id: str) -> dict[str, Any]:
@@ -1473,7 +1543,7 @@ class ConstellationHandler(BaseHTTPRequestHandler):
 
     def _json_response(self, data: Any, status: int = 200) -> None:
         self._set_headers(status, "application/json")
-        self.wfile.write(json.dumps(data).encode())
+        self.wfile.write(json.dumps(_sanitize_for_json(data)).encode())
 
     def _error_response(self, status: int, message: str) -> None:
         self._json_response({"error": message}, status)
@@ -1507,7 +1577,20 @@ class ConstellationHandler(BaseHTTPRequestHandler):
 
     # --- GET ---
 
+    @staticmethod
+    def _sanitize_filename(name: str) -> str:
+        """Sanitize a string for use in Content-Disposition filename."""
+        import re
+        return re.sub(r'[^a-zA-Z0-9._-]', '_', name)
+
     def do_GET(self) -> None:
+        try:
+            self._do_GET()
+        except Exception:
+            logger.exception("Unhandled error in GET %s", self.path)
+            self._error_response(500, "Internal server error")
+
+    def _do_GET(self) -> None:
         base, param = self._route_path()
 
         if base == "/" or self.path == "/":
@@ -1530,11 +1613,12 @@ class ConstellationHandler(BaseHTTPRequestHandler):
         if base == "/api/export" and param:
             try:
                 czml = self.layer_manager.get_czml(param)
+                safe_name = self._sanitize_filename(param)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header(
                     "Content-Disposition",
-                    f'attachment; filename="{param}.czml"',
+                    f'attachment; filename="{safe_name}.czml"',
                 )
                 port = self.server.server_address[1]
                 self.send_header("Access-Control-Allow-Origin", f"http://localhost:{port}")
@@ -1594,6 +1678,13 @@ class ConstellationHandler(BaseHTTPRequestHandler):
     # --- POST ---
 
     def do_POST(self) -> None:
+        try:
+            self._do_POST()
+        except Exception:
+            logger.exception("Unhandled error in POST %s", self.path)
+            self._error_response(500, "Internal server error")
+
+    def _do_POST(self) -> None:
         base, param = self._route_path()
 
         if base == "/api/constellation":
@@ -1677,7 +1768,9 @@ class ConstellationHandler(BaseHTTPRequestHandler):
             return
 
         if base == "/api/constraints" and param == "list":
-            self._json_response({"constraints": self.layer_manager.constraints})
+            with self.layer_manager._lock:
+                constraints_copy = list(self.layer_manager.constraints)
+            self._json_response({"constraints": constraints_copy})
             return
 
         if base == "/api/compare":
@@ -1925,6 +2018,13 @@ class ConstellationHandler(BaseHTTPRequestHandler):
     # --- PUT ---
 
     def do_PUT(self) -> None:
+        try:
+            self._do_PUT()
+        except Exception:
+            logger.exception("Unhandled error in PUT %s", self.path)
+            self._error_response(500, "Internal server error")
+
+    def _do_PUT(self) -> None:
         base, param = self._route_path()
 
         try:
@@ -2002,6 +2102,13 @@ class ConstellationHandler(BaseHTTPRequestHandler):
     # --- DELETE ---
 
     def do_DELETE(self) -> None:
+        try:
+            self._do_DELETE()
+        except Exception:
+            logger.exception("Unhandled error in DELETE %s", self.path)
+            self._error_response(500, "Internal server error")
+
+    def _do_DELETE(self) -> None:
         base, param = self._route_path()
 
         if base == "/api/layer" and param:

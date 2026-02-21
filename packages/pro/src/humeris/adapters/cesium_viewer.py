@@ -893,6 +893,13 @@ def generate_interactive_html(
             }}
         }}
 
+        // --- HTML escaping utility ---
+        function escapeHtml(str) {{
+            if (str === null || str === undefined) return "";
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }}
+
         // --- Satellite data table (APP-03) ---
         var satTableData = null;
         var satTableSort = {{col: null, asc: true}};
@@ -938,13 +945,13 @@ def generate_interactive_html(
             cols.forEach(function(c) {{
                 var cls = "";
                 if (satTableSort.col === c) cls = satTableSort.asc ? "sort-asc" : "sort-desc";
-                html += '<th class="' + cls + '" onclick="sortSatTable(\'' + c + '\')">' + c.replace(/_/g, " ") + '</th>';
+                html += '<th class="' + cls + '" onclick="sortSatTable(\'' + escapeHtml(c) + '\')">' + escapeHtml(c.replace(/_/g, " ")) + '</th>';
             }});
             html += '</tr></thead><tbody>';
             rows.forEach(function(row, idx) {{
                 html += '<tr onclick="flyToSat(' + idx + ')">';
                 cols.forEach(function(c) {{
-                    html += '<td>' + row[c] + '</td>';
+                    html += '<td>' + escapeHtml(row[c]) + '</td>';
                 }});
                 html += '</tr>';
             }});
@@ -1259,11 +1266,11 @@ def generate_interactive_html(
                 el.style.display = "none";
                 return;
             }}
-            var html = '<div class="legend-title">' + (title || "Legend") + '</div>';
+            var html = '<div class="legend-title">' + escapeHtml(title || "Legend") + '</div>';
             legend.forEach(function(entry) {{
                 html += '<div class="legend-entry">' +
-                    '<span class="legend-swatch" style="background:' + entry.color + '"></span>' +
-                    '<span>' + entry.label + '</span></div>';
+                    '<span class="legend-swatch" style="background:' + escapeHtml(entry.color) + '"></span>' +
+                    '<span>' + escapeHtml(entry.label) + '</span></div>';
             }});
             el.innerHTML = html;
             el.style.display = "block";
@@ -1317,16 +1324,16 @@ def generate_interactive_html(
             var html = "";
             recent.forEach(function(r) {{
                 var ts = r.timestamp ? new Date(r.timestamp).toLocaleDateString() : "";
-                html += '<div class="recent-item" title="' + (r.description || "") + '">';
-                html += '<span class="recent-name">' + (r.name || "Untitled") + '</span>';
-                html += '<span class="recent-meta">' + r.layer_count + ' layers | ' + ts + '</span>';
+                html += '<div class="recent-item" title="' + escapeHtml(r.description || "") + '">';
+                html += '<span class="recent-name">' + escapeHtml(r.name || "Untitled") + '</span>';
+                html += '<span class="recent-meta">' + escapeHtml(r.layer_count) + ' layers | ' + escapeHtml(ts) + '</span>';
                 html += '</div>';
             }});
             container.innerHTML = html;
         }}
         // --- Report (APP-08) ---
         function generateReport() {{
-            window.open("/api/report", "_blank");
+            window.open(API + "/api/report", "_blank");
         }}
 
         // --- Constraints (APP-07) ---
@@ -1389,8 +1396,8 @@ def generate_interactive_html(
             apiPost("/api/compare", {{layer_a: layerA, layer_b: layerB}}).then(function(result) {{
                 var html = '<table style="width:100%;border-collapse:collapse">';
                 html += '<tr><th style="text-align:left;color:rgba(255,255,255,0.5)">Metric</th>';
-                html += '<th style="text-align:right;color:rgba(80,160,255,0.8)">' + result.config_a.name.split(":").pop() + '</th>';
-                html += '<th style="text-align:right;color:rgba(80,200,120,0.8)">' + result.config_b.name.split(":").pop() + '</th>';
+                html += '<th style="text-align:right;color:rgba(80,160,255,0.8)">' + escapeHtml(result.config_a.name.split(":").pop()) + '</th>';
+                html += '<th style="text-align:right;color:rgba(80,200,120,0.8)">' + escapeHtml(result.config_b.name.split(":").pop()) + '</th>';
                 html += '<th style="text-align:right;color:rgba(255,200,80,0.8)">Delta</th></tr>';
                 var allKeys = Object.keys(result.delta);
                 allKeys.forEach(function(k) {{
@@ -1400,7 +1407,7 @@ def generate_interactive_html(
                     var dColor = d > 0 ? "rgba(80,200,120,0.9)" : d < 0 ? "rgba(255,100,100,0.9)" : "rgba(255,255,255,0.5)";
                     var dStr = d > 0 ? "+" + d.toFixed(2) : d.toFixed(2);
                     html += '<tr>';
-                    html += '<td style="color:rgba(255,255,255,0.6)">' + k.replace(/_/g, " ") + '</td>';
+                    html += '<td style="color:rgba(255,255,255,0.6)">' + escapeHtml(k.replace(/_/g, " ")) + '</td>';
                     html += '<td style="text-align:right;font-family:monospace">' + (va !== undefined ? (typeof va === "number" ? va.toFixed(2) : va) : "-") + '</td>';
                     html += '<td style="text-align:right;font-family:monospace">' + (vb !== undefined ? (typeof vb === "number" ? vb.toFixed(2) : vb) : "-") + '</td>';
                     html += '<td style="text-align:right;font-family:monospace;color:' + dColor + '">' + dStr + '</td>';

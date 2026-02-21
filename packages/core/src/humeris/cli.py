@@ -414,9 +414,9 @@ def _run_sweep(args) -> None:
     output_path = args.output
 
     if fmt == "json":
-        import json as _json
+        import json
         with open(output_path, "w", encoding="utf-8") as f:
-            _json.dump(results, f, indent=2, default=str)
+            json.dump(results, f, indent=2, default=str)
     else:
         # CSV
         if not results:
@@ -446,7 +446,15 @@ def _run_sweep(args) -> None:
 def _run_import_opm(args) -> None:
     """Import CCSDS OPM file and display satellite info."""
     from humeris.domain.ccsds_parser import parse_opm
-    result = parse_opm(args.import_opm)
+    from humeris.domain.ccsds_contracts import CcsdsValidationError
+    try:
+        result = parse_opm(args.import_opm)
+    except FileNotFoundError:
+        print(f"Error: File not found: {args.import_opm}", file=sys.stderr)
+        sys.exit(1)
+    except CcsdsValidationError as e:
+        print(f"Error: Invalid OPM file: {e}", file=sys.stderr)
+        sys.exit(1)
     print(f"Object: {result.object_name} ({result.object_id})")
     print(f"Frame: {result.ref_frame}, Center: {result.center_name}")
     for i, state in enumerate(result.states):
@@ -458,7 +466,15 @@ def _run_import_opm(args) -> None:
 def _run_import_oem(args) -> None:
     """Import CCSDS OEM file and display satellite info."""
     from humeris.domain.ccsds_parser import parse_oem
-    result = parse_oem(args.import_oem)
+    from humeris.domain.ccsds_contracts import CcsdsValidationError
+    try:
+        result = parse_oem(args.import_oem)
+    except FileNotFoundError:
+        print(f"Error: File not found: {args.import_oem}", file=sys.stderr)
+        sys.exit(1)
+    except CcsdsValidationError as e:
+        print(f"Error: Invalid OEM file: {e}", file=sys.stderr)
+        sys.exit(1)
     print(f"Object: {result.object_name} ({result.object_id})")
     print(f"Frame: {result.ref_frame}, Center: {result.center_name}")
     print(f"Ephemeris points: {len(result.states)}")

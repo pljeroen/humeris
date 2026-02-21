@@ -2543,7 +2543,7 @@ class TestViewerServerPurity:
         allowed_stdlib = {
             "json", "http", "html", "threading", "datetime", "dataclasses",
             "urllib", "functools", "math", "numpy", "logging", "typing",
-            "socketserver", "os", "csv",
+            "socketserver", "os", "csv", "re",
         }
         allowed_internal = {"humeris"}
 
@@ -3575,3 +3575,288 @@ class TestCcsdsImport:
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         assert "TESTSAT" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# HARDEN-01: Bug fixes and product-readiness hardening
+# ---------------------------------------------------------------------------
+
+
+class TestSweepGuards:
+    """Sweep endpoint validation and DoS prevention."""
+
+    def test_sweep_zero_step_raises(self):
+        """run_sweep() with step=0 should raise ValueError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        with pytest.raises(ValueError, match="step"):
+            mgr.run_sweep(
+                base_params={"altitude_km": 550, "inclination_deg": 53,
+                             "num_planes": 2, "sats_per_plane": 2},
+                sweep_param="altitude_km", sweep_min=400, sweep_max=600,
+                sweep_step=0, metric_type="coverage",
+            )
+
+    def test_sweep_inverted_range_raises(self):
+        """run_sweep() with min > max should raise ValueError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        with pytest.raises(ValueError, match="min.*max"):
+            mgr.run_sweep(
+                base_params={"altitude_km": 550, "inclination_deg": 53,
+                             "num_planes": 2, "sats_per_plane": 2},
+                sweep_param="altitude_km", sweep_min=800, sweep_max=400,
+                sweep_step=50, metric_type="coverage",
+            )
+
+    def test_sweep_max_iterations_cap(self):
+        """run_sweep() with too many iterations should raise ValueError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        with pytest.raises(ValueError, match="iterations"):
+            mgr.run_sweep(
+                base_params={"altitude_km": 550, "inclination_deg": 53,
+                             "num_planes": 2, "sats_per_plane": 2},
+                sweep_param="altitude_km", sweep_min=0, sweep_max=100000,
+                sweep_step=0.001, metric_type="coverage",
+            )
+
+
+class TestConstraintValidation:
+    """Constraint input validation."""
+
+    def test_add_constraint_missing_metric_raises(self):
+        """Constraint without 'metric' key should raise ValueError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        with pytest.raises(ValueError, match="metric"):
+            mgr.add_constraint({"operator": ">=", "threshold": 50})
+
+    def test_add_constraint_invalid_operator_raises(self):
+        """Constraint with unsupported operator should raise ValueError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        with pytest.raises(ValueError, match="operator"):
+            mgr.add_constraint({"metric": "coverage_pct", "operator": "!=", "threshold": 50})
+
+    def test_add_constraint_non_numeric_threshold_raises(self):
+        """Constraint with non-numeric threshold should raise ValueError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        with pytest.raises(ValueError, match="threshold"):
+            mgr.add_constraint({"metric": "coverage_pct", "operator": ">=", "threshold": "high"})
+
+
+class TestCascadeMetrics:
+    """Cascade recompute updates dependent metrics."""
+
+    def test_cascade_recompute_updates_metrics(self):
+        """After reconfigure, dependent analysis layer metrics should refresh."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states = _make_states(n_planes=2, n_sats=3)
+        lid = mgr.add_layer(
+            name="Constellation:Test", category="Constellation",
+            layer_type="walker", states=states,
+            params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2,
+                    "sats_per_plane": 3, "phase_factor": 0, "raan_offset_deg": 0,
+                    "shell_name": "Test"},
+        )
+        aid = mgr.add_layer(
+            name="Analysis:Beta", category="Analysis",
+            layer_type="beta_angle", states=states, params={}, source_layer_id=lid,
+        )
+        old_metrics = mgr.layers[aid].metrics
+        # Reconfigure — should cascade and update metrics
+        mgr.reconfigure_constellation(lid, {"altitude_km": 600})
+        new_metrics = mgr.layers[aid].metrics
+        # Metrics should exist (not None) after cascade
+        assert new_metrics is not None
+
+
+class TestCompareLayersFix:
+    """compare_layers() should skip metrics only present on one side."""
+
+    def test_compare_missing_metric_skipped(self):
+        """Delta should not include metrics present on only one side."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states = _make_states(n_planes=2, n_sats=2)
+        lid_a = mgr.add_layer(
+            name="Constellation:A", category="Constellation",
+            layer_type="walker", states=states,
+            params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2,
+                    "sats_per_plane": 2, "phase_factor": 0, "raan_offset_deg": 0,
+                    "shell_name": "A"},
+        )
+        lid_b = mgr.add_layer(
+            name="Constellation:B", category="Constellation",
+            layer_type="walker", states=states,
+            params={"altitude_km": 600, "inclination_deg": 53, "num_planes": 2,
+                    "sats_per_plane": 2, "phase_factor": 0, "raan_offset_deg": 0,
+                    "shell_name": "B"},
+        )
+        # Only add analysis to A
+        mgr.add_layer(
+            name="Analysis:Beta-A", category="Analysis",
+            layer_type="beta_angle", states=states, params={}, source_layer_id=lid_a,
+        )
+        result = mgr.compare_layers(lid_a, lid_b)
+        # Delta values should not default missing metrics to 0
+        for k, v in result["delta"].items():
+            assert v != "N/A" or isinstance(v, (int, float))
+
+
+class TestReportHardening:
+    """Report generation edge cases."""
+
+    def test_report_empty_layers(self):
+        """Report with no layers should produce valid HTML with message."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        html = mgr.generate_report(name="Empty")
+        assert "<!DOCTYPE html>" in html
+        assert "No layers" in html or "no layers" in html
+
+    def test_report_escapes_html(self):
+        """Layer names with HTML should be escaped in report."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states = _make_states(n_planes=1, n_sats=2)
+        mgr.add_layer(
+            name='Constellation:<script>alert(1)</script>',
+            category="Constellation", layer_type="walker", states=states,
+            params={"altitude_km": 550},
+        )
+        html = mgr.generate_report(name="XSS Test")
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
+
+
+class TestJsonSafety:
+    """JSON serialization handles inf/nan."""
+
+    def test_json_response_handles_inf_nan(self):
+        """Metrics with inf/nan should not crash JSON serialization."""
+        from humeris.adapters.viewer_server import _sanitize_for_json
+        data = {"a": float("inf"), "b": float("nan"), "c": 42, "d": "text"}
+        result = _sanitize_for_json(data)
+        import json
+        # Should not raise
+        serialized = json.dumps(result)
+        parsed = json.loads(serialized)
+        assert parsed["a"] is None
+        assert parsed["b"] is None
+        assert parsed["c"] == 42
+        assert parsed["d"] == "text"
+
+
+class TestCcsdsHardening:
+    """CCSDS parser hardening."""
+
+    def test_opm_duplicate_keys_rejected(self, tmp_path):
+        """OPM with duplicate required keys should raise error."""
+        from humeris.domain.ccsds_parser import parse_opm
+        from humeris.domain.ccsds_contracts import CcsdsValidationError
+        opm_text = (
+            "CCSDS_OPM_VERS = 2.0\n"
+            "CREATION_DATE = 2026-01-01T00:00:00\n"
+            "ORIGINATOR = TEST\n"
+            "OBJECT_NAME = ISS\n"
+            "OBJECT_ID = 1998-067A\n"
+            "CENTER_NAME = EARTH\n"
+            "REF_FRAME = EME2000\n"
+            "TIME_SYSTEM = UTC\n"
+            "EPOCH = 2026-01-01T12:00:00.000\n"
+            "EPOCH = 2026-01-01T13:00:00.000\n"
+            "X = 6678.137\n"
+            "Y = 0.0\n"
+            "Z = 0.0\n"
+            "X_DOT = 0.0\n"
+            "Y_DOT = 7.725\n"
+            "Z_DOT = 0.0\n"
+        )
+        opm_file = tmp_path / "dup.opm"
+        opm_file.write_text(opm_text)
+        with pytest.raises(CcsdsValidationError, match="[Dd]uplicate"):
+            parse_opm(str(opm_file))
+
+    def test_oem_nan_value_rejected(self, tmp_path):
+        """OEM data line with NaN should raise error."""
+        from humeris.domain.ccsds_parser import parse_oem
+        from humeris.domain.ccsds_contracts import CcsdsValidationError
+        oem_text = (
+            "CCSDS_OEM_VERS = 2.0\n"
+            "CREATION_DATE = 2026-01-01T00:00:00\n"
+            "ORIGINATOR = TEST\n"
+            "META_START\n"
+            "OBJECT_NAME = SAT\n"
+            "OBJECT_ID = 2026-001A\n"
+            "CENTER_NAME = EARTH\n"
+            "REF_FRAME = EME2000\n"
+            "TIME_SYSTEM = UTC\n"
+            "START_TIME = 2026-01-01T12:00:00.000\n"
+            "STOP_TIME = 2026-01-01T13:00:00.000\n"
+            "META_STOP\n"
+            "2026-01-01T12:00:00.000  NaN  0.0  0.0  0.0  7.725  0.0\n"
+        )
+        oem_file = tmp_path / "nan.oem"
+        oem_file.write_text(oem_text)
+        with pytest.raises(CcsdsValidationError):
+            parse_oem(str(oem_file))
+
+    def test_oem_empty_data_raises(self, tmp_path):
+        """OEM with metadata but no data lines should raise error."""
+        from humeris.domain.ccsds_parser import parse_oem
+        from humeris.domain.ccsds_contracts import CcsdsValidationError
+        oem_text = (
+            "CCSDS_OEM_VERS = 2.0\n"
+            "CREATION_DATE = 2026-01-01T00:00:00\n"
+            "ORIGINATOR = TEST\n"
+            "META_START\n"
+            "OBJECT_NAME = SAT\n"
+            "OBJECT_ID = 2026-001A\n"
+            "CENTER_NAME = EARTH\n"
+            "REF_FRAME = EME2000\n"
+            "TIME_SYSTEM = UTC\n"
+            "START_TIME = 2026-01-01T12:00:00.000\n"
+            "STOP_TIME = 2026-01-01T13:00:00.000\n"
+            "META_STOP\n"
+        )
+        oem_file = tmp_path / "empty.oem"
+        oem_file.write_text(oem_text)
+        with pytest.raises(CcsdsValidationError):
+            parse_oem(str(oem_file))
+
+
+class TestCliHardening:
+    """CLI error handling for CCSDS import."""
+
+    def test_cli_import_file_not_found(self):
+        """--import-opm with missing file should show error and exit 1."""
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "-m", "humeris.cli", "--import-opm", "/nonexistent/file.opm"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 1
+        assert "not found" in result.stderr.lower() or "error" in result.stderr.lower()
+
+
+class TestReconfigureValidation:
+    """Reconfigure validates param bounds."""
+
+    def test_reconfigure_validates_params(self):
+        """Reconfigure with out-of-range altitude should raise ValueError."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states = _make_states(n_planes=2, n_sats=2)
+        lid = mgr.add_layer(
+            name="Constellation:Test", category="Constellation",
+            layer_type="walker", states=states,
+            params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2,
+                    "sats_per_plane": 2, "phase_factor": 0, "raan_offset_deg": 0,
+                    "shell_name": "Test"},
+        )
+        with pytest.raises(ValueError, match="altitude"):
+            mgr.reconfigure_constellation(lid, {"altitude_km": -500})

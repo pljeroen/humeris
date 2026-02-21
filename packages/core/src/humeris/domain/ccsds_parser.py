@@ -56,8 +56,10 @@ def _parse_kvn_pairs(text: str) -> list[tuple[str, str]]:
 
 def _parse_epoch(epoch_str: str) -> datetime:
     """Parse CCSDS epoch string to datetime."""
-    # Handle fractional seconds
-    for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
+    ):
         try:
             dt = datetime.strptime(epoch_str, fmt)
             return dt.replace(tzinfo=timezone.utc)
@@ -86,6 +88,8 @@ def _cartesian_to_orbital_state(
 
     if r_mag < 1.0:
         raise CcsdsValidationError("Position vector magnitude too small")
+    if v_mag < 1.0:
+        raise CcsdsValidationError("Velocity vector magnitude too small")
 
     # Specific angular momentum
     h_vec = np.cross(pos, vel)
@@ -175,13 +179,25 @@ def parse_opm(path: str) -> CcsdsOrbitData:
         text = f.read()
 
     pairs = _parse_kvn_pairs(text)
-    kvn = dict(pairs)
 
-    # Validate required fields
+    # Check for duplicate required keys
     required = {
         "OBJECT_NAME", "OBJECT_ID", "CENTER_NAME", "REF_FRAME",
         "TIME_SYSTEM", "EPOCH", "X", "Y", "Z", "X_DOT", "Y_DOT", "Z_DOT",
     }
+    seen: dict[str, int] = {}
+    for key, _ in pairs:
+        if key in required:
+            seen[key] = seen.get(key, 0) + 1
+    duplicates = sorted(k for k, v in seen.items() if v > 1)
+    if duplicates:
+        raise CcsdsValidationError(
+            f"Duplicate required keys in OPM: {', '.join(duplicates)}"
+        )
+
+    kvn = dict(pairs)
+
+    # Validate required fields
     missing = sorted(f for f in required if f not in kvn)
     if missing:
         raise CcsdsValidationError(
@@ -229,39 +245,8 @@ def parse_oem(path: str) -> CcsdsOrbitData:
 
     pairs = _parse_kvn_pairs(text)
 
-    # Extract header-level fields
-    header: dict[str, str] = {}
-    for key, val in pairs:
-        if key in ("CCSDS_OEM_VERS", "CREATION_DATE", "ORIGINATOR"):
-            header[key] = val
-
-    # Parse segments (each META_START...META_STOP block + data lines)
+    # Collect segments
     segments: list[tuple[dict[str, str], list[str]]] = []
-    meta: dict[str, str] = {}
-    data_lines: list[str] = []
-    in_meta = False
-
-    for key, val in pairs:
-        if key == "META_START":
-            in_meta = True
-            meta = {}
-            data_lines = []
-        elif key == "META_STOP":
-            in_meta = False
-        elif in_meta:
-            meta[key] = val
-        elif key == "_DATA_LINE" and meta:
-            data_lines.append(val)
-        elif key == "META_START" or (not in_meta and key == "_DATA_LINE"):
-            pass
-        # When we hit the next META_START, save current segment
-        if key == "META_START" and segments or (key == "META_START" and not segments):
-            if data_lines and meta:
-                # Save previous segment before starting new one
-                pass
-
-    # Finalize — collect segments by re-parsing
-    segments = []
     meta = {}
     data_lines = []
     in_meta = False
@@ -301,16 +286,26 @@ def parse_oem(path: str) -> CcsdsOrbitData:
             if len(parts) < 7:
                 continue
             epoch = _parse_epoch(parts[0])
+            try:
+                values = [float(parts[i]) for i in range(1, 7)]
+            except ValueError as e:
+                raise CcsdsValidationError(
+                    f"Non-numeric value in OEM data line: {e}"
+                ) from e
+            for i, v in enumerate(values):
+                if math.isnan(v) or math.isinf(v):
+                    raise CcsdsValidationError(
+                        f"NaN or Inf in OEM data line column {i + 1}"
+                    )
             state = _cartesian_to_orbital_state(
-                x_km=float(parts[1]),
-                y_km=float(parts[2]),
-                z_km=float(parts[3]),
-                vx_kms=float(parts[4]),
-                vy_kms=float(parts[5]),
-                vz_kms=float(parts[6]),
+                x_km=values[0], y_km=values[1], z_km=values[2],
+                vx_kms=values[3], vy_kms=values[4], vz_kms=values[5],
                 epoch=epoch,
             )
             all_states.append(state)
+
+    if not all_states:
+        raise CcsdsValidationError("OEM file contains no valid ephemeris data")
 
     return CcsdsOrbitData(
         object_name=object_name,
