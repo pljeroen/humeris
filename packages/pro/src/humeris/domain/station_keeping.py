@@ -76,7 +76,7 @@ def drag_compensation_dv_per_year(
     Returns:
         Delta-V in m/s per year.
     """
-    a = OrbitalConstants.R_EARTH + altitude_km * 1000.0
+    a = OrbitalConstants.R_EARTH_EQUATORIAL + altitude_km * 1000.0
     n = float(np.sqrt(OrbitalConstants.MU_EARTH / a ** 3))
 
     if density_func is not None:
@@ -114,7 +114,7 @@ def plane_maintenance_dv_per_year(
     Returns:
         Delta-V in m/s per year.
     """
-    a = OrbitalConstants.R_EARTH + altitude_km * 1000.0
+    a = OrbitalConstants.R_EARTH_EQUATORIAL + altitude_km * 1000.0
     v = float(np.sqrt(OrbitalConstants.MU_EARTH / a))
     di_rad = float(np.radians(delta_inclination_deg))
     return 2.0 * v * float(np.sin(di_rad / 2.0))

@@ -229,7 +229,7 @@ class TestJ3Perturbation:
 
         def j3_potential(x, y, z):
             r = math.sqrt(x*x + y*y + z*z)
-            return (mu * j3_val * re**3 / 2.0) * (5.0*z**3 / r**7 - 3.0*z / r**5)
+            return (-mu * j3_val * re**3 / 2.0) * (5.0*z**3 / r**7 - 3.0*z / r**5)
 
         r = OrbitalConstants.R_EARTH + 500_000
         pos = (r * 0.7, r * 0.3, r * 0.6)

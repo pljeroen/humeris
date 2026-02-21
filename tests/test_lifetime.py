@@ -20,7 +20,7 @@ STARLINK_DRAG = DragConfig(cd=2.2, area_m2=10.0, mass_kg=260.0)
 
 
 def _sma(altitude_km: float) -> float:
-    return OrbitalConstants.R_EARTH + altitude_km * 1000
+    return OrbitalConstants.R_EARTH_EQUATORIAL + altitude_km * 1000
 
 
 # ── DecayPoint / OrbitLifetimeResult ─────────────────────────────────
@@ -226,7 +226,7 @@ class TestLifetimeSmaClamp:
         config = DragConfig(cd=2.2, area_m2=100.0, mass_kg=1.0)  # extreme drag
         epoch = datetime(2026, 1, 1, tzinfo=timezone.utc)
         result = compute_orbit_lifetime(
-            semi_major_axis_m=OrbitalConstants.R_EARTH + 150_000.0,  # 150 km (very low)
+            semi_major_axis_m=OrbitalConstants.R_EARTH_EQUATORIAL + 150_000.0,  # 150 km (very low)
             eccentricity=0.0,
             drag_config=config,
             epoch=epoch,
@@ -235,6 +235,6 @@ class TestLifetimeSmaClamp:
         )
         # Every decay point must have SMA >= R_EARTH
         for point in result.decay_profile:
-            assert point.semi_major_axis_m >= OrbitalConstants.R_EARTH, (
+            assert point.semi_major_axis_m >= OrbitalConstants.R_EARTH_EQUATORIAL, (
                 f"Negative altitude at t={point.time}: SMA={point.semi_major_axis_m}"
             )

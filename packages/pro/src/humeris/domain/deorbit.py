@@ -22,7 +22,7 @@ from humeris.domain.lifetime import compute_orbit_lifetime
 from humeris.domain.maneuvers import hohmann_transfer
 
 _MU = OrbitalConstants.MU_EARTH
-_R_EARTH = OrbitalConstants.R_EARTH
+_R_EARTH = OrbitalConstants.R_EARTH_EQUATORIAL
 _G0 = 9.80665
 
 

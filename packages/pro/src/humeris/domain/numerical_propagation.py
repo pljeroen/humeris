@@ -155,7 +155,7 @@ class J3Perturbation:
         j3 = OrbitalConstants.J3_EARTH
         re = OrbitalConstants.R_EARTH_EQUATORIAL
 
-        coeff = mu * j3 * re * re * re / 2.0
+        coeff = -mu * j3 * re * re * re / 2.0
 
         z3_r2 = z * z * z / r2
 

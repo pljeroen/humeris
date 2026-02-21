@@ -410,7 +410,7 @@ class OceanTideForce:
             Hnm_lam = m * (-dC[2, m] * sin_mlam + dS[2, m] * cos_mlam)
 
             # Radial: a_r = -(n+1) * (GM/r^2) * (R_E/r)^n * Hnm * Pnm
-            a_r += (n + 1) * Hnm * P[m]
+            a_r += Hnm * P[m]
 
             # Latitudinal: a_phi = -(1/r) * GM/r * (R_E/r)^n * Hnm * dPnm/dphi
             a_phi += Hnm * dP[m]

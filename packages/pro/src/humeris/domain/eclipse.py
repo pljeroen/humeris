@@ -21,7 +21,7 @@ from humeris.domain.orbital_mechanics import OrbitalConstants
 from humeris.domain.solar import sun_position_eci
 from humeris.domain.propagation import OrbitalState, propagate_to
 
-_R_EARTH = OrbitalConstants.R_EARTH
+_R_EARTH = OrbitalConstants.R_EARTH_EQUATORIAL
 _R_SUN = 6.957e8  # metres — solar radius
 
 # Eclipse beta-angle threshold: orbits with |beta| below this experience eclipses

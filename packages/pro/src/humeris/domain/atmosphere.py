@@ -178,7 +178,7 @@ def semi_major_axis_decay_rate(
     Returns:
         da/dt in m/s (negative — orbit decays).
     """
-    h_km = (a - OrbitalConstants.R_EARTH) / 1000.0
+    h_km = (a - OrbitalConstants.R_EARTH_EQUATORIAL) / 1000.0
     v = float(np.sqrt(OrbitalConstants.MU_EARTH / a))
     rho = atmospheric_density(h_km, model=model)
     return -rho * v * drag_config.ballistic_coefficient * a

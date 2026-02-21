@@ -50,7 +50,7 @@ DORMAND_PRINCE_A: tuple[tuple[float, ...], ...] = (
     (35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0),
 )
 
-# 4th-order solution weights (same as last row of A for FSAL)
+# 5th-order solution weights (used for advancing; same as last row of A for FSAL)
 DORMAND_PRINCE_B4: tuple[float, ...] = (
     35.0 / 384.0,
     0.0,
@@ -61,7 +61,7 @@ DORMAND_PRINCE_B4: tuple[float, ...] = (
     0.0,
 )
 
-# 5th-order solution weights (for error estimation)
+# 4th-order solution weights (used for error estimation)
 DORMAND_PRINCE_B5: tuple[float, ...] = (
     5179.0 / 57600.0,
     0.0,

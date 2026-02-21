@@ -77,7 +77,7 @@ def compute_orbit_lifetime(
     if step_days <= 0:
         raise ValueError(f"step_days must be positive, got {step_days}")
 
-    initial_alt_km = (semi_major_axis_m - OrbitalConstants.R_EARTH) / 1000.0
+    initial_alt_km = (semi_major_axis_m - OrbitalConstants.R_EARTH_EQUATORIAL) / 1000.0
     if initial_alt_km <= re_entry_altitude_km:
         raise ValueError(
             f"Initial altitude {initial_alt_km:.1f} km already at or below "
@@ -110,7 +110,7 @@ def compute_orbit_lifetime(
 
         if density_func is not None:
             # Use NRLMSISE-00 or custom density function
-            alt_km_now = (a - OrbitalConstants.R_EARTH) / 1000.0
+            alt_km_now = (a - OrbitalConstants.R_EARTH_EQUATORIAL) / 1000.0
             rho = density_func(alt_km_now, current_time)
             v = float(np.sqrt(OrbitalConstants.MU_EARTH / a))
             da_dt = -rho * v * drag_config.ballistic_coefficient * a
@@ -118,11 +118,11 @@ def compute_orbit_lifetime(
             da_dt = semi_major_axis_decay_rate(a, eccentricity, drag_config, **decay_kwargs)
 
         a += da_dt * dt_seconds
-        if a < OrbitalConstants.R_EARTH:
-            a = OrbitalConstants.R_EARTH
+        if a < OrbitalConstants.R_EARTH_EQUATORIAL:
+            a = OrbitalConstants.R_EARTH_EQUATORIAL
         t_elapsed += dt_seconds
 
-        alt_km = (a - OrbitalConstants.R_EARTH) / 1000.0
+        alt_km = (a - OrbitalConstants.R_EARTH_EQUATORIAL) / 1000.0
 
         profile.append(DecayPoint(
             time=current_time,
@@ -192,7 +192,7 @@ def compute_altitude_at_time(
         current_time = epoch + timedelta(seconds=t_elapsed + step)
 
         if density_func is not None:
-            alt_km_now = (a - OrbitalConstants.R_EARTH) / 1000.0
+            alt_km_now = (a - OrbitalConstants.R_EARTH_EQUATORIAL) / 1000.0
             rho = density_func(alt_km_now, current_time)
             v = float(np.sqrt(OrbitalConstants.MU_EARTH / a))
             da_dt = -rho * v * drag_config.ballistic_coefficient * a
@@ -204,7 +204,7 @@ def compute_altitude_at_time(
         if step < dt_seconds:
             break
 
-    return (a - OrbitalConstants.R_EARTH) / 1000.0
+    return (a - OrbitalConstants.R_EARTH_EQUATORIAL) / 1000.0
 
 
 # ── Ornstein-Uhlenbeck Process for Stochastic Lifetime ──────────────
@@ -293,7 +293,7 @@ def compute_stochastic_lifetime(
     Raises:
         ValueError: If already below re-entry altitude or invalid parameters.
     """
-    initial_alt_km = (semi_major_axis_m - OrbitalConstants.R_EARTH) / 1000.0
+    initial_alt_km = (semi_major_axis_m - OrbitalConstants.R_EARTH_EQUATORIAL) / 1000.0
     if initial_alt_km <= re_entry_altitude_km:
         raise ValueError(
             f"Initial altitude {initial_alt_km:.1f} km already at or below "
@@ -326,7 +326,7 @@ def compute_stochastic_lifetime(
     sigma_f = density_variability_fraction * math.sqrt(2.0 * theta)
 
     rng = np.random.default_rng(rng_seed)
-    re_entry_a = OrbitalConstants.R_EARTH + re_entry_altitude_km * 1000.0
+    re_entry_a = OrbitalConstants.R_EARTH_EQUATORIAL + re_entry_altitude_km * 1000.0
 
     lifetimes = []
     num_converged = 0
@@ -344,7 +344,7 @@ def compute_stochastic_lifetime(
 
             current_time = epoch + timedelta(days=t_elapsed_days + step_days)
             if density_func is not None:
-                alt_km = (a - OrbitalConstants.R_EARTH) / 1000.0
+                alt_km = (a - OrbitalConstants.R_EARTH_EQUATORIAL) / 1000.0
                 rho = density_func(alt_km, current_time)
                 v = float(np.sqrt(OrbitalConstants.MU_EARTH / a))
                 da_dt = -rho * v * drag_config.ballistic_coefficient * a
