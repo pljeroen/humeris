@@ -1084,18 +1084,27 @@ class TestViewerTableUX:
     def test_generated_js_syntax_valid(self):
         """Generated JavaScript must pass syntax validation."""
         import subprocess
+        import tempfile
         html = self._html()
         match = re.search(r'<script>(.*?)</script>', html, re.DOTALL)
         assert match is not None, "No script block found"
         js = match.group(1)
-        result = subprocess.run(
-            ["node", "--check"],
-            input=js,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=10,
-        )
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".js", encoding="utf-8", delete=False,
+        ) as f:
+            f.write(js)
+            tmp_path = f.name
+        try:
+            result = subprocess.run(
+                ["node", "--check", tmp_path],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=30,
+            )
+        finally:
+            import os
+            os.unlink(tmp_path)
         assert result.returncode == 0, (
             f"JavaScript syntax error in generated viewer HTML:\n"
             f"{result.stderr.strip()}"
