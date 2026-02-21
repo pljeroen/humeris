@@ -1234,12 +1234,12 @@ th {{ background: #f0f4f8; font-weight: 600; }}
                 plane = idx // sats_per_plane if sats_per_plane > 0 else 0
                 try:
                     beta_deg = compute_beta_angle(state.raan_rad, state.inclination_rad, self.epoch)
-                except Exception:
+                except (ValueError, ArithmeticError, ZeroDivisionError):
                     beta_deg = 0.0
                 try:
                     es = compute_eclipse_statistics(state, self.epoch, _DEFAULT_DURATION, _DEFAULT_STEP)
                     eclipse_pct = round(es.eclipse_fraction * 100.0, 1)
-                except Exception:
+                except (ValueError, ArithmeticError, ZeroDivisionError):
                     eclipse_pct = 0.0
                 rows.append({
                     "_sat_idx": idx,
@@ -1385,7 +1385,8 @@ th {{ background: #f0f4f8; font-weight: 600; }}
                     )
                     restored_layers.append(layer_id)
                     restored += 1
-                except (KeyError, TypeError, ValueError):
+                except (KeyError, TypeError, ValueError) as e:
+                    logging.warning("Failed to restore layer %r: %s", layer_data.get("name", "?"), e)
                     restored_layers.append("")
             else:
                 restored_layers.append("")
@@ -1412,8 +1413,8 @@ th {{ background: #f0f4f8; font-weight: 600; }}
                 )
                 restored_layers[idx] = gs_lid
                 restored += 1
-            except (KeyError, TypeError, ValueError):
-                pass
+            except (KeyError, TypeError, ValueError) as e:
+                logging.warning("Failed to restore ground station %r: %s", params.get("name", "?"), e)
 
         # Pass 2: Restore analysis layers using source constellation reference
         for idx, layer_data in enumerate(layers_data):
@@ -1451,8 +1452,8 @@ th {{ background: #f0f4f8; font-weight: 600; }}
                     sat_names=source_sat_names,
                 )
                 restored += 1
-            except (KeyError, TypeError, ValueError, ArithmeticError):
-                pass
+            except (KeyError, TypeError, ValueError, ArithmeticError) as e:
+                logging.warning("Failed to restore analysis layer %r: %s", layer_data.get("name", "?"), e)
 
         return restored
 

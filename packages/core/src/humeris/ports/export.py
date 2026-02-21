@@ -6,16 +6,16 @@ Port interface for satellite data export.
 Adapters implement this to export satellite positions in various formats
 (CSV, GeoJSON, etc.).
 """
-from abc import ABC, abstractmethod
 from datetime import datetime
+from typing import Protocol, runtime_checkable
 
 from humeris.domain.constellation import Satellite
 
 
-class SatelliteExporter(ABC):
+@runtime_checkable
+class SatelliteExporter(Protocol):
     """Port for exporting satellite data to file."""
 
-    @abstractmethod
     def export(
         self,
         satellites: list[Satellite],
