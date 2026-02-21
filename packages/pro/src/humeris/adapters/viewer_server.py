@@ -931,6 +931,55 @@ class LayerManager:
                     self.layers[dep_id].sat_names = sat_names
                     self.layers[dep_id].czml = dep_czml
 
+    def compare_layers(
+        self, layer_id_a: str, layer_id_b: str,
+    ) -> dict[str, Any]:
+        """Compare two constellation layers on their analysis metrics.
+
+        Collects metrics from analysis layers sourced from each constellation,
+        computes delta (B - A) for all numeric metric values.
+
+        Raises KeyError if either layer_id not found.
+        """
+        with self._lock:
+            layer_a = self.layers[layer_id_a]
+            layer_b = self.layers[layer_id_b]
+
+            def _collect_metrics(source_id: str) -> dict[str, Any]:
+                merged: dict[str, Any] = {}
+                for layer in self.layers.values():
+                    if layer.source_layer_id == source_id and layer.metrics:
+                        for k, v in layer.metrics.items():
+                            key = f"{layer.layer_type}_{k}"
+                            merged[key] = v
+                return merged
+
+            metrics_a = _collect_metrics(layer_id_a)
+            metrics_b = _collect_metrics(layer_id_b)
+
+            # Compute delta for numeric values
+            all_keys = set(metrics_a.keys()) | set(metrics_b.keys())
+            delta: dict[str, float] = {}
+            for k in all_keys:
+                va = metrics_a.get(k, 0)
+                vb = metrics_b.get(k, 0)
+                if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
+                    delta[k] = round(vb - va, 6)
+
+            return {
+                "config_a": {
+                    "name": layer_a.name,
+                    "params": layer_a.params,
+                    "metrics": metrics_a,
+                },
+                "config_b": {
+                    "name": layer_b.name,
+                    "params": layer_b.params,
+                    "metrics": metrics_b,
+                },
+                "delta": delta,
+            }
+
     def run_sweep(
         self,
         base_params: dict[str, Any],
@@ -1462,6 +1511,21 @@ class ConstellationHandler(BaseHTTPRequestHandler):
                 self._json_response({"results": results})
             except (KeyError, ValueError, TypeError) as e:
                 self._error_response(400, f"Sweep error: {e}")
+            return
+
+        if base == "/api/compare":
+            try:
+                body = self._read_body()
+            except (ValueError, json.JSONDecodeError) as e:
+                self._error_response(400, f"Bad request body: {e}")
+                return
+            try:
+                result = self.layer_manager.compare_layers(
+                    body["layer_a"], body["layer_b"],
+                )
+                self._json_response(result)
+            except KeyError as e:
+                self._error_response(404, f"Layer not found: {e}")
             return
 
         self._error_response(404, "Not found")

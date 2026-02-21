@@ -3126,3 +3126,83 @@ class TestParameterSweep:
         )
         assert "metrics" in results[0]
         assert "percent_covered" in results[0]["metrics"]
+
+
+# ---------------------------------------------------------------------------
+# APP-06: Side-by-side configuration comparison
+# ---------------------------------------------------------------------------
+
+
+class TestConfigComparison:
+    """Tests for side-by-side constellation comparison."""
+
+    def test_compare_two_layers_returns_structure(self):
+        """compare_layers returns config_a, config_b, delta."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states_a = _make_states(n_planes=2, n_sats=2, altitude_km=550)
+        states_b = _make_states(n_planes=2, n_sats=2, altitude_km=700)
+        lid_a = mgr.add_layer(
+            name="Constellation:A", category="Constellation",
+            layer_type="walker", states=states_a,
+            params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2, "sats_per_plane": 2},
+        )
+        lid_b = mgr.add_layer(
+            name="Constellation:B", category="Constellation",
+            layer_type="walker", states=states_b,
+            params={"altitude_km": 700, "inclination_deg": 53, "num_planes": 2, "sats_per_plane": 2},
+        )
+        mgr.add_layer(
+            name="Analysis:Beta-A", category="Analysis",
+            layer_type="beta_angle", states=states_a, params={}, source_layer_id=lid_a,
+        )
+        mgr.add_layer(
+            name="Analysis:Beta-B", category="Analysis",
+            layer_type="beta_angle", states=states_b, params={}, source_layer_id=lid_b,
+        )
+        result = mgr.compare_layers(lid_a, lid_b)
+        assert "config_a" in result
+        assert "config_b" in result
+        assert "delta" in result
+        assert result["config_a"]["name"] == "Constellation:A"
+        assert result["config_b"]["name"] == "Constellation:B"
+
+    def test_compare_nonexistent_layer_raises(self):
+        """compare_layers raises KeyError for missing layer."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states = _make_states(n_planes=1, n_sats=2)
+        lid = mgr.add_layer(
+            name="Constellation:A", category="Constellation",
+            layer_type="walker", states=states, params={},
+        )
+        with pytest.raises(KeyError):
+            mgr.compare_layers(lid, "nonexistent")
+
+    def test_compare_includes_numeric_deltas(self):
+        """Delta metrics are numeric (config_b - config_a)."""
+        from humeris.adapters.viewer_server import LayerManager
+        mgr = LayerManager(epoch=EPOCH)
+        states_a = _make_states(n_planes=2, n_sats=2, altitude_km=550)
+        states_b = _make_states(n_planes=2, n_sats=2, altitude_km=700)
+        lid_a = mgr.add_layer(
+            name="Constellation:A", category="Constellation",
+            layer_type="walker", states=states_a,
+            params={"altitude_km": 550, "inclination_deg": 53, "num_planes": 2, "sats_per_plane": 2},
+        )
+        lid_b = mgr.add_layer(
+            name="Constellation:B", category="Constellation",
+            layer_type="walker", states=states_b,
+            params={"altitude_km": 700, "inclination_deg": 53, "num_planes": 2, "sats_per_plane": 2},
+        )
+        mgr.add_layer(
+            name="Analysis:Beta-A", category="Analysis",
+            layer_type="beta_angle", states=states_a, params={}, source_layer_id=lid_a,
+        )
+        mgr.add_layer(
+            name="Analysis:Beta-B", category="Analysis",
+            layer_type="beta_angle", states=states_b, params={}, source_layer_id=lid_b,
+        )
+        result = mgr.compare_layers(lid_a, lid_b)
+        for key in result["delta"]:
+            assert isinstance(result["delta"][key], (int, float))

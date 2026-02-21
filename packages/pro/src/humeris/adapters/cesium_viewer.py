@@ -682,6 +682,16 @@ def generate_interactive_html(
                 <button class="btn btn-sm" onclick="applySettings()">Apply</button>
             </div>
         </details>
+        <!-- Compare (APP-06) -->
+        <details>
+            <summary>Compare</summary>
+            <div class="panel-section">
+                <div class="form-row"><label>Config A</label><select id="cmp-a"></select></div>
+                <div class="form-row"><label>Config B</label><select id="cmp-b"></select></div>
+                <button class="btn btn-sm" onclick="runCompare()">Compare</button>
+                <div id="compareResult" style="margin-top:6px;font-size:10px"></div>
+            </div>
+        </details>
         <!-- Parameter Sweep (APP-05) -->
         <details>
             <summary>Sweep</summary>
@@ -1294,6 +1304,59 @@ def generate_interactive_html(
             }});
             container.innerHTML = html;
         }}
+        // --- Compare (APP-06) ---
+        function populateCompareSelects() {{
+            apiGet("/api/state").then(function(state) {{
+                var selA = document.getElementById("cmp-a");
+                var selB = document.getElementById("cmp-b");
+                if (!selA || !selB) return;
+                selA.innerHTML = "";
+                selB.innerHTML = "";
+                state.layers.forEach(function(l) {{
+                    if (l.category === "Constellation") {{
+                        var optA = document.createElement("option");
+                        optA.value = l.layer_id;
+                        optA.textContent = l.name.split(":").pop();
+                        selA.appendChild(optA);
+                        var optB = optA.cloneNode(true);
+                        selB.appendChild(optB);
+                    }}
+                }});
+            }});
+        }}
+
+        function runCompare() {{
+            var layerA = document.getElementById("cmp-a").value;
+            var layerB = document.getElementById("cmp-b").value;
+            if (!layerA || !layerB) {{ showToast("Select two constellations", "error"); return; }}
+            if (layerA === layerB) {{ showToast("Select different constellations", "error"); return; }}
+            apiPost("/api/compare", {{layer_a: layerA, layer_b: layerB}}).then(function(result) {{
+                var html = '<table style="width:100%;border-collapse:collapse">';
+                html += '<tr><th style="text-align:left;color:rgba(255,255,255,0.5)">Metric</th>';
+                html += '<th style="text-align:right;color:rgba(80,160,255,0.8)">' + result.config_a.name.split(":").pop() + '</th>';
+                html += '<th style="text-align:right;color:rgba(80,200,120,0.8)">' + result.config_b.name.split(":").pop() + '</th>';
+                html += '<th style="text-align:right;color:rgba(255,200,80,0.8)">Delta</th></tr>';
+                var allKeys = Object.keys(result.delta);
+                allKeys.forEach(function(k) {{
+                    var va = result.config_a.metrics[k];
+                    var vb = result.config_b.metrics[k];
+                    var d = result.delta[k];
+                    var dColor = d > 0 ? "rgba(80,200,120,0.9)" : d < 0 ? "rgba(255,100,100,0.9)" : "rgba(255,255,255,0.5)";
+                    var dStr = d > 0 ? "+" + d.toFixed(2) : d.toFixed(2);
+                    html += '<tr>';
+                    html += '<td style="color:rgba(255,255,255,0.6)">' + k.replace(/_/g, " ") + '</td>';
+                    html += '<td style="text-align:right;font-family:monospace">' + (va !== undefined ? (typeof va === "number" ? va.toFixed(2) : va) : "-") + '</td>';
+                    html += '<td style="text-align:right;font-family:monospace">' + (vb !== undefined ? (typeof vb === "number" ? vb.toFixed(2) : vb) : "-") + '</td>';
+                    html += '<td style="text-align:right;font-family:monospace;color:' + dColor + '">' + dStr + '</td>';
+                    html += '</tr>';
+                }});
+                html += '</table>';
+                document.getElementById("compareResult").innerHTML = html;
+            }}).catch(function(e) {{
+                showToast("Compare error: " + e.message, "error");
+            }});
+        }}
+
         // --- Parameter sweep (APP-05) ---
         var sweepResults = null;
         var sweepParam = "";
@@ -1508,6 +1571,10 @@ def generate_interactive_html(
                 var sourceSelect = document.getElementById("analysis-source");
                 list.innerHTML = "";
                 sourceSelect.innerHTML = "";
+                var cmpAsel = document.getElementById("cmp-a");
+                var cmpBsel = document.getElementById("cmp-b");
+                if (cmpAsel) cmpAsel.innerHTML = "";
+                if (cmpBsel) cmpBsel.innerHTML = "";
 
                 // Update simulation settings from state
                 if (state.duration_s) {{
@@ -1534,6 +1601,13 @@ def generate_interactive_html(
                         opt.value = layer.layer_id;
                         opt.textContent = layer.name.split(":").pop();
                         sourceSelect.appendChild(opt);
+                        // Also populate compare selects (APP-06)
+                        var cmpA = document.getElementById("cmp-a");
+                        var cmpB = document.getElementById("cmp-b");
+                        if (cmpA && cmpB) {{
+                            cmpA.appendChild(opt.cloneNode(true));
+                            cmpB.appendChild(opt.cloneNode(true));
+                        }}
                     }}
                 }});
 
