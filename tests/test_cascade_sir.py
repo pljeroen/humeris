@@ -6,6 +6,7 @@
 import math
 
 from humeris.domain.cascade_analysis import CascadeSIR, compute_cascade_sir
+from humeris.domain.orbital_mechanics import OrbitalConstants
 
 
 class TestCascadeSIRSubcritical:
@@ -267,3 +268,116 @@ class TestCascadeSIRDataclass:
         assert len(result.susceptible) == expected_steps
         assert len(result.infected) == expected_steps
         assert len(result.recovered) == expected_steps
+
+
+# ── estimate_drag_lifetime_years ──────────────────────────────────
+
+class TestEstimateDragLifetime:
+    """Tests for altitude-dependent drag lifetime estimation."""
+
+    def test_200km_short_lifetime(self):
+        """At 200 km, drag lifetime is very short (< 2 years)."""
+        from humeris.domain.atmosphere import estimate_drag_lifetime_years
+
+        lifetime = estimate_drag_lifetime_years(200.0)
+        assert lifetime < 2.0
+
+    def test_550km_moderate_lifetime(self):
+        """At 550 km (Starlink altitude), drag lifetime is 5-20 years."""
+        from humeris.domain.atmosphere import estimate_drag_lifetime_years
+
+        lifetime = estimate_drag_lifetime_years(550.0)
+        assert 5.0 < lifetime < 20.0
+
+    def test_800km_long_lifetime(self):
+        """At 800 km, drag lifetime is > 30 years."""
+        from humeris.domain.atmosphere import estimate_drag_lifetime_years
+
+        lifetime = estimate_drag_lifetime_years(800.0)
+        assert lifetime > 30.0
+
+    def test_monotonic_increase(self):
+        """Drag lifetime increases monotonically with altitude."""
+        from humeris.domain.atmosphere import estimate_drag_lifetime_years
+
+        altitudes = [200, 300, 400, 500, 600, 700, 800, 900]
+        lifetimes = [estimate_drag_lifetime_years(a) for a in altitudes]
+        for i in range(len(lifetimes) - 1):
+            assert lifetimes[i] < lifetimes[i + 1], (
+                f"Lifetime decreased: {altitudes[i]} km={lifetimes[i]:.1f} yr "
+                f"> {altitudes[i+1]} km={lifetimes[i+1]:.1f} yr"
+            )
+
+    def test_meo_very_long(self):
+        """MEO altitudes (>1000 km) have very long drag lifetimes (>100 yr)."""
+        from humeris.domain.atmosphere import estimate_drag_lifetime_years
+
+        lifetime = estimate_drag_lifetime_years(1000.0)
+        assert lifetime > 100.0
+
+    def test_all_positive(self):
+        """Drag lifetime is always positive."""
+        from humeris.domain.atmosphere import estimate_drag_lifetime_years
+
+        for alt in [150, 200, 300, 500, 700, 900]:
+            assert estimate_drag_lifetime_years(alt) > 0.0
+
+
+# ── Cascade SIR R₀ with realistic parameters ─────────────────────
+
+class TestCascadeSIRRealisticR0:
+    """R₀ should be physically reasonable with altitude-appropriate drag lifetime."""
+
+    def test_starlink_r0_below_2(self):
+        """Starlink-like constellation at 550 km: R₀ should be < 2.0.
+
+        With ~6500 sats at 550 km, drag lifetime ~8-15 yr gives R₀ ~ 0.4-1.2.
+        The old hardcoded 25 yr gave R₀ ~ 1.7 — unrealistically high.
+        """
+        from humeris.domain.atmosphere import estimate_drag_lifetime_years
+
+        alt_km = 550.0
+        n_sats = 6500
+        shell_r = (OrbitalConstants.R_EARTH_EQUATORIAL / 1000.0) + alt_km
+        shell_vol = 4.0 * math.pi * shell_r ** 2 * 50.0
+        drag_life = estimate_drag_lifetime_years(alt_km)
+
+        result = compute_cascade_sir(
+            shell_volume_km3=shell_vol,
+            spatial_density_per_km3=0.005 * n_sats / shell_vol,
+            mean_collision_velocity_ms=10_000.0,
+            satellite_count=n_sats,
+            drag_lifetime_years=drag_life,
+            duration_years=1.0,
+        )
+        assert result.r_0 < 2.0, (
+            f"Starlink R₀={result.r_0:.2f} with drag_life={drag_life:.1f} yr "
+            f"— should be < 2.0"
+        )
+
+    def test_glonass_subcritical(self):
+        """GLONASS at ~19,100 km with 24 sats: R₀ should be << 1 (subcritical).
+
+        At MEO, drag is negligible, but with only 24 satellites the collision
+        rate is far too low for cascade.
+        """
+        from humeris.domain.atmosphere import estimate_drag_lifetime_years
+
+        alt_km = 19100.0
+        n_sats = 24
+        shell_r = (OrbitalConstants.R_EARTH_EQUATORIAL / 1000.0) + alt_km
+        shell_vol = 4.0 * math.pi * shell_r ** 2 * 200.0  # wider shell for MEO
+        # At MEO, clamp lifetime to table max
+        drag_life = min(estimate_drag_lifetime_years(min(alt_km, 900.0)), 500.0)
+
+        result = compute_cascade_sir(
+            shell_volume_km3=shell_vol,
+            spatial_density_per_km3=0.005 * n_sats / shell_vol,
+            mean_collision_velocity_ms=7_000.0,
+            satellite_count=n_sats,
+            drag_lifetime_years=drag_life,
+            duration_years=1.0,
+        )
+        assert result.r_0 < 0.1, (
+            f"GLONASS R₀={result.r_0:.4f} — should be << 1"
+        )

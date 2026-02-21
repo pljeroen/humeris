@@ -1,12 +1,12 @@
 # Humeris
 
-[![Version](https://img.shields.io/badge/version-1.28.1-blue.svg)](packages/core/pyproject.toml) [![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](packages/core/pyproject.toml) [![Tests](https://img.shields.io/badge/tests-3601_passing-brightgreen.svg)](tests/) [![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE) [![License](https://img.shields.io/badge/license-Commercial_(pro)-red.svg)](COMMERCIAL-LICENSE.md) [![Architecture](https://img.shields.io/badge/architecture-hexagonal-purple.svg)](docs/architecture.md)
+[![Version](https://img.shields.io/badge/version-1.28.2-blue.svg)](packages/core/pyproject.toml) [![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](packages/core/pyproject.toml) [![Tests](https://img.shields.io/badge/tests-3653_passing-brightgreen.svg)](tests/) [![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE) [![License](https://img.shields.io/badge/license-Commercial_(pro)-red.svg)](COMMERCIAL-LICENSE.md) [![Architecture](https://img.shields.io/badge/architecture-hexagonal-purple.svg)](docs/architecture.md)
 
 A Python library for satellite constellation analysis — from generating
 Walker shells to propagating orbits, screening conjunctions, and
 visualizing everything on a 3D globe. Pure Python, no compiled extensions.
 
-![Humeris interactive viewer](docs/interface.png)
+![Humeris constellation viewer — full orbital shell with ground tracks](docs/Pics/satellite_details_zoomed_out.png)
 
 ## What it does
 
@@ -21,6 +21,8 @@ visualizing everything on a 3D globe. Pure Python, no compiled extensions.
 - **Orbit determination** — EKF state estimation, maneuver detection (CUSUM/EWMA), hazard reporting
 - **Export everywhere** — CSV, GeoJSON, CZML, KML, Celestia, Blender, SpaceEngine, KSP, Universe Sandbox, Stellarium
 - **Interactive 3D viewer** — built-in CesiumJS viewer with 21 analysis layer types
+
+![Satellite detail view with orbital parameters and data table](docs/Pics/satelite_details.png)
 
 > **Disclaimer**: This library provides computational models for educational,
 > research, and engineering analysis purposes. It is not certified for
@@ -76,6 +78,10 @@ identity, and coordinate frame round-trips.
 
 The comparison artifacts — including cases where our results are imperfect
 or still evolving — are published alongside the code.
+
+![Kessler cascade debris cloud](docs/Pics/kessler_only.png)
+
+![Starlink conjunction screening — Kessler analysis](docs/Pics/starlink_kessler.png)
 
 Details: [Validation](docs/validation.md)
 

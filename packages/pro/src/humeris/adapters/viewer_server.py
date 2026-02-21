@@ -1682,9 +1682,14 @@ class ConstellationHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         try:
             self._do_POST()
+        except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
+            logger.debug("Client disconnected during POST %s", self.path)
         except Exception:
             logger.exception("Unhandled error in POST %s", self.path)
-            self._error_response(500, "Internal server error")
+            try:
+                self._error_response(500, "Internal server error")
+            except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
+                logger.debug("Client disconnected before error response")
 
     def _do_POST(self) -> None:
         base, param = self._route_path()

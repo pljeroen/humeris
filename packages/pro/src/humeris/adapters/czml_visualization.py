@@ -47,7 +47,7 @@ from humeris.domain.dilution_of_precision import compute_dop_grid
 from humeris.domain.radiation import compute_l_shell
 from humeris.domain.eclipse import compute_beta_angle
 from humeris.domain.deorbit import assess_deorbit_compliance, DeorbitRegulation
-from humeris.domain.atmosphere import DragConfig
+from humeris.domain.atmosphere import DragConfig, estimate_drag_lifetime_years
 from humeris.domain.station_keeping import (
     compute_station_keeping_budget,
     StationKeepingConfig,
@@ -1864,15 +1864,19 @@ def cascade_evolution_packets(
     n_sats = len(states)
 
     # Shell parameters for SIR model
-    mean_alt_km = sum(s.semi_major_axis_m - OrbitalConstants.R_EARTH for s in states) / (n_sats * 1000.0)
-    shell_r = (OrbitalConstants.R_EARTH / 1000.0) + mean_alt_km
+    mean_alt_km = sum(s.semi_major_axis_m - OrbitalConstants.R_EARTH_EQUATORIAL for s in states) / (n_sats * 1000.0)
+    shell_r = (OrbitalConstants.R_EARTH_EQUATORIAL / 1000.0) + mean_alt_km
     shell_vol = 4.0 * math.pi * shell_r ** 2 * 50.0
+    drag_life = estimate_drag_lifetime_years(min(mean_alt_km, 900.0))
+    # Initial debris seed: 0.5% of satellite count (background debris)
+    debris_seed = max(10.0, n_sats * 0.005)
     duration_yr = max(0.1, total_seconds / (365.25 * 86400.0))
     step_yr = max(1e-6, duration_yr / max(num_steps, 1))
 
     sir = compute_cascade_sir(
-        shell_volume_km3=shell_vol, spatial_density_per_km3=n_sats / shell_vol,
+        shell_volume_km3=shell_vol, spatial_density_per_km3=debris_seed / shell_vol,
         mean_collision_velocity_ms=10000.0, satellite_count=n_sats,
+        drag_lifetime_years=drag_life,
         duration_years=duration_yr, step_years=step_yr,
     )
     sir_times, sir_s, sir_i = sir.time_series_years, sir.susceptible, sir.infected

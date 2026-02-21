@@ -141,6 +141,65 @@ def atmospheric_density(
     return float(rho_base * np.exp(-(altitude_km - h_base) / scale_height))
 
 
+def estimate_drag_lifetime_years(
+    altitude_km: float,
+    model: AtmosphereModel = AtmosphereModel.VALLADO_4TH,
+) -> float:
+    """Estimate drag lifetime for debris at a given altitude.
+
+    Uses a representative debris ballistic coefficient (C_d=2.2, A=0.1 m²,
+    m=10 kg → B_c = 0.022 m²/kg) and the exponential atmosphere model to
+    estimate the time for an orbit to decay from the given altitude.
+
+    Approximation: lifetime ≈ H / (ρ * v * B_c * a) where H is the scale
+    height at the given altitude.
+
+    Args:
+        altitude_km: Altitude above Earth surface in km (100-2000).
+        model: Atmosphere model for density lookup.
+
+    Returns:
+        Estimated drag lifetime in years. Clamped to [0.01, 1000].
+    """
+    table = _MODEL_TABLES[model]
+    max_alt = table[-1][0]
+
+    # Above atmosphere table: essentially infinite lifetime
+    if altitude_km > max_alt:
+        return 1000.0
+
+    # Clamp to table minimum
+    alt = max(altitude_km, table[0][0])
+
+    # Representative debris: Cd=2.2, A=0.1 m², m=10 kg
+    b_c = 2.2 * 0.1 / 10.0  # 0.022 m²/kg
+
+    rho = atmospheric_density(alt, model=model)
+    a_m = OrbitalConstants.R_EARTH_EQUATORIAL + alt * 1000.0
+    v = float(np.sqrt(OrbitalConstants.MU_EARTH / a_m))
+
+    # Scale height at this altitude (interpolate from table)
+    lo, hi = 0, len(table) - 1
+    while lo < hi - 1:
+        mid = (lo + hi) // 2
+        if table[mid][0] <= alt:
+            lo = mid
+        else:
+            hi = mid
+    scale_height_km = table[lo][2]
+    scale_height_m = scale_height_km * 1000.0
+
+    # Lifetime ≈ H / (ρ * v * B_c * a)
+    da_dt = rho * v * b_c * a_m
+    if da_dt < 1e-30:
+        return 1000.0
+
+    lifetime_s = scale_height_m / da_dt
+    lifetime_yr = lifetime_s / (365.25 * 86400.0)
+
+    return max(0.01, min(lifetime_yr, 1000.0))
+
+
 def drag_acceleration(density: float, velocity: float, drag_config: DragConfig) -> float:
     """Drag acceleration magnitude.
 
