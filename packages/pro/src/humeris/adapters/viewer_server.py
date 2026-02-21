@@ -932,6 +932,77 @@ class LayerManager:
                     self.layers[dep_id].sat_names = sat_names
                     self.layers[dep_id].czml = dep_czml
 
+    def generate_report(
+        self, name: str = "Constellation Report", description: str = "",
+    ) -> str:
+        """Generate a self-contained HTML report of the current session.
+
+        Includes: scenario metadata, layer parameters, metrics tables,
+        constraint pass/fail results.
+        """
+        from html import escape
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        parts: list[str] = []
+        parts.append(f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>{escape(name)}</title>
+<style>
+body {{ font-family: -apple-system, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }}
+h1 {{ color: #1a3a5c; border-bottom: 2px solid #1a3a5c; padding-bottom: 8px; }}
+h2 {{ color: #2d5f8a; margin-top: 24px; }}
+table {{ border-collapse: collapse; width: 100%; margin: 8px 0; }}
+th, td {{ padding: 6px 12px; border: 1px solid #ddd; text-align: left; font-size: 13px; }}
+th {{ background: #f0f4f8; font-weight: 600; }}
+.pass {{ color: #2a7; }} .fail {{ color: #c44; }}
+.meta {{ color: #666; font-size: 12px; margin-bottom: 16px; }}
+</style></head><body>
+<h1>{escape(name)}</h1>
+<div class="meta">Generated: {ts} | Epoch: {self.epoch.isoformat()}</div>""")
+        if description:
+            parts.append(f"<p>{escape(description)}</p>")
+
+        with self._lock:
+            # Layers
+            for layer in self.layers.values():
+                parts.append(f"<h2>{escape(layer.name)}</h2>")
+                parts.append(f"<p>Type: {layer.layer_type} | Category: {layer.category}</p>")
+                # Parameters
+                visible_params = {k: v for k, v in layer.params.items() if not k.startswith("_")}
+                if visible_params:
+                    parts.append("<table><tr><th>Parameter</th><th>Value</th></tr>")
+                    for k, v in visible_params.items():
+                        parts.append(f"<tr><td>{escape(k)}</td><td>{escape(str(v))}</td></tr>")
+                    parts.append("</table>")
+                # Metrics
+                if layer.metrics:
+                    parts.append("<table><tr><th>Metric</th><th>Value</th></tr>")
+                    for k, v in layer.metrics.items():
+                        parts.append(f"<tr><td>{escape(k)}</td><td>{escape(str(v))}</td></tr>")
+                    parts.append("</table>")
+
+            # Constraints
+            if self.constraints:
+                parts.append("<h2>Constraints</h2>")
+                # Find first constellation for evaluation
+                const_id = None
+                for lid, layer in self.layers.items():
+                    if layer.category == "Constellation":
+                        const_id = lid
+                        break
+                if const_id:
+                    results = self.evaluate_constraints(const_id)
+                    passed = sum(1 for r in results if r["passed"])
+                    parts.append(f"<p>{passed}/{len(results)} constraints met</p>")
+                    parts.append("<table><tr><th>Metric</th><th>Operator</th><th>Threshold</th><th>Actual</th><th>Result</th></tr>")
+                    for r in results:
+                        icon = '<span class="pass">PASS</span>' if r["passed"] else '<span class="fail">FAIL</span>'
+                        actual = str(r["actual"]) if r["actual"] is not None else "N/A"
+                        parts.append(f'<tr><td>{escape(r["metric"])}</td><td>{escape(r["operator"])}</td>'
+                                     f'<td>{r["threshold"]}</td><td>{actual}</td><td>{icon}</td></tr>')
+                    parts.append("</table>")
+
+        parts.append("</body></html>")
+        return "\n".join(parts)
+
     def add_constraint(self, constraint: dict[str, Any]) -> None:
         """Add a metric constraint {metric, operator, threshold}."""
         self.constraints.append(constraint)
@@ -1501,6 +1572,21 @@ class ConstellationHandler(BaseHTTPRequestHandler):
                 self._json_response(table)
             except KeyError:
                 self._error_response(404, f"Layer not found: {param}")
+            return
+
+        if base == "/api/report":
+            html_report = self.layer_manager.generate_report(
+                name="Constellation Report",
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Disposition", 'attachment; filename="report.html"')
+            port = self.server.server_address[1]
+            self.send_header("Access-Control-Allow-Origin", f"http://localhost:{port}")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+            self.wfile.write(html_report.encode())
             return
 
         self._error_response(404, "Not found")

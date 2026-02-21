@@ -667,6 +667,7 @@ def generate_interactive_html(
         <div class="session-buttons">
             <button class="btn btn-sm" onclick="saveSession()">Save Session</button>
             <button class="btn btn-sm" onclick="loadSession()">Load Session</button>
+            <button class="btn btn-sm" onclick="generateReport()">Report</button>
         </div>
         <!-- Recent Scenarios (APP-04) -->
         <details>
@@ -1323,6 +1324,11 @@ def generate_interactive_html(
             }});
             container.innerHTML = html;
         }}
+        // --- Report (APP-08) ---
+        function generateReport() {{
+            window.open("/api/report", "_blank");
+        }}
+
         // --- Constraints (APP-07) ---
         function addConstraint() {{
             var metric = document.getElementById("cst-metric").value.trim();
