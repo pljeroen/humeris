@@ -28,6 +28,7 @@ from humeris.domain.numerical_propagation import (
     propagate_numerical,
 )
 from humeris.domain.orbit_properties import state_vector_to_elements
+from humeris.domain.gravity_field import CunninghamGravity, load_gravity_field
 from humeris.domain.nrlmsise00 import NRLMSISE00DragForce, SpaceWeather
 from humeris.domain.third_body import LunarThirdBodyForce, SolarThirdBodyForce
 
@@ -401,6 +402,94 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         "endRAAN": s5e1["raan_deg"],
         "elapsedDays": 30.0,
         "forceModels": [type(f).__name__ for f in s5_forces],
+    }
+
+    return out
+
+
+def run_high_degree_stress_mirrors() -> dict[str, dict[str, Any]]:
+    """Run stress scenarios requiring high-degree gravity (CunninghamGravity).
+
+    Mirrors the two GMAT stress scenarios that need spherical harmonic
+    degrees above 8:
+      - stress_high_gravity_leo: EGM96 degree 70, 14 days
+      - stress_sun_synch_full_fidelity: EGM96 degree 50 + drag + SRP + 3body, 30 days
+
+    CunninghamGravity is perturbation-only — must pair with TwoBodyGravity.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    r_earth_km = OrbitalConstants.R_EARTH_EQUATORIAL / 1000.0
+
+    # S3: High-gravity LEO (GMAT: PD78, EGM96 70×70, 14 days)
+    s3_epoch = datetime(2024, 1, 1, 0, 0, 0, tzinfo=_UTC)
+    s3_state = _build_state(
+        sma_km=6628.137, ecc=0.001, inc_deg=51.6,
+        raan_deg=40.0, aop_deg=10.0, ta_deg=0.0,
+        epoch=s3_epoch,
+    )
+    gf70 = load_gravity_field(max_degree=70)
+    s3_forces = [
+        TwoBodyGravity(),
+        CunninghamGravity(gf70),
+    ]
+    s3 = propagate_numerical(
+        initial_state=s3_state,
+        duration=timedelta(days=14.0),
+        step=timedelta(seconds=30.0),
+        force_models=s3_forces,
+        integrator="dormand_prince",
+    )
+    s3_start, s3_end = s3.steps[0], s3.steps[-1]
+    s3e0 = _elements(s3_start.position_eci, s3_start.velocity_eci)
+    s3e1 = _elements(s3_end.position_eci, s3_end.velocity_eci)
+    out["stress_high_gravity_leo"] = {
+        "startSMA": s3e0["sma_km"],
+        "startECC": s3e0["ecc"],
+        "startAOP": s3e0["aop_deg"],
+        "endSMA": s3e1["sma_km"],
+        "endECC": s3e1["ecc"],
+        "endAOP": s3e1["aop_deg"],
+        "elapsedDays": 14.0,
+        "forceModels": [type(f).__name__ for f in s3_forces],
+    }
+
+    # S6: Sun-synch full fidelity (GMAT: RK89, EGM96 50×50 + MSISE90 + SRP + Sun/Moon, 30 days)
+    s6_epoch = datetime(2024, 1, 1, 0, 0, 0, tzinfo=_UTC)
+    s6_state = _build_state(
+        sma_km=7078.137, ecc=0.001, inc_deg=98.19,
+        raan_deg=0.0, aop_deg=0.0, ta_deg=0.0,
+        epoch=s6_epoch,
+    )
+    gf50 = load_gravity_field(max_degree=50)
+    sw6 = SpaceWeather(f107_daily=150.0, f107_average=150.0, ap_daily=3.0)
+    s6_forces = [
+        TwoBodyGravity(),
+        CunninghamGravity(gf50),
+        NRLMSISE00DragForce(cd=2.2, area_m2=15.0, mass_kg=1200.0, space_weather=sw6),
+        SolarRadiationPressureForce(cr=1.2, area_m2=10.0, mass_kg=1200.0),
+        SolarThirdBodyForce(),
+        LunarThirdBodyForce(),
+    ]
+    s6 = propagate_numerical(
+        initial_state=s6_state,
+        duration=timedelta(days=30.0),
+        step=timedelta(seconds=30.0),
+        force_models=s6_forces,
+        integrator="dormand_prince",
+    )
+    s6_start, s6_end = s6.steps[0], s6.steps[-1]
+    s6e0 = _elements(s6_start.position_eci, s6_start.velocity_eci)
+    s6e1 = _elements(s6_end.position_eci, s6_end.velocity_eci)
+    out["stress_sun_synch_full_fidelity"] = {
+        "startSMA": s6e0["sma_km"],
+        "startECC": s6e0["ecc"],
+        "startRAAN": s6e0["raan_deg"],
+        "endSMA": s6e1["sma_km"],
+        "endECC": s6e1["ecc"],
+        "endRAAN": s6e1["raan_deg"],
+        "endAltKm": s6e1["sma_km"] - r_earth_km,
+        "elapsedDays": 30.0,
+        "forceModels": [type(f).__name__ for f in s6_forces],
     }
 
     return out

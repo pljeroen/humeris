@@ -225,10 +225,99 @@ class CunninghamGravity:
     Perturbation-only: does not include the central body term (-mu/r² r̂).
     Must be composed with TwoBodyGravity for total gravitational acceleration.
     Implements the ForceModel protocol.
+
+    NumPy-vectorized: V/W vertical recursion uses contiguous slice
+    operations; accumulation uses precomputed flat index arrays for
+    single-pass gather-multiply-sum.
     """
 
     def __init__(self, model: GravityFieldModel) -> None:
         self._model = model
+        n_max = model.max_degree
+        n_ext = n_max + 1
+
+        # Convert tuples to NumPy arrays for vectorized access
+        self._c_bar = np.asarray(model.c_bar)
+        self._s_bar = np.asarray(model.s_bar)
+        self._diag = np.asarray(model._diag_coeff)
+        self._va = np.asarray(model._vert_a)
+        self._vb = np.asarray(model._vert_b)
+
+        # Precompute V/W recursion indices per degree.
+        # For degree n, vertical recursion computes m = 0..n-2
+        # using contiguous slices into the flat triangular arrays.
+        # Diagonal/sub-diagonal indices precomputed as Python ints.
+        self._diag_idx: list[tuple[int, int]] = []     # (idx_nn, idx_prev)
+        self._diag_alpha: list[float] = []
+        self._subdiag: list[tuple[int, int, float] | None] = []  # (idx_nm, idx_n1m, beta)
+        self._vert_slices: list[tuple[int, int, int, int] | None] = []
+        for n in range(1, n_ext + 1):
+            self._diag_idx.append((
+                n * (n + 1) // 2 + n,
+                (n - 1) * n // 2 + (n - 1),
+            ))
+            self._diag_alpha.append(float(self._diag[n]))
+
+            if n >= 2:
+                idx_nm = n * (n + 1) // 2 + (n - 1)
+                idx_n1m = (n - 1) * n // 2 + (n - 1)
+                self._subdiag.append((idx_nm, idx_n1m, float(self._va[idx_nm])))
+            else:
+                self._subdiag.append(None)
+
+            if n >= 2:
+                count = n - 1
+                self._vert_slices.append((
+                    n * (n + 1) // 2,
+                    (n - 1) * n // 2,
+                    (n - 2) * (n - 1) // 2,
+                    count,
+                ))
+            else:
+                self._vert_slices.append(None)
+
+        # Preallocate V/W buffers (reused across calls)
+        vw_size = (n_ext + 1) * (n_ext + 2) // 2
+        self._v_buf = np.zeros(vw_size)
+        self._w_buf = np.zeros(vw_size)
+
+        # Precompute flat index arrays for accumulation (m=0 terms).
+        ns_0 = np.arange(2, n_max + 1)
+        self._idx_n0 = (ns_0 * (ns_0 + 1) // 2).astype(np.intp)
+        self._idx_np1_1 = ((ns_0 + 1) * (ns_0 + 2) // 2 + 1).astype(np.intp)
+        self._idx_np1_0 = ((ns_0 + 1) * (ns_0 + 2) // 2).astype(np.intp)
+        # Gather coefficients for m=0 terms
+        self._c0 = self._c_bar[self._idx_n0]
+        self._p0 = np.asarray(model._acc_p)[self._idx_n0]
+        self._s0 = np.asarray(model._acc_s)[self._idx_n0]
+
+        # Precompute flat index arrays for accumulation (m>=1 terms).
+        # Enumerate all (n, m) pairs with n=2..N, m=1..n.
+        idx_nm_list = []
+        idx_np1_mp1_list = []
+        idx_np1_mm1_list = []
+        idx_np1_m_list = []
+        for n in range(2, n_max + 1):
+            ms = np.arange(1, n + 1)
+            idx_nm_list.append(n * (n + 1) // 2 + ms)
+            idx_np1_mp1_list.append((n + 1) * (n + 2) // 2 + ms + 1)
+            idx_np1_mm1_list.append((n + 1) * (n + 2) // 2 + ms - 1)
+            idx_np1_m_list.append((n + 1) * (n + 2) // 2 + ms)
+
+        self._idx_nm = np.concatenate(idx_nm_list).astype(np.intp)
+        self._idx_np1_mp1 = np.concatenate(idx_np1_mp1_list).astype(np.intp)
+        self._idx_np1_mm1 = np.concatenate(idx_np1_mm1_list).astype(np.intp)
+        self._idx_np1_m = np.concatenate(idx_np1_m_list).astype(np.intp)
+
+        # Pre-gather coefficients for m>=1 terms
+        acc_p_arr = np.asarray(model._acc_p)
+        acc_q_arr = np.asarray(model._acc_q)
+        acc_s_arr = np.asarray(model._acc_s)
+        self._c_m1 = self._c_bar[self._idx_nm]
+        self._s_m1 = self._s_bar[self._idx_nm]
+        self._p_m1 = acc_p_arr[self._idx_nm]
+        self._q_m1 = acc_q_arr[self._idx_nm]
+        self._s_coeff_m1 = acc_s_arr[self._idx_nm]
 
     def acceleration(
         self,
@@ -240,7 +329,7 @@ class CunninghamGravity:
 
         1. Rotate ECI -> ECEF via GMST
         2. Compute V̄/W̄ via Cunningham recursion (singularity-free)
-        3. Sum perturbation acceleration in ECEF
+        3. Sum perturbation acceleration in ECEF (vectorized)
         4. Rotate ECEF -> ECI
         """
         m = self._model
@@ -259,116 +348,91 @@ class CunninghamGravity:
         z = z_eci
 
         re = m.radius
-        gm = m.gm
-        n_max = m.max_degree
-        n_ext = n_max + 1  # extended degree for V/W
+        n_ext = m.max_degree + 1
 
         # Cunningham auxiliary variables
         re_r2 = re / r2
         xr = x * re_r2
         yr = y * re_r2
         zr = z * re_r2
-        rr = re * re / (r2)
+        rr = re * re / r2
 
-        # V̄/W̄ arrays: flat triangular, indices 0..(n_ext+1)*(n_ext+2)//2
-        vw_size = (n_ext + 1) * (n_ext + 2) // 2
-        v = np.zeros(vw_size)
-        w = np.zeros(vw_size)
-
-        # Seed: V̄₀₀ = Rₑ/r, W̄₀₀ = 0
+        # V̄/W̄ arrays (preallocated, zeroed each call)
+        v = self._v_buf
+        w = self._w_buf
+        v[:] = 0.0
+        w[:] = 0.0
         v[0] = re / r
 
-        # Build V̄/W̄ to degree n_ext
-        diag = m._diag_coeff
-        va = m._vert_a
-        vb = m._vert_b
+        va = self._va
+        vb = self._vb
+        diag_idx = self._diag_idx
+        diag_alpha = self._diag_alpha
+        subdiag = self._subdiag
+        vert_slices = self._vert_slices
 
-        for n in range(1, n_ext + 1):
-            # Diagonal: V̄_nn, W̄_nn
-            idx_nn = _tri(n, n)
-            idx_prev = _tri(n - 1, n - 1)
-            alpha = diag[n]
-            v[idx_nn] = alpha * (xr * v[idx_prev] - yr * w[idx_prev])
-            w[idx_nn] = alpha * (xr * w[idx_prev] + yr * v[idx_prev])
+        # Build V̄/W̄ to degree n_ext (outer loop sequential, inner vectorized)
+        for i in range(n_ext):
+            # Diagonal: V̄_nn, W̄_nn (Python floats for speed)
+            idx_nn, idx_prev = diag_idx[i]
+            alpha = diag_alpha[i]
+            vp = float(v[idx_prev])
+            wp = float(w[idx_prev])
+            v[idx_nn] = alpha * (xr * vp - yr * wp)
+            w[idx_nn] = alpha * (xr * wp + yr * vp)
 
-            # Sub-diagonal (m = n-1): use vertical recursion with V̄_{n-2,m} = 0
-            if n >= 2:
-                m_val = n - 1
-                idx_nm = _tri(n, m_val)
-                idx_n1m = _tri(n - 1, m_val)
-                beta = va[idx_nm]
-                v[idx_nm] = beta * zr * v[idx_n1m]
-                w[idx_nm] = beta * zr * w[idx_n1m]
+            # Sub-diagonal m=n-1
+            sd = subdiag[i]
+            if sd is not None:
+                idx_nm, idx_n1m, beta = sd
+                v[idx_nm] = beta * zr * float(v[idx_n1m])
+                w[idx_nm] = beta * zr * float(w[idx_n1m])
 
-            # Vertical recursion for m = 0..n-2
-            for m_val in range(n - 2, -1, -1):
-                idx_nm = _tri(n, m_val)
-                idx_n1m = _tri(n - 1, m_val)
-                idx_n2m = _tri(n - 2, m_val)
-                beta = va[idx_nm]
-                gamma = vb[idx_nm]
-                v[idx_nm] = beta * zr * v[idx_n1m] - gamma * rr * v[idx_n2m]
-                w[idx_nm] = beta * zr * w[idx_n1m] - gamma * rr * w[idx_n2m]
+            # Vertical recursion m=0..n-2 (vectorized contiguous slice)
+            sl = vert_slices[i]
+            if sl is not None:
+                s0, s1, s2, cnt = sl
+                b = va[s0:s0 + cnt]
+                g = vb[s0:s0 + cnt]
+                v[s0:s0 + cnt] = b * zr * v[s1:s1 + cnt] - g * rr * v[s2:s2 + cnt]
+                w[s0:s0 + cnt] = b * zr * w[s1:s1 + cnt] - g * rr * w[s2:s2 + cnt]
 
-        # Accumulate perturbation acceleration in ECEF
-        ax = 0.0
-        ay = 0.0
-        az = 0.0
+        # Accumulate perturbation acceleration (fully vectorized)
 
-        c_bar = m.c_bar
-        s_bar = m.s_bar
-        acc_p = m._acc_p
-        acc_q = m._acc_q
-        acc_s = m._acc_s
+        # m=0 terms
+        v_p1 = v[self._idx_np1_1]
+        w_p1 = w[self._idx_np1_1]
+        v_p0 = v[self._idx_np1_0]
+        cp = self._c0 * self._p0
+        ax = float(np.sum(-cp * v_p1))
+        ay = float(np.sum(-cp * w_p1))
+        az = float(np.sum(-self._c0 * self._s0 * v_p0))
 
-        for n in range(2, n_max + 1):
-            # m = 0 case
-            idx_n0 = _tri(n, 0)
-            c_n0 = c_bar[idx_n0]
-            p_n0 = acc_p[idx_n0]
-            s_n0 = acc_s[idx_n0]
+        # m>=1 terms (single vectorized pass over all (n,m) pairs)
+        v_mp1 = v[self._idx_np1_mp1]
+        w_mp1 = w[self._idx_np1_mp1]
+        v_mm1 = v[self._idx_np1_mm1]
+        w_mm1 = w[self._idx_np1_mm1]
+        v_m = v[self._idx_np1_m]
+        w_m = w[self._idx_np1_m]
 
-            idx_np1_1 = _tri(n + 1, 1)
-            idx_np1_0 = _tri(n + 1, 0)
+        c = self._c_m1
+        s = self._s_m1
+        p = self._p_m1
+        q = self._q_m1
 
-            ax += -c_n0 * p_n0 * v[idx_np1_1]
-            ay += -c_n0 * p_n0 * w[idx_np1_1]
-            az += -c_n0 * s_n0 * v[idx_np1_0]
-
-            # m >= 1 cases
-            for m_val in range(1, n + 1):
-                idx_nm = _tri(n, m_val)
-                c_nm = c_bar[idx_nm]
-                s_nm = s_bar[idx_nm]
-                p_nm = acc_p[idx_nm]
-                q_nm = acc_q[idx_nm]
-                s_nm_coeff = acc_s[idx_nm]
-
-                idx_np1_mp1 = _tri(n + 1, m_val + 1)
-                idx_np1_mm1 = _tri(n + 1, m_val - 1)
-                idx_np1_m = _tri(n + 1, m_val)
-
-                v_mp1 = v[idx_np1_mp1]
-                w_mp1 = w[idx_np1_mp1]
-                v_mm1 = v[idx_np1_mm1]
-                w_mm1 = w[idx_np1_mm1]
-                v_m = v[idx_np1_m]
-                w_m = w[idx_np1_m]
-
-                ax += 0.5 * (
-                    -c_nm * p_nm * v_mp1
-                    - s_nm * p_nm * w_mp1
-                    + q_nm * (c_nm * v_mm1 + s_nm * w_mm1)
-                )
-                ay += 0.5 * (
-                    -c_nm * p_nm * w_mp1
-                    + s_nm * p_nm * v_mp1
-                    + q_nm * (-c_nm * w_mm1 + s_nm * v_mm1)
-                )
-                az += s_nm_coeff * (-c_nm * v_m - s_nm * w_m)
+        ax += float(np.sum(0.5 * (
+            -c * p * v_mp1 - s * p * w_mp1
+            + q * (c * v_mm1 + s * w_mm1)
+        )))
+        ay += float(np.sum(0.5 * (
+            -c * p * w_mp1 + s * p * v_mp1
+            + q * (-c * w_mm1 + s * v_mm1)
+        )))
+        az += float(np.sum(self._s_coeff_m1 * (-c * v_m - s * w_m)))
 
         # Scale by GM / Rₑ²
-        scale = gm / (re * re)
+        scale = m.gm / (re * re)
         ax_ecef = ax * scale
         ay_ecef = ay * scale
         az_ecef = az * scale
