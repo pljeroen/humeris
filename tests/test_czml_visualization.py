@@ -902,3 +902,84 @@ class TestSatNamesVisualization:
         )
         for idx, pkt in enumerate(pkts[1:]):
             assert pkt["name"] == names[idx]
+
+
+# ── CZML Rectangle Coordinate Invariant (CZML-RECT-01) ───────────
+
+
+def _extract_wsen_from_packets(pkts: list[dict]) -> list[tuple[float, float, float, float]]:
+    """Extract all wsenDegrees tuples from CZML packets."""
+    results = []
+    for pkt in pkts:
+        rect = pkt.get("rectangle", {})
+        coords = rect.get("coordinates", {})
+        wsen = coords.get("wsenDegrees")
+        if wsen is not None:
+            results.append(tuple(wsen))
+    return results
+
+
+def _assert_wsen_within_cesium_bounds(
+    wsen_list: list[tuple[float, float, float, float]],
+    label: str,
+) -> None:
+    """Assert all wsenDegrees satisfy Cesium Rectangle invariant.
+
+    Cesium requires: west ∈ [-180, 180], south ∈ [-90, 90],
+    east ∈ [-180, 180], north ∈ [-90, 90], south < north, west < east.
+    """
+    for w, s, e, n in wsen_list:
+        assert -90.0 <= s <= 90.0, (
+            f"{label}: south={s}° out of [-90, 90]"
+        )
+        assert -90.0 <= n <= 90.0, (
+            f"{label}: north={n}° out of [-90, 90]"
+        )
+        assert s < n, f"{label}: south={s}° must be < north={n}°"
+        assert -180.0 <= w <= 180.0, (
+            f"{label}: west={w}° out of [-180, 180]"
+        )
+        assert -180.0 <= e <= 180.0, (
+            f"{label}: east={e}° out of [-180, 180]"
+        )
+        assert w < e, f"{label}: west={w}° must be < east={e}°"
+
+
+class TestCzmlRectangleBoundsInvariant:
+    """All rectangle-emitting CZML functions must produce valid Cesium bounds.
+
+    Cesium Rectangle requires latitude ∈ [-π/2, π/2] (i.e., degrees in [-90, 90]).
+    Bug: grid includes lat=90°, then lat+step=100° → Cesium DeveloperError.
+    """
+
+    def test_coverage_evolution_polar_bounds(self, orbital_states):
+        """coverage_evolution_packets: rectangles at poles stay within [-90, 90]."""
+        pkts = coverage_evolution_packets(
+            orbital_states, EPOCH, timedelta(hours=1), timedelta(minutes=30),
+            lat_step_deg=10.0, lon_step_deg=10.0,
+        )
+        wsen_list = _extract_wsen_from_packets(pkts)
+        assert len(wsen_list) > 0, "Should produce rectangle packets"
+        _assert_wsen_within_cesium_bounds(wsen_list, "coverage_evolution")
+
+    def test_coverage_connectivity_polar_bounds(self, orbital_states):
+        """coverage_connectivity_packets: rectangles at poles stay within [-90, 90]."""
+        pkts = coverage_connectivity_packets(
+            orbital_states, _LINK_CONFIG, EPOCH,
+            duration_s=3600.0, step_s=1800.0,
+            lat_step_deg=10.0, lon_step_deg=10.0,
+        )
+        wsen_list = _extract_wsen_from_packets(pkts)
+        # May have 0 if fiedler * coverage is 0 everywhere
+        if wsen_list:
+            _assert_wsen_within_cesium_bounds(wsen_list, "coverage_connectivity")
+
+    def test_dop_grid_polar_bounds(self, orbital_states):
+        """dop_grid_packets: rectangles at poles stay within [-90, 90]."""
+        pkts = dop_grid_packets(
+            orbital_states, EPOCH,
+            lat_step_deg=10.0, lon_step_deg=10.0,
+        )
+        wsen_list = _extract_wsen_from_packets(pkts)
+        assert len(wsen_list) > 0, "Should produce DOP grid rectangles"
+        _assert_wsen_within_cesium_bounds(wsen_list, "dop_grid")

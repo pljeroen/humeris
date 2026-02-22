@@ -59,6 +59,7 @@ from humeris.adapters.czml_exporter import (
     _PLANE_COLORS,
     _assign_plane_indices,
     _satellite_description,
+    _clamp_wsen_degrees,
     _document_packet,
     _iso,
     _validate_step,
@@ -709,16 +710,15 @@ def coverage_evolution_packets(
                 "rgba": [0, intensity, 0, 180],
             })
 
-        w = lon
-        s_bound = lat
-        e = lon + lon_step_deg
-        n = lat + lat_step_deg
+        wsen = _clamp_wsen_degrees(lon, lat, lon_step_deg, lat_step_deg)
+        if wsen is None:
+            continue
 
         pkt: dict = {
             "id": f"coverage-evo-{cell_idx}",
             "name": f"Coverage ({lat}, {lon})",
             "rectangle": {
-                "coordinates": {"wsenDegrees": [w, s_bound, e, n]},
+                "coordinates": {"wsenDegrees": wsen},
                 "fill": True,
                 "material": {
                     "solidColor": {
@@ -1153,12 +1153,16 @@ def coverage_connectivity_packets(
                 "rgba": [0, intensity, intensity // 2, 180],
             })
 
+        wsen = _clamp_wsen_degrees(lon, lat, lon_step_deg, lat_step_deg)
+        if wsen is None:
+            continue
+
         packets.append({
             "id": f"cov-conn-{cell_idx}",
             "name": f"CovConn ({lat}, {lon})",
             "rectangle": {
                 "coordinates": {
-                    "wsenDegrees": [lon, lat, lon + lon_step_deg, lat + lat_step_deg],
+                    "wsenDegrees": wsen,
                 },
                 "fill": True,
                 "material": {
@@ -1531,16 +1535,15 @@ def dop_grid_packets(
 
         lat = point.lat_deg
         lon = point.lon_deg
-        w = lon
-        s_bound = lat
-        e = lon + lon_step_deg
-        n = lat + lat_step_deg
+        wsen = _clamp_wsen_degrees(lon, lat, lon_step_deg, lat_step_deg)
+        if wsen is None:
+            continue
 
         pkt: dict = {
             "id": f"dop-grid-{cell_idx}",
             "name": f"DOP ({lat:.0f}, {lon:.0f}) GDOP={gdop:.1f}",
             "rectangle": {
-                "coordinates": {"wsenDegrees": [w, s_bound, e, n]},
+                "coordinates": {"wsenDegrees": wsen},
                 "fill": True,
                 "material": {
                     "solidColor": {

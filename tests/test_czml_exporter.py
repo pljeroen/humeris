@@ -189,6 +189,28 @@ class TestCoveragePackets:
             assert w < e, f"W ({w}) must be < E ({e})"
             assert s < n, f"S ({s}) must be < N ({n})"
 
+    def test_coverage_wsen_cesium_bounds(self):
+        """All rectangles must satisfy Cesium bounds: lat ∈ [-90, 90].
+
+        Bug: grid point at lat=90° produces north edge at 100° → Cesium crash.
+        """
+        # Coverage at poles — GPS/MEO constellations have global coverage
+        points = []
+        for lat in range(-90, 91, 10):
+            for lon in range(-180, 180, 10):
+                points.append(CoveragePoint(
+                    lat_deg=float(lat), lon_deg=float(lon), visible_count=5,
+                ))
+        pkts = coverage_packets(points, lat_step_deg=10, lon_step_deg=10)
+        for pkt in pkts[1:]:
+            rect = pkt["rectangle"]
+            wsen = rect["coordinates"]["wsenDegrees"]
+            w, s, e, n = wsen
+            assert -90.0 <= s <= 90.0, f"south={s}° out of [-90, 90]"
+            assert -90.0 <= n <= 90.0, f"north={n}° out of [-90, 90]"
+            assert -180.0 <= w <= 180.0, f"west={w}° out of [-180, 180]"
+            assert -180.0 <= e <= 180.0, f"east={e}° out of [-180, 180]"
+
     def test_coverage_all_zero_no_rectangles(self):
         """All visible_count=0 → document only."""
         points = [

@@ -141,6 +141,28 @@ def _interpolation_degree(num_points: int) -> int:
     return min(5, num_points - 1)
 
 
+def _clamp_wsen_degrees(
+    lon: float,
+    lat: float,
+    lon_step: float,
+    lat_step: float,
+) -> list[float] | None:
+    """Build wsenDegrees clamped to valid Cesium Rectangle bounds.
+
+    Cesium requires: south/north ∈ [-π/2, π/2], i.e. degrees ∈ [-90, 90].
+    Grid edge at lat + lat_step can exceed 90° for polar grid points.
+
+    Returns None for degenerate rectangles (zero area after clamping).
+    """
+    w = max(lon, -180.0)
+    s = max(lat, -90.0)
+    e = min(lon + lon_step, 180.0)
+    n = min(lat + lat_step, 90.0)
+    if s >= n or w >= e:
+        return None
+    return [w, s, e, n]
+
+
 def _document_packet(
     name: str,
     epoch: datetime | None = None,
@@ -362,17 +384,16 @@ def coverage_packets(
 
     for idx, pt in enumerate(nonzero):
         intensity = int(255 * pt.visible_count / max_count)
-        w = pt.lon_deg
-        s = pt.lat_deg
-        e = pt.lon_deg + lon_step_deg
-        n = pt.lat_deg + lat_step_deg
+        wsen = _clamp_wsen_degrees(pt.lon_deg, pt.lat_deg, lon_step_deg, lat_step_deg)
+        if wsen is None:
+            continue
 
         pkt: dict = {
             "id": f"coverage-{idx}",
             "name": f"Coverage ({pt.lat_deg}, {pt.lon_deg})",
             "rectangle": {
                 "coordinates": {
-                    "wsenDegrees": [w, s, e, n],
+                    "wsenDegrees": wsen,
                 },
                 "fill": True,
                 "material": {

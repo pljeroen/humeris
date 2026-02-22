@@ -748,7 +748,7 @@ def generate_interactive_html(
                 </div>
                 <div class="form-row">
                     <label>Source</label>
-                    <select id="analysis-source"></select>
+                    <select id="analysis-source" onchange="onSourceChanged(this.value)"></select>
                 </div>
                 <!-- Analysis parameter fields -->
                 <details>
@@ -912,11 +912,18 @@ def generate_interactive_html(
             var isVisible = tbl.classList.contains("visible");
             btn.style.display = isVisible ? "none" : "";
             if (isVisible && !satTableData) {{
-                // Load table for first constellation layer
-                apiGet("/api/state").then(function(state) {{
-                    var constLayer = state.layers.find(function(l) {{ return l.category === "Constellation"; }});
-                    if (constLayer) loadSatTable(constLayer.layer_id);
-                }});
+                // Load table for current source selection
+                var sourceEl = document.getElementById("analysis-source");
+                if (sourceEl && sourceEl.value) {{
+                    loadSatTable(sourceEl.value);
+                }}
+            }}
+        }}
+
+        function onSourceChanged(layerId) {{
+            var tbl = document.getElementById("satTable");
+            if (tbl.classList.contains("visible") && layerId) {{
+                loadSatTable(layerId);
             }}
         }}
 
