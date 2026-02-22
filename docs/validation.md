@@ -74,19 +74,16 @@ The mirror covers:
 
 ### Stress scenarios
 
-Four of the eight GMAT stress test scenarios are mirrored with physical
-regime validation (no golden GMAT data — correctness is verified by
-orbital mechanics invariants):
+All six GMAT stress test scenarios are mirrored with physical regime
+validation (no golden GMAT data — correctness is verified by orbital
+mechanics invariants):
 
 - `stress_rk4_energy_drift` — point-mass energy conservation (SMA=8000 km, ECC=0.15, 7 days)
 - `stress_drag_decay_vleo` — VLEO drag decay with NRLMSISE-00 (SMA=6778 km, F10.7=175, 7 days)
 - `stress_srp_geo_long_duration` — GEO with SRP + Sun/Moon third-body (SMA=42164 km, 60 days)
 - `stress_molniya_thirdbody` — highly eccentric orbit with J2/SRP/third-body (ECC=0.74, 30 days)
-
-Two scenarios are deferred pending higher-degree gravity model support:
-
-- `stress_high_gravity_leo` — requires spherical harmonic degree 70
-- `stress_sun_synch_full_fidelity` — requires spherical harmonic degree 50
+- `stress_high_gravity_leo` — EGM96 degree 70 via CunninghamGravity (SMA=6628 km, 14 days)
+- `stress_sun_synch_full_fidelity` — EGM96 degree 50 + drag + SRP + Sun/Moon (SMA=7078 km, 30 days)
 
 Additional artifacts per run:
 

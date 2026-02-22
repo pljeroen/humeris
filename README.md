@@ -1,6 +1,6 @@
 # Humeris
 
-[![Version](https://img.shields.io/badge/version-1.28.4-blue.svg)](packages/core/pyproject.toml) [![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](packages/core/pyproject.toml) [![Tests](https://img.shields.io/badge/tests-3684_passing-brightgreen.svg)](tests/) [![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE) [![License](https://img.shields.io/badge/license-Commercial_(pro)-red.svg)](COMMERCIAL-LICENSE.md) [![Architecture](https://img.shields.io/badge/architecture-hexagonal-purple.svg)](docs/architecture.md)
+[![Version](https://img.shields.io/badge/version-1.28.4-blue.svg)](packages/core/pyproject.toml) [![Python](https://img.shields.io/badge/python-3.11_%7C_3.12_%7C_3.13-blue.svg)](packages/core/pyproject.toml) [![Tests](https://img.shields.io/badge/tests-3696_passing-brightgreen.svg)](tests/) [![License](https://img.shields.io/badge/license-MIT_(core)-green.svg)](LICENSE) [![License](https://img.shields.io/badge/license-Commercial_(pro)-red.svg)](COMMERCIAL-LICENSE.md) [![Architecture](https://img.shields.io/badge/architecture-hexagonal-purple.svg)](docs/architecture.md)
 
 A Python library for satellite constellation analysis — from generating
 Walker shells to propagating orbits, screening conjunctions, and
