@@ -23,10 +23,12 @@ from humeris.domain.propagation import OrbitalState
 from humeris.domain.numerical_propagation import (
     J2Perturbation,
     SolarRadiationPressureForce,
+    SphericalHarmonicGravity,
     TwoBodyGravity,
     propagate_numerical,
 )
 from humeris.domain.orbit_properties import state_vector_to_elements
+from humeris.domain.nrlmsise00 import NRLMSISE00DragForce, SpaceWeather
 from humeris.domain.third_body import LunarThirdBodyForce, SolarThirdBodyForce
 
 
@@ -115,6 +117,7 @@ def _elements(pos: tuple[float, float, float], vel: tuple[float, float, float]) 
         "ecc": float(out["eccentricity"]),
         "inc_deg": float(out["inclination_deg"]),
         "raan_deg": float(out["raan_deg"]),
+        "aop_deg": float(out["arg_perigee_deg"]),
     }
 
 
@@ -252,6 +255,154 @@ def run_humeris_mirror() -> dict[str, dict[str, float]]:
         "elapsedDays": 120.0,
         "forceModels": [type(force).__name__ for force in suncentric_forces],
     }
+    return out
+
+
+def run_stress_mirrors() -> dict[str, dict[str, Any]]:
+    """Run stress-scenario mirrors and return per-case metrics.
+
+    Mirrors four of the eight GMAT stress scenarios:
+      - stress_rk4_energy_drift: point-mass energy conservation (7 days)
+      - stress_drag_decay_vleo: VLEO with NRLMSISE-00 drag (7 days)
+      - stress_srp_geo_long_duration: GEO with SRP + third-body (60 days)
+      - stress_molniya_thirdbody: Molniya with J2/SRP/third-body (30 days)
+
+    Deferred (require SphericalHarmonicGravity degree > 8):
+      - stress_high_gravity_leo (needs degree 70)
+      - stress_sun_synch_full_fidelity (needs degree 50)
+    """
+    out: dict[str, dict[str, Any]] = {}
+    r_earth_km = OrbitalConstants.R_EARTH_EQUATORIAL / 1000.0
+
+    # S1: Point-mass energy conservation (GMAT: RK89, point mass, 7 days)
+    s1_epoch = datetime(2024, 1, 1, 0, 0, 0, tzinfo=_UTC)
+    s1_state = _build_state(
+        sma_km=8000.0, ecc=0.15, inc_deg=28.5,
+        raan_deg=40.0, aop_deg=10.0, ta_deg=0.0,
+        epoch=s1_epoch,
+    )
+    s1 = propagate_numerical(
+        initial_state=s1_state,
+        duration=timedelta(days=7.0),
+        step=timedelta(seconds=30.0),
+        force_models=[TwoBodyGravity()],
+        integrator="dormand_prince",
+    )
+    s1_start, s1_end = s1.steps[0], s1.steps[-1]
+    s1e0 = _elements(s1_start.position_eci, s1_start.velocity_eci)
+    s1e1 = _elements(s1_end.position_eci, s1_end.velocity_eci)
+    out["stress_rk4_energy_drift"] = {
+        "startSMA": s1e0["sma_km"],
+        "startECC": s1e0["ecc"],
+        "endSMA": s1e1["sma_km"],
+        "endECC": s1e1["ecc"],
+        "relativeEnergyDrift": s1.relative_energy_drift,
+        "elapsedDays": 7.0,
+    }
+
+    # S2: VLEO drag decay (GMAT: PD78, EGM96 8x8 + MSISE90, 7 days)
+    s2_epoch = datetime(2024, 1, 1, 0, 0, 0, tzinfo=_UTC)
+    s2_state = _build_state(
+        sma_km=6778.137, ecc=0.001, inc_deg=51.6,
+        raan_deg=40.0, aop_deg=10.0, ta_deg=0.0,
+        epoch=s2_epoch,
+    )
+    sw = SpaceWeather(f107_daily=175.0, f107_average=175.0, ap_daily=4.0)
+    # SphericalHarmonicGravity includes central body term — no TwoBodyGravity
+    s2_forces = [
+        SphericalHarmonicGravity(max_degree=8),
+        NRLMSISE00DragForce(cd=2.2, area_m2=20.0, mass_kg=1000.0, space_weather=sw),
+    ]
+    s2 = propagate_numerical(
+        initial_state=s2_state,
+        duration=timedelta(days=7.0),
+        step=timedelta(seconds=30.0),
+        force_models=s2_forces,
+        integrator="dormand_prince",
+    )
+    s2_start, s2_end = s2.steps[0], s2.steps[-1]
+    s2e0 = _elements(s2_start.position_eci, s2_start.velocity_eci)
+    s2e1 = _elements(s2_end.position_eci, s2_end.velocity_eci)
+    out["stress_drag_decay_vleo"] = {
+        "startSMA": s2e0["sma_km"],
+        "startECC": s2e0["ecc"],
+        "startAltKm": s2e0["sma_km"] - r_earth_km,
+        "endSMA": s2e1["sma_km"],
+        "endECC": s2e1["ecc"],
+        "endAltKm": s2e1["sma_km"] - r_earth_km,
+        "elapsedDays": 7.0,
+    }
+
+    # S3: GEO SRP + third-body (GMAT: PD78, JGM2 4x4 + SRP + Sun/Moon, 60 days)
+    s3_epoch = datetime(2024, 1, 1, 0, 0, 0, tzinfo=_UTC)
+    s3_state = _build_state(
+        sma_km=42164.0, ecc=0.0001, inc_deg=0.05,
+        raan_deg=0.0, aop_deg=0.0, ta_deg=0.0,
+        epoch=s3_epoch,
+    )
+    # SphericalHarmonicGravity includes central body term — no TwoBodyGravity
+    s3_forces = [
+        SphericalHarmonicGravity(max_degree=4),
+        SolarRadiationPressureForce(cr=1.4, area_m2=30.0, mass_kg=2000.0),
+        SolarThirdBodyForce(),
+        LunarThirdBodyForce(),
+    ]
+    s3 = propagate_numerical(
+        initial_state=s3_state,
+        duration=timedelta(days=60.0),
+        step=timedelta(seconds=60.0),
+        force_models=s3_forces,
+        integrator="dormand_prince",
+    )
+    s3_start, s3_end = s3.steps[0], s3.steps[-1]
+    s3e0 = _elements(s3_start.position_eci, s3_start.velocity_eci)
+    s3e1 = _elements(s3_end.position_eci, s3_end.velocity_eci)
+    out["stress_srp_geo_long_duration"] = {
+        "startSMA": s3e0["sma_km"],
+        "startECC": s3e0["ecc"],
+        "endSMA": s3e1["sma_km"],
+        "endECC": s3e1["ecc"],
+        "elapsedDays": 60.0,
+        "forceModels": [type(f).__name__ for f in s3_forces],
+    }
+
+    # S5: Molniya third-body (GMAT: RK89, EGM96 8x8 + SRP + Sun/Moon, 30 days)
+    s5_epoch = datetime(2024, 1, 1, 0, 0, 0, tzinfo=_UTC)
+    s5_state = _build_state(
+        sma_km=26560.0, ecc=0.74, inc_deg=63.4,
+        raan_deg=90.0, aop_deg=270.0, ta_deg=0.0,
+        epoch=s5_epoch,
+    )
+    # SphericalHarmonicGravity includes central body term — no TwoBodyGravity
+    s5_forces = [
+        SphericalHarmonicGravity(max_degree=8),
+        SolarRadiationPressureForce(cr=1.2, area_m2=10.0, mass_kg=1500.0),
+        SolarThirdBodyForce(),
+        LunarThirdBodyForce(),
+    ]
+    s5 = propagate_numerical(
+        initial_state=s5_state,
+        duration=timedelta(days=30.0),
+        step=timedelta(seconds=60.0),
+        force_models=s5_forces,
+        integrator="dormand_prince",
+    )
+    s5_start, s5_end = s5.steps[0], s5.steps[-1]
+    s5e0 = _elements(s5_start.position_eci, s5_start.velocity_eci)
+    s5e1 = _elements(s5_end.position_eci, s5_end.velocity_eci)
+    out["stress_molniya_thirdbody"] = {
+        "startSMA": s5e0["sma_km"],
+        "startECC": s5e0["ecc"],
+        "startAOP": s5e0["aop_deg"],
+        "startRAAN": s5e0["raan_deg"],
+        "endSMA": s5e1["sma_km"],
+        "endECC": s5e1["ecc"],
+        "endAOP": s5e1["aop_deg"],
+        "endRAAN": s5e1["raan_deg"],
+        "elapsedDays": 30.0,
+        "forceModels": [type(f).__name__ for f in s5_forces],
+    }
+
     return out
 
 
