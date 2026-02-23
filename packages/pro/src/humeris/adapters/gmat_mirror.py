@@ -282,12 +282,13 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         raan_deg=40.0, aop_deg=10.0, ta_deg=0.0,
         epoch=s1_epoch,
     )
+    s1_integrator = "rk89"  # GMAT: RungeKutta89
     s1 = propagate_numerical(
         initial_state=s1_state,
         duration=timedelta(days=7.0),
         step=timedelta(seconds=30.0),
         force_models=[TwoBodyGravity()],
-        integrator="dormand_prince",
+        integrator=s1_integrator,
     )
     s1_start, s1_end = s1.steps[0], s1.steps[-1]
     s1e0 = _elements(s1_start.position_eci, s1_start.velocity_eci)
@@ -299,6 +300,7 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         "endECC": s1e1["ecc"],
         "relativeEnergyDrift": s1.relative_energy_drift,
         "elapsedDays": 7.0,
+        "integrator": s1_integrator,
     }
 
     # S2: VLEO drag decay (GMAT: PD78, EGM96 8x8 + MSISE90, 7 days)
@@ -314,12 +316,13 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         SphericalHarmonicGravity(max_degree=8),
         NRLMSISE00DragForce(cd=2.2, area_m2=20.0, mass_kg=1000.0, space_weather=sw),
     ]
+    s2_integrator = "dormand_prince"  # GMAT: PrinceDormand78
     s2 = propagate_numerical(
         initial_state=s2_state,
         duration=timedelta(days=7.0),
         step=timedelta(seconds=30.0),
         force_models=s2_forces,
-        integrator="dormand_prince",
+        integrator=s2_integrator,
     )
     s2_start, s2_end = s2.steps[0], s2.steps[-1]
     s2e0 = _elements(s2_start.position_eci, s2_start.velocity_eci)
@@ -332,6 +335,7 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         "endECC": s2e1["ecc"],
         "endAltKm": s2e1["sma_km"] - r_earth_km,
         "elapsedDays": 7.0,
+        "integrator": s2_integrator,
     }
 
     # S3: GEO SRP + third-body (GMAT: PD78, JGM2 4x4 + SRP + Sun/Moon, 60 days)
@@ -348,12 +352,13 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         SolarThirdBodyForce(),
         LunarThirdBodyForce(),
     ]
+    s3_integrator = "dormand_prince"  # GMAT: PrinceDormand78
     s3 = propagate_numerical(
         initial_state=s3_state,
         duration=timedelta(days=60.0),
         step=timedelta(seconds=60.0),
         force_models=s3_forces,
-        integrator="dormand_prince",
+        integrator=s3_integrator,
     )
     s3_start, s3_end = s3.steps[0], s3.steps[-1]
     s3e0 = _elements(s3_start.position_eci, s3_start.velocity_eci)
@@ -365,6 +370,7 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         "endECC": s3e1["ecc"],
         "elapsedDays": 60.0,
         "forceModels": [type(f).__name__ for f in s3_forces],
+        "integrator": s3_integrator,
     }
 
     # S5: Molniya third-body (GMAT: RK89, EGM96 8x8 + SRP + Sun/Moon, 30 days)
@@ -381,12 +387,13 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         SolarThirdBodyForce(),
         LunarThirdBodyForce(),
     ]
+    s5_integrator = "rk89"  # GMAT: RungeKutta89
     s5 = propagate_numerical(
         initial_state=s5_state,
         duration=timedelta(days=30.0),
         step=timedelta(seconds=60.0),
         force_models=s5_forces,
-        integrator="dormand_prince",
+        integrator=s5_integrator,
     )
     s5_start, s5_end = s5.steps[0], s5.steps[-1]
     s5e0 = _elements(s5_start.position_eci, s5_start.velocity_eci)
@@ -402,6 +409,7 @@ def run_stress_mirrors() -> dict[str, dict[str, Any]]:
         "endRAAN": s5e1["raan_deg"],
         "elapsedDays": 30.0,
         "forceModels": [type(f).__name__ for f in s5_forces],
+        "integrator": s5_integrator,
     }
 
     return out
@@ -432,12 +440,13 @@ def run_high_degree_stress_mirrors() -> dict[str, dict[str, Any]]:
         TwoBodyGravity(),
         CunninghamGravity(gf70),
     ]
+    s3_integrator = "dormand_prince"  # GMAT: PrinceDormand78
     s3 = propagate_numerical(
         initial_state=s3_state,
         duration=timedelta(days=14.0),
         step=timedelta(seconds=30.0),
         force_models=s3_forces,
-        integrator="dormand_prince",
+        integrator=s3_integrator,
     )
     s3_start, s3_end = s3.steps[0], s3.steps[-1]
     s3e0 = _elements(s3_start.position_eci, s3_start.velocity_eci)
@@ -451,6 +460,7 @@ def run_high_degree_stress_mirrors() -> dict[str, dict[str, Any]]:
         "endAOP": s3e1["aop_deg"],
         "elapsedDays": 14.0,
         "forceModels": [type(f).__name__ for f in s3_forces],
+        "integrator": s3_integrator,
     }
 
     # S6: Sun-synch full fidelity (GMAT: RK89, EGM96 50×50 + MSISE90 + SRP + Sun/Moon, 30 days)
@@ -470,12 +480,13 @@ def run_high_degree_stress_mirrors() -> dict[str, dict[str, Any]]:
         SolarThirdBodyForce(),
         LunarThirdBodyForce(),
     ]
+    s6_integrator = "rk89"  # GMAT: RungeKutta89
     s6 = propagate_numerical(
         initial_state=s6_state,
         duration=timedelta(days=30.0),
         step=timedelta(seconds=30.0),
         force_models=s6_forces,
-        integrator="dormand_prince",
+        integrator=s6_integrator,
     )
     s6_start, s6_end = s6.steps[0], s6.steps[-1]
     s6e0 = _elements(s6_start.position_eci, s6_start.velocity_eci)
@@ -489,6 +500,7 @@ def run_high_degree_stress_mirrors() -> dict[str, dict[str, Any]]:
         "endRAAN": s6e1["raan_deg"],
         "endAltKm": s6e1["sma_km"] - r_earth_km,
         "elapsedDays": 30.0,
+        "integrator": s6_integrator,
         "forceModels": [type(f).__name__ for f in s6_forces],
     }
 

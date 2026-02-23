@@ -650,13 +650,13 @@ def propagate_numerical(
         step: Integration time step.
         force_models: List of force models to sum.
         epoch: Override epoch (defaults to initial_state.reference_epoch).
-        integrator: Integration method — "rk4", "verlet", "yoshida", or "dormand_prince".
+        integrator: Integration method — "rk4", "verlet", "yoshida", "dormand_prince", or "rk89".
     """
     # Import here to avoid circular import at module level
     from humeris.domain.propagation import OrbitalState as _OS
 
-    if integrator not in ("rk4", "verlet", "yoshida", "dormand_prince"):
-        raise ValueError(f"Unknown integrator: {integrator!r}. Use 'rk4', 'verlet', 'yoshida', or 'dormand_prince'.")
+    if integrator not in ("rk4", "verlet", "yoshida", "dormand_prince", "rk89"):
+        raise ValueError(f"Unknown integrator: {integrator!r}. Use 'rk4', 'verlet', 'yoshida', 'dormand_prince', or 'rk89'.")
 
     if integrator == "dormand_prince":
         from humeris.domain.adaptive_integration import (
@@ -709,6 +709,59 @@ def propagate_numerical(
             final_energy_j_kg=dp_final_energy,
             max_energy_drift_j_kg=dp_max_drift,
             relative_energy_drift=dp_relative_drift,
+        )
+
+    if integrator == "rk89":
+        from humeris.domain.adaptive_integration import (
+            propagate_rk89_adaptive,
+            AdaptiveStepConfig,
+        )
+        ref_epoch_rk89 = epoch if epoch is not None else initial_state.reference_epoch
+        rk89_result = propagate_rk89_adaptive(
+            initial_state=initial_state,
+            duration=duration,
+            force_models=force_models,
+            epoch=ref_epoch_rk89,
+            output_step_s=step.total_seconds(),
+        )
+        rk89_steps = rk89_result.steps
+        if rk89_steps:
+            rk89_positions = np.array([(s.position_eci[0], s.position_eci[1], s.position_eci[2]) for s in rk89_steps])
+            rk89_velocities = np.array([(s.velocity_eci[0], s.velocity_eci[1], s.velocity_eci[2]) for s in rk89_steps])
+            rk89_r = np.sqrt(np.sum(rk89_positions**2, axis=1))
+            rk89_v = np.sqrt(np.sum(rk89_velocities**2, axis=1))
+            rk89_energies = 0.5 * rk89_v**2 - OrbitalConstants.MU_EARTH / rk89_r
+
+            rk89_steps_with_energy = tuple(
+                PropagationStep(
+                    time=s.time,
+                    position_eci=s.position_eci,
+                    velocity_eci=s.velocity_eci,
+                    specific_energy_j_kg=float(rk89_energies[i]),
+                )
+                for i, s in enumerate(rk89_steps)
+            )
+            rk89_initial_energy = float(rk89_energies[0])
+            rk89_final_energy = float(rk89_energies[-1])
+            rk89_drift = np.abs(rk89_energies - rk89_initial_energy)
+            rk89_max_drift = float(np.max(rk89_drift))
+            rk89_relative_drift = abs(rk89_max_drift / rk89_initial_energy) if rk89_initial_energy != 0.0 else 0.0
+        else:
+            rk89_steps_with_energy = rk89_steps
+            rk89_initial_energy = 0.0
+            rk89_final_energy = 0.0
+            rk89_max_drift = 0.0
+            rk89_relative_drift = 0.0
+
+        return NumericalPropagationResult(
+            steps=rk89_steps_with_energy,
+            epoch=rk89_result.epoch,
+            duration_s=rk89_result.duration_s,
+            force_model_names=rk89_result.force_model_names,
+            initial_energy_j_kg=rk89_initial_energy,
+            final_energy_j_kg=rk89_final_energy,
+            max_energy_drift_j_kg=rk89_max_drift,
+            relative_energy_drift=rk89_relative_drift,
         )
 
     ref_epoch = epoch if epoch is not None else initial_state.reference_epoch

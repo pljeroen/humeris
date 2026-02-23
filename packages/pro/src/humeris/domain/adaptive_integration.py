@@ -78,6 +78,164 @@ _DORMAND_PRINCE_E: tuple[float, ...] = tuple(
 )
 
 
+# --- Verner RK8(9) Butcher tableau (16 stages) ---
+# Source: Verner 1978, SIAM J. Numer. Anal. 15(4).
+# Coefficients match GMAT's RungeKutta89.cpp (SetCoefficients).
+
+_RT6 = math.sqrt(6.0)
+
+RK89_C: tuple[float, ...] = (
+    0.0,
+    1.0 / 12.0,
+    1.0 / 9.0,
+    1.0 / 6.0,
+    (2.0 + 2.0 * _RT6) / 15.0,
+    (6.0 + _RT6) / 15.0,
+    (6.0 - _RT6) / 15.0,
+    2.0 / 3.0,
+    1.0 / 2.0,
+    1.0 / 3.0,
+    1.0 / 4.0,
+    4.0 / 3.0,
+    5.0 / 6.0,
+    1.0,
+    1.0 / 6.0,
+    1.0,
+)
+
+RK89_A: tuple[tuple[float, ...], ...] = (
+    (),
+    (1.0 / 12.0,),
+    (1.0 / 27.0, 2.0 / 27.0),
+    (1.0 / 24.0, 0.0, 1.0 / 8.0),
+    (
+        (4.0 + 94.0 * _RT6) / 375.0, 0.0,
+        (-94.0 - 84.0 * _RT6) / 125.0,
+        (328.0 + 208.0 * _RT6) / 375.0,
+    ),
+    (
+        (9.0 - _RT6) / 150.0, 0.0, 0.0,
+        (312.0 + 32.0 * _RT6) / 1425.0,
+        (69.0 + 29.0 * _RT6) / 570.0,
+    ),
+    (
+        (927.0 - 347.0 * _RT6) / 1250.0, 0.0, 0.0,
+        (-16248.0 + 7328.0 * _RT6) / 9375.0,
+        (-489.0 + 179.0 * _RT6) / 3750.0,
+        (14268.0 - 5798.0 * _RT6) / 9375.0,
+    ),
+    (
+        2.0 / 27.0, 0.0, 0.0, 0.0, 0.0,
+        (16.0 - _RT6) / 54.0,
+        (16.0 + _RT6) / 54.0,
+    ),
+    (
+        19.0 / 256.0, 0.0, 0.0, 0.0, 0.0,
+        (118.0 - 23.0 * _RT6) / 512.0,
+        (118.0 + 23.0 * _RT6) / 512.0,
+        -9.0 / 256.0,
+    ),
+    (
+        11.0 / 144.0, 0.0, 0.0, 0.0, 0.0,
+        (266.0 - _RT6) / 864.0,
+        (266.0 + _RT6) / 864.0,
+        -1.0 / 16.0,
+        -8.0 / 27.0,
+    ),
+    (
+        (5034.0 - 271.0 * _RT6) / 61440.0, 0.0, 0.0, 0.0, 0.0,
+        0.0,
+        (7859.0 - 1626.0 * _RT6) / 10240.0,
+        (-2232.0 + 813.0 * _RT6) / 20480.0,
+        (-594.0 + 271.0 * _RT6) / 960.0,
+        (657.0 - 813.0 * _RT6) / 5120.0,
+    ),
+    (
+        (5996.0 - 3794.0 * _RT6) / 405.0, 0.0, 0.0, 0.0, 0.0,
+        (-4342.0 - 338.0 * _RT6) / 9.0,
+        (154922.0 - 40458.0 * _RT6) / 135.0,
+        (-4176.0 + 3794.0 * _RT6) / 45.0,
+        (-340864.0 + 242816.0 * _RT6) / 405.0,
+        (26304.0 - 15176.0 * _RT6) / 45.0,
+        -26624.0 / 81.0,
+    ),
+    (
+        (3793.0 + 2168.0 * _RT6) / 103680.0, 0.0, 0.0, 0.0, 0.0,
+        (4042.0 + 2263.0 * _RT6) / 13824.0,
+        (-231278.0 + 40717.0 * _RT6) / 69120.0,
+        (7947.0 - 2168.0 * _RT6) / 11520.0,
+        (1048.0 - 542.0 * _RT6) / 405.0,
+        (-1383.0 + 542.0 * _RT6) / 720.0,
+        2624.0 / 1053.0,
+        3.0 / 1664.0,
+    ),
+    (
+        -137.0 / 1296.0, 0.0, 0.0, 0.0, 0.0,
+        (5642.0 - 337.0 * _RT6) / 864.0,
+        (5642.0 + 337.0 * _RT6) / 864.0,
+        -299.0 / 48.0,
+        184.0 / 81.0,
+        -44.0 / 9.0,
+        -5120.0 / 1053.0,
+        -11.0 / 468.0,
+        16.0 / 9.0,
+    ),
+    (
+        (33617.0 - 2168.0 * _RT6) / 518400.0, 0.0, 0.0, 0.0, 0.0,
+        (-3846.0 + 31.0 * _RT6) / 13824.0,
+        (155338.0 - 52807.0 * _RT6) / 345600.0,
+        (-12537.0 + 2168.0 * _RT6) / 57600.0,
+        (92.0 + 542.0 * _RT6) / 2025.0,
+        (-1797.0 - 542.0 * _RT6) / 3600.0,
+        320.0 / 567.0,
+        -1.0 / 1920.0,
+        4.0 / 105.0,
+        0.0,
+    ),
+    (
+        (-36487.0 - 30352.0 * _RT6) / 279600.0, 0.0, 0.0, 0.0, 0.0,
+        (-29666.0 - 4499.0 * _RT6) / 7456.0,
+        (2779182.0 - 615973.0 * _RT6) / 186400.0,
+        (-94329.0 + 91056.0 * _RT6) / 93200.0,
+        (-232192.0 + 121408.0 * _RT6) / 17475.0,
+        (101226.0 - 22764.0 * _RT6) / 5825.0,
+        -169984.0 / 9087.0,
+        -87.0 / 30290.0,
+        492.0 / 1165.0,
+        0.0,
+        1260.0 / 233.0,
+    ),
+)
+
+# 8th-order solution weights
+RK89_B8: tuple[float, ...] = (
+    23.0 / 525.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    171.0 / 1400.0,
+    86.0 / 525.0,
+    93.0 / 280.0,
+    -2048.0 / 6825.0,
+    -3.0 / 18200.0,
+    39.0 / 175.0,
+    0.0,
+    9.0 / 25.0,
+    233.0 / 4200.0,
+)
+
+# Error estimation weights (difference between 8th and 9th order solutions)
+RK89_EE: tuple[float, ...] = (
+    -7.0 / 400.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    63.0 / 200.0,
+    -14.0 / 25.0,
+    21.0 / 20.0,
+    -1024.0 / 975.0,
+    -21.0 / 36400.0,
+    -3.0 / 25.0,
+    -9.0 / 280.0,
+    9.0 / 25.0,
+    233.0 / 4200.0,
+)
+
+
 # --- Types ---
 
 @dataclass(frozen=True)
@@ -201,6 +359,113 @@ def dormand_prince_step(
     """
     _, y_new, k7 = _dp_full_step(t, y, h, deriv_fn, k1_in)
     return (t + h, y_new, k7)
+
+
+# --- Verner RK8(9) core computational kernel ---
+
+def _rk89_full_step(
+    t: float,
+    y: tuple[float, ...],
+    h: float,
+    deriv_fn: Callable[[float, tuple[float, ...]], tuple[float, ...]],
+    k1_in: tuple[float, ...] | None = None,
+) -> tuple[
+    tuple[tuple[float, ...], ...],
+    tuple[float, ...],
+    tuple[float, ...],
+]:
+    """Compute all 16 Verner RK8(9) stages and the 8th-order solution.
+
+    Returns:
+        (k_stages, y_new, k16) where k_stages is a 16-tuple of derivative
+        evaluations, y_new is the 8th-order solution, and k16 is the last
+        stage derivative at y_new.
+    """
+    y_arr = np.array(y)
+
+    # Stage 1
+    k1 = k1_in if k1_in is not None else deriv_fn(t, y)
+    k = [np.array(k1)]
+
+    # Stages 2-16
+    for i in range(1, 16):
+        row = RK89_A[i]
+        s = np.zeros_like(y_arr)
+        for j, a_ij in enumerate(row):
+            if a_ij != 0.0:
+                s += a_ij * k[j]
+        y_stage = tuple(float(v) for v in y_arr + h * s)
+        ki = deriv_fn(t + RK89_C[i] * h, y_stage)
+        k.append(np.array(ki))
+
+    # 8th-order solution
+    y_new_arr = y_arr.copy()
+    for i, b in enumerate(RK89_B8):
+        if b != 0.0:
+            y_new_arr += h * b * k[i]
+    y_new = tuple(float(v) for v in y_new_arr)
+
+    k_tuples = tuple(tuple(float(v) for v in ki) for ki in k)
+    return (k_tuples, y_new, k_tuples[-1])
+
+
+def rk89_step(
+    t: float,
+    y: tuple[float, ...],
+    h: float,
+    deriv_fn: Callable[[float, tuple[float, ...]], tuple[float, ...]],
+) -> tuple[float, tuple[float, ...], tuple[float, ...]]:
+    """Single Verner RK8(9) step.
+
+    Verner RK8(9) is NOT FSAL — k1 is always computed fresh.
+
+    Args:
+        t: Current time (seconds).
+        y: Current state vector.
+        h: Step size (seconds).
+        deriv_fn: Derivative function f(t, y) -> dy/dt.
+
+    Returns:
+        (t_new, y8_new, k16) where y8_new is the 8th-order solution and
+        k16 is the 16th stage evaluation.
+    """
+    _, y_new, k16 = _rk89_full_step(t, y, h, deriv_fn)
+    return (t + h, y_new, k16)
+
+
+def _rk89_error_norm(
+    y: tuple[float, ...],
+    y_new: tuple[float, ...],
+    k_stages: tuple[tuple[float, ...], ...],
+    h: float,
+    atol: float,
+    rtol: float,
+) -> float:
+    """Compute weighted RMS error norm for RK8(9) step-size control."""
+    n = len(y)
+    e_weights = np.array(RK89_EE)
+    k_arr = np.array(k_stages)  # shape (16, n)
+    y_arr = np.array(y)
+    y_new_arr = np.array(y_new)
+
+    e_vec = h * (e_weights @ k_arr)
+    sc_vec = atol + rtol * np.maximum(np.abs(y_arr), np.abs(y_new_arr))
+    sum_sq = float(np.sum((e_vec / sc_vec) ** 2))
+
+    return float(np.sqrt(sum_sq / n))
+
+
+def _rk89_new_step_size(
+    h_try: float, err: float, safety: float, h_min: float, h_max: float,
+) -> float:
+    """Compute new step size for RK8(9) using PI controller.
+
+    Uses -1/9 exponent for 8th-order method (vs -1/5 for DP45).
+    """
+    if err < 1e-30:
+        return h_max
+    h_new = h_try * min(5.0, max(0.2, safety * err ** (-1.0 / 9.0)))
+    return max(h_min, min(h_new, h_max))
 
 
 # --- Error estimation ---
@@ -454,6 +719,181 @@ def propagate_adaptive(
             else:
                 rejected_steps += 1
                 h = _new_step_size(h_try, err, safety, config.h_min, config.h_max)
+
+    return AdaptiveStepResult(
+        steps=tuple(steps_list),
+        epoch=ref_epoch,
+        duration_s=duration_s,
+        force_model_names=model_names,
+        total_steps=total_steps,
+        rejected_steps=rejected_steps,
+    )
+
+
+def propagate_rk89_adaptive(
+    initial_state: "object",
+    duration: timedelta,
+    force_models: list[ForceModel],
+    epoch: datetime | None = None,
+    config: AdaptiveStepConfig | None = None,
+    output_step_s: float | None = None,
+) -> AdaptiveStepResult:
+    """Adaptive Verner RK8(9) numerical propagation.
+
+    Higher-order embedded pair (8th/9th) for tighter error control than
+    Dormand-Prince RK4(5). 16 stages per step, but accepts larger steps.
+
+    Args:
+        initial_state: OrbitalState-like object with Keplerian elements.
+        duration: Total propagation duration (negative for backward).
+        force_models: List of ForceModel instances to sum.
+        epoch: Override epoch (defaults to initial_state.reference_epoch).
+        config: Adaptive step-size configuration.
+        output_step_s: If set, produces evenly-spaced output via dense output.
+
+    Returns:
+        AdaptiveStepResult with propagation trajectory and metadata.
+    """
+    if config is None:
+        config = AdaptiveStepConfig()
+
+    ref_epoch = epoch if epoch is not None else initial_state.reference_epoch  # type: ignore[attr-defined]
+    duration_s = duration.total_seconds()
+
+    pos_list, vel_list = kepler_to_cartesian(
+        a=initial_state.semi_major_axis_m,  # type: ignore[attr-defined]
+        e=initial_state.eccentricity,  # type: ignore[attr-defined]
+        i_rad=initial_state.inclination_rad,  # type: ignore[attr-defined]
+        omega_big_rad=initial_state.raan_rad,  # type: ignore[attr-defined]
+        omega_small_rad=initial_state.arg_perigee_rad,  # type: ignore[attr-defined]
+        nu_rad=initial_state.true_anomaly_rad,  # type: ignore[attr-defined]
+    )
+    state: tuple[float, ...] = (
+        pos_list[0], pos_list[1], pos_list[2],
+        vel_list[0], vel_list[1], vel_list[2],
+    )
+
+    model_names = tuple(type(fm).__name__ for fm in force_models)
+
+    def deriv_fn(t_s: float, sv: tuple[float, ...]) -> tuple[float, ...]:
+        current_epoch = ref_epoch + timedelta(seconds=t_s)
+        p = (sv[0], sv[1], sv[2])
+        v = (sv[3], sv[4], sv[5])
+        ax_total, ay_total, az_total = 0.0, 0.0, 0.0
+        for fm in force_models:
+            ax, ay, az = fm.acceleration(current_epoch, p, v)
+            ax_total += ax
+            ay_total += ay
+            az_total += az
+        return (v[0], v[1], v[2], ax_total, ay_total, az_total)
+
+    sign = 1.0 if duration_s >= 0.0 else -1.0
+    t_end = abs(duration_s)
+
+    t = 0.0
+    h = min(config.h_init, config.h_max)
+    h = max(h, config.h_min)
+
+    total_steps = 0
+    rejected_steps = 0
+    safety = config.safety_factor
+
+    # NOTE: Verner RK8(9) is NOT FSAL — the last stage does not coincide
+    # with the solution, so k1 must be computed fresh at each step.
+
+    steps_list: list[PropagationStep] = []
+
+    if output_step_s is not None:
+        output_dt = abs(output_step_s)
+        output_times: list[float] = []
+        t_out_acc = 0.0
+        while t_out_acc <= t_end + 1e-12:
+            output_times.append(t_out_acc)
+            t_out_acc += output_dt
+        if abs(output_times[-1] - t_end) > 1e-6:
+            output_times.append(t_end)
+        out_idx = 0
+
+        prev_t = t
+        prev_state = state
+        prev_deriv = deriv_fn(sign * t, state)
+
+        while t < t_end - 1e-12 and total_steps < config.max_steps:
+            h_try = min(h, t_end - t)
+            h_try = max(h_try, config.h_min)
+
+            k_stages, y_new, _ = _rk89_full_step(
+                sign * t, state, sign * h_try, deriv_fn,
+            )
+            err = _rk89_error_norm(state, y_new, k_stages, sign * h_try, config.atol, config.rtol)
+
+            if err <= 1.0:
+                prev_t = t
+                prev_state = state
+                prev_deriv = k_stages[0]  # k1 at the old state
+
+                t += h_try
+                state = y_new
+                new_deriv = deriv_fn(sign * t, state)
+                total_steps += 1
+
+                while out_idx < len(output_times) and output_times[out_idx] <= t + 1e-12:
+                    t_out_val = output_times[out_idx]
+                    if abs(t_out_val - t) < 1e-12:
+                        interp_state = state
+                    elif abs(t_out_val - prev_t) < 1e-12:
+                        interp_state = prev_state
+                    else:
+                        interp_state = _hermite_interpolate(
+                            prev_t, prev_state, _scale_deriv(prev_deriv, sign),
+                            t, state, _scale_deriv(new_deriv, sign),
+                            t_out_val,
+                        )
+                    step_time = ref_epoch + timedelta(seconds=sign * t_out_val)
+                    steps_list.append(PropagationStep(
+                        time=step_time,
+                        position_eci=(interp_state[0], interp_state[1], interp_state[2]),
+                        velocity_eci=(interp_state[3], interp_state[4], interp_state[5]),
+                    ))
+                    out_idx += 1
+
+                h = _rk89_new_step_size(h_try, err, safety, config.h_min, config.h_max)
+            else:
+                rejected_steps += 1
+                h = _rk89_new_step_size(h_try, err, safety, config.h_min, config.h_max)
+    else:
+        step_time = ref_epoch + timedelta(seconds=sign * t)
+        steps_list.append(PropagationStep(
+            time=step_time,
+            position_eci=(state[0], state[1], state[2]),
+            velocity_eci=(state[3], state[4], state[5]),
+        ))
+
+        while t < t_end - 1e-12 and total_steps < config.max_steps:
+            h_try = min(h, t_end - t)
+            h_try = max(h_try, config.h_min)
+
+            k_stages, y_new, _ = _rk89_full_step(
+                sign * t, state, sign * h_try, deriv_fn,
+            )
+            err = _rk89_error_norm(state, y_new, k_stages, sign * h_try, config.atol, config.rtol)
+
+            if err <= 1.0:
+                t += h_try
+                state = y_new
+                total_steps += 1
+
+                step_time = ref_epoch + timedelta(seconds=sign * t)
+                steps_list.append(PropagationStep(
+                    time=step_time,
+                    position_eci=(state[0], state[1], state[2]),
+                    velocity_eci=(state[3], state[4], state[5]),
+                ))
+
+                h = _rk89_new_step_size(h_try, err, safety, config.h_min, config.h_max)
+            else:
+                rejected_steps += 1
+                h = _rk89_new_step_size(h_try, err, safety, config.h_min, config.h_max)
 
     return AdaptiveStepResult(
         steps=tuple(steps_list),

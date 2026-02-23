@@ -820,3 +820,211 @@ class TestDormandPrinceStep:
         # y[0] should be close to exp(-0.1) = 0.904837...
         expected = math.exp(-0.1)
         assert abs(y_new[0] - expected) < 1e-9
+
+
+# --- Verner RK8(9) integrator tests ---
+
+class TestRK89ButcherTableau:
+    """Verify Verner RK8(9) Butcher tableau consistency."""
+
+    def test_rk89_tableau_exists(self):
+        """RK89 tableau constants must be importable."""
+        from humeris.domain.adaptive_integration import (
+            RK89_C, RK89_A, RK89_B8, RK89_EE,
+        )
+        assert len(RK89_C) == 16
+        assert len(RK89_A) == 16
+        assert len(RK89_B8) == 16
+        assert len(RK89_EE) == 16
+
+    def test_rk89_row_sums_equal_c_nodes(self):
+        """Sum of each row of A matrix should equal c_i."""
+        from humeris.domain.adaptive_integration import RK89_C, RK89_A
+        for i, row in enumerate(RK89_A):
+            row_sum = sum(row) if row else 0.0
+            assert abs(row_sum - RK89_C[i]) < 1e-12, (
+                f"Row {i}: sum(a)={row_sum} != c={RK89_C[i]}"
+            )
+
+    def test_rk89_b8_sums_to_one(self):
+        """8th-order weights should sum to 1."""
+        from humeris.domain.adaptive_integration import RK89_B8
+        assert abs(sum(RK89_B8) - 1.0) < 1e-14
+
+    def test_rk89_sixteen_stages(self):
+        """Verner RK8(9) has 16 stages."""
+        from humeris.domain.adaptive_integration import RK89_C, RK89_A
+        assert len(RK89_C) == 16
+        assert len(RK89_A) == 16
+
+
+class TestRK89Step:
+    """Test single RK89 step function."""
+
+    def test_rk89_step_exists(self):
+        """rk89_step function must be importable."""
+        from humeris.domain.adaptive_integration import rk89_step
+        assert callable(rk89_step)
+
+    def test_rk89_single_step_returns_correct_shape(self):
+        """A single RK89 step returns (t_new, y_new, k16) with correct dimensions."""
+        from humeris.domain.adaptive_integration import rk89_step
+
+        def deriv(t, y):
+            return tuple(-yi for yi in y)
+
+        t0 = 0.0
+        y0 = (1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        h = 0.1
+        t_new, y_new, k_last = rk89_step(t0, y0, h, deriv)
+        assert isinstance(t_new, float)
+        assert len(y_new) == 6
+        assert len(k_last) == 6
+        assert abs(t_new - 0.1) < 1e-15
+
+    def test_rk89_single_step_accuracy(self):
+        """RK89 step on simple ODE should be more accurate than DP45."""
+        from humeris.domain.adaptive_integration import rk89_step
+
+        # dy/dt = -y, exact: y(t) = exp(-t)
+        def deriv(t, y):
+            return tuple(-yi for yi in y)
+
+        t0 = 0.0
+        y0 = (1.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        h = 0.5  # Larger step to show order difference
+
+        t_new, y_new, _ = rk89_step(t0, y0, h, deriv)
+        expected = math.exp(-0.5)
+        rk89_err = abs(y_new[0] - expected)
+
+        _, y_dp, _ = dormand_prince_step(t0, y0, h, deriv)
+        dp_err = abs(y_dp[0] - expected)
+
+        # RK89 (order 8) should be significantly more accurate than DP (order 4/5)
+        assert rk89_err < dp_err * 0.01, (
+            f"RK89 error {rk89_err:.2e} not << DP error {dp_err:.2e}"
+        )
+
+
+class TestRK89EnergyConservation:
+    """RK89 energy conservation should be tighter than DP45."""
+
+    @pytest.fixture
+    def epoch(self):
+        return datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+    @pytest.fixture
+    def leo_state(self, epoch):
+        shell = ShellConfig(
+            altitude_km=500, inclination_deg=53,
+            num_planes=1, sats_per_plane=1,
+            phase_factor=0, raan_offset_deg=0, shell_name="Test",
+        )
+        sat = generate_walker_shell(shell)[0]
+        return derive_orbital_state(sat, epoch)
+
+    def test_rk89_circular_energy_conservation(self, leo_state, epoch):
+        """RK89 should conserve energy over 1 orbit."""
+        from humeris.domain.adaptive_integration import propagate_rk89_adaptive
+        mu = OrbitalConstants.MU_EARTH
+        result = propagate_rk89_adaptive(
+            initial_state=leo_state,
+            duration=timedelta(seconds=5400),
+            force_models=[TwoBodyGravity()],
+            epoch=epoch,
+        )
+        first = result.steps[0]
+        last = result.steps[-1]
+        e0 = _orbital_energy(first.position_eci, first.velocity_eci, mu)
+        ef = _orbital_energy(last.position_eci, last.velocity_eci, mu)
+        assert abs(ef - e0) / abs(e0) < 1e-8
+
+    def test_rk89_fewer_steps_than_dp(self, leo_state, epoch):
+        """RK89 should take fewer integration steps than DP45 at same tolerance.
+
+        Higher-order methods can take larger steps for the same local error,
+        so total step count should be lower.
+        """
+        from humeris.domain.adaptive_integration import propagate_rk89_adaptive
+        config = AdaptiveStepConfig(rtol=1e-10, atol=1e-12)
+
+        dp_result = propagate_adaptive(
+            initial_state=leo_state,
+            duration=timedelta(seconds=5400),
+            force_models=[TwoBodyGravity()],
+            epoch=epoch,
+            config=config,
+        )
+
+        rk89_result = propagate_rk89_adaptive(
+            initial_state=leo_state,
+            duration=timedelta(seconds=5400),
+            force_models=[TwoBodyGravity()],
+            epoch=epoch,
+            config=config,
+        )
+
+        assert rk89_result.total_steps < dp_result.total_steps, (
+            f"RK89 steps {rk89_result.total_steps} not less than "
+            f"DP steps {dp_result.total_steps}"
+        )
+
+
+class TestRK89ViaPropagateNumerical:
+    """Test RK89 integration via propagate_numerical dispatch."""
+
+    @pytest.fixture
+    def epoch(self):
+        return datetime(2026, 3, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+    @pytest.fixture
+    def leo_state(self, epoch):
+        shell = ShellConfig(
+            altitude_km=500, inclination_deg=53,
+            num_planes=1, sats_per_plane=1,
+            phase_factor=0, raan_offset_deg=0, shell_name="Test",
+        )
+        sat = generate_walker_shell(shell)[0]
+        return derive_orbital_state(sat, epoch)
+
+    def test_rk89_integrator_accepted(self, leo_state, epoch):
+        """propagate_numerical(integrator='rk89') should work."""
+        result = propagate_numerical(
+            initial_state=leo_state,
+            duration=timedelta(seconds=3600),
+            step=timedelta(seconds=60),
+            force_models=[TwoBodyGravity()],
+            epoch=epoch,
+            integrator="rk89",
+        )
+        assert len(result.steps) > 1
+
+    def test_rk89_returns_standard_result_type(self, leo_state, epoch):
+        """propagate_numerical with RK89 should return NumericalPropagationResult."""
+        result = propagate_numerical(
+            initial_state=leo_state,
+            duration=timedelta(seconds=3600),
+            step=timedelta(seconds=60),
+            force_models=[TwoBodyGravity()],
+            epoch=epoch,
+            integrator="rk89",
+        )
+        assert isinstance(result, NumericalPropagationResult)
+
+    def test_rk89_conserves_energy(self, leo_state, epoch):
+        """Energy should be conserved via propagate_numerical RK89 pathway."""
+        mu = OrbitalConstants.MU_EARTH
+        result = propagate_numerical(
+            initial_state=leo_state,
+            duration=timedelta(seconds=5400),
+            step=timedelta(seconds=60),
+            force_models=[TwoBodyGravity()],
+            epoch=epoch,
+            integrator="rk89",
+        )
+        first = result.steps[0]
+        last = result.steps[-1]
+        e0 = _orbital_energy(first.position_eci, first.velocity_eci, mu)
+        ef = _orbital_energy(last.position_eci, last.velocity_eci, mu)
+        assert abs(ef - e0) / abs(e0) < 1e-8
