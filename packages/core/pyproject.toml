@@ -26,6 +26,7 @@ live = ["sgp4>=2.22"]
 
 [project.scripts]
 humeris = "humeris.cli:main"
+humeris-gui = "humeris.gui:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/humeris"]
